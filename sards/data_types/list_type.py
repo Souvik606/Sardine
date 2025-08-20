@@ -56,26 +56,28 @@ class List:
             return new_list, None
         
     def getByIndex(self, indexes):
-        temp_list = self.copy()
+        temp = self.copy()
         try:
             for idx in indexes:
-                if isinstance(temp_list, List):
-                    if isinstance(idx, Number):
-                        temp_list = temp_list.elements[idx.value]
+                if isinstance(idx, Number):
+                    if isinstance(temp, List):
+                        temp = temp.elements[idx.value]
+                    elif isinstance(temp, String):
+                        temp = String(temp.value[idx.value]).set_context(self.context)
                     else:
                         return None, RuntimeError(
                             idx.pos_start, idx.pos_end,
-                            "Invalid Index Type",
+                            "Can't index a data type which is not iterable",
                             self.context
                         )
                 else:
                     return None, RuntimeError(
                         idx.pos_start, idx.pos_end,
-                        "Can't index a data type which is not iterable",
+                        "Invalid Index Type",
                         self.context
                     )
 
-            return temp_list, None
+            return temp, None
 
         except IndexError:
             bad_idx = indexes[-1]
@@ -85,35 +87,89 @@ class List:
                 self.context
             )
 
-
-    def assignIndex(self,indexes,val):
-        new_list=self.copy()
-        temp_list=new_list
+    def assignIndex(self, indexes, val):
+        new_list = self.copy()
+        temp = new_list
         try:
             for idx in indexes[:-1]:
-                if isinstance(temp_list,List):
-                    if isinstance(idx,Number):temp_list=temp_list.elements[idx.value]
+                if isinstance(idx, Number):
+                    if isinstance(temp, List):
+                        temp = temp.elements[idx.value]
+                    elif isinstance(temp, String):
+                        return None, RuntimeError(
+                            idx.pos_start, idx.pos_end,
+                            "Can't assign inside string beyond one level",
+                            self.context
+                        )
                     else:
-                        return None,RuntimeError(idx.pos_start, idx.pos_end,
-                                        'Invalid Index Type', self.context)
+                        return None, RuntimeError(
+                            idx.pos_start, idx.pos_end,
+                            "Can't index a data type which is not iterable",
+                            self.context
+                        )
                 else:
-                    return None,RuntimeError(idx.pos_start, idx.pos_end,
-                                          "Can't index a data type which is not iterable", self.context)
-                
-            if isinstance(temp_list,List):
-                if isinstance(indexes[-1],Number):
-                    temp_list.elements[indexes[-1].value]=val
-                else:
-                    return None,RuntimeError(indexes[-1].pos_start, indexes[-1].pos_end,
-                                        'Invalid Index Type', self.context)
+                    return None, RuntimeError(
+                        idx.pos_start, idx.pos_end,
+                        "Invalid Index Type",
+                        self.context
+                    )
+
+            last_idx = indexes[-1]
+            if not isinstance(last_idx, Number):
+                return None, RuntimeError(
+                    last_idx.pos_start, last_idx.pos_end,
+                    "Invalid Index Type",
+                    self.context
+                )
+
+            # Case 1: assigning inside a List
+            if isinstance(temp, List):
+                temp.elements[last_idx.value] = val
+                return new_list, None
+
+            # Case 2: assigning inside a String
+            elif isinstance(temp, String):
+                if not isinstance(val, String) or len(val.value) != 1:
+                    return None, RuntimeError(
+                        getattr(val, "pos_start", None),
+                        getattr(val, "pos_end", None),
+                        "Assigned value must be a single character string",
+                        self.context
+                    )
+                s = list(temp.value)
+                try:
+                    s[last_idx.value] = val.value
+                    replaced = String("".join(s)).set_context(self.context)
+
+                    # Instead of indexing into String, go back to the parent List
+                    parent = new_list
+                    for idx in indexes[:-2]:
+                        parent = parent.elements[idx.value]
+
+                    parent.elements[indexes[-2].value] = replaced
+                    return new_list, None
+
+                except IndexError:
+                    return None, RuntimeError(
+                        last_idx.pos_start, last_idx.pos_end,
+                        "Index out of bounds",
+                        self.context
+                    )
+
             else:
-                return None,RuntimeError(indexes[-1].pos_start, indexes[-1].pos_end,
-                                        "Can't index a data type which is not iterable", self.context)
-            return new_list,None
+                return None, RuntimeError(
+                    last_idx.pos_start, last_idx.pos_end,
+                    "Can't index a data type which is not iterable",
+                    self.context
+                )
+
         except IndexError:
             bad_idx = indexes[-1]
-            return None, RuntimeError(bad_idx.pos_start, bad_idx.pos_end,
-            'Index out of bounds', self.context)
+            return None, RuntimeError(
+                bad_idx.pos_start, bad_idx.pos_end,
+                "Index out of bounds",
+                self.context
+            )
 
     def is_true(self):
         return len(self.elements) > 0
