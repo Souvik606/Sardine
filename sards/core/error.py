@@ -111,7 +111,6 @@ class Error: # pylint: disable=too-few-public-methods
             f"File {self.pos_start.file_name}, line {self.pos_start.line + 1}"
         )
 
-
 class IllegalCharError(Error): # pylint: disable=too-few-public-methods
     """
     Handles errors caused by illegal characters in the input text.

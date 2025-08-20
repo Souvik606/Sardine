@@ -26,11 +26,13 @@ This grammar defines a language that supports:
 Below is the complete grammar definition:
 
 ```grammar
-multiline: NEWLINE* (expression|statements|jump_statements) (NEWLINE* (expression|statements|jump_statements))* NEWLINE*
+multiline: NEWLINE* (singleline) (NEWLINE* (singleline))* NEWLINE*
+
+singleline: expression |statements|if-expression | for-expression | while-expression |switch-statement| function-definition
 
 jump-statements:KEYWORD:yield expression|KEYWORD:proceed | KEYWORD:escape
 
-statements: (KEYWORD:define)? IDENTIFIER EQUAL expression
+statements: IDENTIFIER|index EQUAL expression
 
 switch-statement: KEYWORD:menu ternary-expression LPAREN2 NEWLINE* (case-statement* NEWLINE*)* default-statement? NEWLINE* (case_statement* NEWLINE*)* RPAREN2
 
@@ -38,7 +40,7 @@ case-statement: KEYWORD:choice ternary-expression LPAREN2 ((expression|statement
 
 default-statement: KEYWORD:fallback LPAREN2 ((expression|statements) RPAREN2)| (NEWLINE multiline RPAREN2)
 
-expression: jump_statements | ternary-expression
+expression: jump_statements | ternary-expression 
 
 ternary-expression: (logical-expression|statements) (QUESTION ternary-expression COLON ternary-expression)*
 
@@ -54,7 +56,9 @@ unary: (PLUS | MINUS) unary | exponent
 
 exponent: factor (EXP unary)*
 
-factor: INT | FLOAT | STRING | IDENTIFIER | LPAREN expression RPAREN | if-expression | for-expression | while-expression | function-definition | list-expression | function-call | switch-statement
+factor: INT | FLOAT | STRING | IDENTIFIER | LPAREN expression RPAREN |index| list-expression| function-call
+
+index:IDENTIFIER ARROW expression (ARROW expression)*
 
 function-call: IDENTIFIER LPAREN (expression(COMMA expression)*)? RPAREN
 

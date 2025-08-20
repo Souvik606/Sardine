@@ -188,7 +188,6 @@ class Parser: # pylint: disable=R0904
 
         if self.current_tok.type == T_IDENTIFIER and self.peek() and self.peek().type == T_EQ:
             statement = res.register(self.statements())
-
         else:
             statement = res.register(self.expression())
         if res.error:
@@ -211,7 +210,6 @@ class Parser: # pylint: disable=R0904
 
             if self.current_tok.type == T_IDENTIFIER and self.peek() and self.peek().type == T_EQ:
                 statement = res.try_register(self.statements())
-
             else:
                 statement = res.try_register(self.expression())
 
@@ -222,6 +220,9 @@ class Parser: # pylint: disable=R0904
             statements.append(statement)
 
         return res.success(ListNode(statements, pos_start, self.current_tok.pos_end.copy()))
+
+    def singleline(self):
+        pass
 
     def list_expression(self):
         """

@@ -23,7 +23,7 @@ as an Abstract Syntax Tree (AST).
 
 """
 
-from sards import * # pylint: disable=W0401,W0614
+from sards import *
 
 global_symbol_table = SymbolTable()
 global_symbol_table.set("None", Number(0))
@@ -63,7 +63,8 @@ def run(filename, input_text):
         print(ast)
     """
     lexer = Lexer(filename, input_text)  # Initialize the Lexer with the input text
-    tokens, error = lexer.enumerate_tokens()  # Generate tokens
+    tokens, error = lexer.enumerate_tokens()
+    print(tokens)# Generate tokens
 
     # If lexical analysis encounters an error, return it
     if error:
@@ -90,15 +91,20 @@ def run(filename, input_text):
 
     return res.value, res.error
 
+def fact(n):
+    if n==0 or n==1:
+        return 1
+    return n*fact(n-1)
 
 # REPL (Read-Eval-Print Loop) for continuous user interaction
+count,speedSum=0,0
 while True:
-    text = input('code > ')  # Prompt user for an expression
-    result, errors = run('<stdin>', text)  # Process input
+    count+=1
+    text = input('code > ') # Prompt user for an expression
+    result, errors = run('<stdin>', text)
 
     # Print errors if encountered, otherwise display the AST
     if errors:
         print(errors)
         print(errors.to_string())
-    elif result:
-        print(result)
+    else:print(result)

@@ -14,7 +14,6 @@ Classes:
 
 from sards.core.error import RunTimeError
 
-
 class Number:
     """
     A class representing a numerical value with context and position tracking.

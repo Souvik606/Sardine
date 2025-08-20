@@ -122,6 +122,17 @@ class Lexer:
 
         return Token(token_type, pos_start=pos_start, pos_end=self.pos)
 
+    def make_sub(self):
+        pos_start=self.pos.copy()
+        self.advance()
+        token_type=T_MINUS
+
+        if self.current_char==">":
+            self.advance()
+            token_type=T_ARROW
+
+        return Token(token_type,pos_start=pos_start,pos_end=self.pos)
+
     def make_not_equals(self):
         pos_start = self.pos.copy()
         self.advance()
@@ -224,11 +235,10 @@ class Lexer:
             elif self.current_char == '"':
                 tokens.append(self.make_string())
             elif self.current_char == '+':
+                self.advance()
                 tokens.append(Token(T_PLUS, pos_start=self.pos))
-                self.advance()
             elif self.current_char == '-':
-                tokens.append(Token(T_MINUS, pos_start=self.pos))
-                self.advance()
+                tokens.append(self.make_sub())
             elif self.current_char == '*':
                 tokens.append(self.make_mul())
             elif self.current_char == '/':
