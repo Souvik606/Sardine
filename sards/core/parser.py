@@ -31,7 +31,6 @@ from sards.data_types import ListNode, StringNode
 from .constants import *
 from .error import InvalidSyntaxError
 
-
 class ParseResult:
     """Stores the result of a parsing operation, including errors and the parsed node."""
 
@@ -165,11 +164,24 @@ class Parser: # pylint: disable=R0904
         result = self.multiline()
 
         if not result.error and self.current_tok.type != T_EOF:
-            print(self.current_tok)
             return result.failure(
                 InvalidSyntaxError(self.current_tok.pos_start, self.current_tok.pos_end,
                                    "Expected '+', '-', '*', '/'"))
         return result
+
+    def check_is_statement(self):
+        current_tok_index=self.tok_index
+        is_statement=False
+
+        while self.current_tok.type!=T_NEWLINE and self.current_tok.type!=T_EOF:
+            if self.current_tok.type==T_EQ:
+                is_statement=True
+                break
+            self.advance()
+
+        self.tok_index=current_tok_index
+        self.update_current_tok()
+        return is_statement
 
     def multiline(self):
         """
@@ -186,10 +198,7 @@ class Parser: # pylint: disable=R0904
             res.register_advancement()
             self.advance()
 
-        if self.current_tok.type == T_IDENTIFIER and self.peek() and self.peek().type == T_EQ:
-            statement = res.register(self.statements())
-        else:
-            statement = res.register(self.expression())
+        statement = res.register(self.singleline())
         if res.error:
             return res
         statements.append(statement)
@@ -208,10 +217,7 @@ class Parser: # pylint: disable=R0904
             if not more_statements:
                 break
 
-            if self.current_tok.type == T_IDENTIFIER and self.peek() and self.peek().type == T_EQ:
-                statement = res.try_register(self.statements())
-            else:
-                statement = res.try_register(self.expression())
+            statement = res.try_register(self.singleline())
 
             if not statement:
                 self.reverse(res.to_reverse_count)
@@ -222,7 +228,59 @@ class Parser: # pylint: disable=R0904
         return res.success(ListNode(statements, pos_start, self.current_tok.pos_end.copy()))
 
     def singleline(self):
-        pass
+        res = ParseResult()
+        token = self.current_tok
+
+        if token.type == T_KEYWORD and token.value == 'when':
+            if_expr = res.register(self.if_expression())
+            if res.error:
+                return res
+            return res.success(if_expr)
+
+        if token.type == T_KEYWORD and token.value == 'Cycle':
+            for_expr = res.register(self.for_expression())
+            if res.error:
+                return res
+            return res.success(for_expr)
+
+        if token.type == T_KEYWORD and token.value == 'whenever':
+            while_expr = res.register(self.while_expression())
+            if res.error:
+                return res
+            return res.success(while_expr)
+
+        if token.type == T_KEYWORD and token.value == 'method':
+            method_expr = res.register(self.function_definition())
+            if res.error:
+                return res
+            return res.success(method_expr)
+
+        if token.type == T_KEYWORD and token.value == 'menu':
+            switch_statement = res.register(self.switch_statement())
+            if res.error:
+                return res
+            return res.success(switch_statement)
+
+        if (self.check_is_statement()):
+            statement_node = res.register(self.statements())
+            if res.error: return res
+            node = res.register(res.success(statement_node))
+            if res.error:
+                return res.failure(
+                    InvalidSyntaxError(self.current_tok.pos_start,
+                                       self.current_tok.pos_end,
+                                       "Expected int,float,identifier"))
+            return res.success(node)
+        else:
+            expression_node = res.register(self.expression())
+            if res.error: return res
+            node = res.register(res.success(expression_node))
+            if res.error:
+                return res.failure(
+                    InvalidSyntaxError(self.current_tok.pos_start,
+                                       self.current_tok.pos_end,
+                                       "Expected int,float,identifier"))
+            return res.success(node)
 
     def list_expression(self):
         """
@@ -1185,7 +1243,18 @@ class Parser: # pylint: disable=R0904
         if token.type == T_IDENTIFIER:
             res.register_advancement()
             self.advance()
-            return res.success(VariableUseNode(token))
+            var_name_tok,index_node=token,[]
+
+            if self.current_tok.type == T_ARROW:
+                while self.current_tok and self.current_tok.type == T_ARROW:
+                    res.register_advancement()
+                    self.advance()
+
+                    expression = res.register(self.expression())
+                    if res.error: return res
+                    index_node.append(expression)
+
+            return res.success(VariableUseNode(token,index_node))
 
         if token.type == T_LPAREN:
             res.register_advancement()
@@ -1201,36 +1270,6 @@ class Parser: # pylint: disable=R0904
             res.register_advancement()
             self.advance()
             return res.success(expression)
-
-        if token.type == T_KEYWORD and token.value == 'when':
-            if_expr = res.register(self.if_expression())
-            if res.error:
-                return res
-            return res.success(if_expr)
-
-        if token.type == T_KEYWORD and token.value == 'Cycle':
-            for_expr = res.register(self.for_expression())
-            if res.error:
-                return res
-            return res.success(for_expr)
-
-        if token.type == T_KEYWORD and token.value == 'whenever':
-            while_expr = res.register(self.while_expression())
-            if res.error:
-                return res
-            return res.success(while_expr)
-
-        if token.type == T_KEYWORD and token.value == 'method':
-            method_expr = res.register(self.function_definition())
-            if res.error:
-                return res
-            return res.success(method_expr)
-
-        if token.type == T_KEYWORD and token.value == 'menu':
-            switch_statement = res.register(self.switch_statement())
-            if res.error:
-                return res
-            return res.success(switch_statement)
 
         if token.type == T_LPAREN3:
             list_expression = res.register(self.list_expression())
@@ -1270,63 +1309,43 @@ class Parser: # pylint: disable=R0904
     def statements(self):
         """
         Grammar Rule:
-
-        (KEYWORD:define)? IDENTIFIER EQUAL expression
+        IDENTIFIER (ARROW expression)* EQUAL expression
         """
         res = ParseResult()
+        index_node=[]
 
-        if self.current_tok.type == T_KEYWORD and self.current_tok.value == 'define':
-            res.register_advancement()
-            self.advance()
+        if self.current_tok.type != T_IDENTIFIER:
+            return res.failure(
+                InvalidSyntaxError(self.current_tok.pos_start,
+                                   self.current_tok.pos_end,
+                                   "Expected identifier"))
 
-            if self.current_tok.type != T_IDENTIFIER:
-                return res.failure(
-                    InvalidSyntaxError(self.current_tok.pos_start,
-                                       self.current_tok.pos_end,
-                                       "Expected identifier"))
+        var_name = self.current_tok
+        res.register_advancement()
+        self.advance()
 
-            var_name = self.current_tok
-            res.register_advancement()
-            self.advance()
+        if self.current_tok.type==T_ARROW:
+            while self.current_tok and self.current_tok.type==T_ARROW:
+                res.register_advancement()
+                self.advance()
 
-            if self.current_tok.type != T_EQ:
-                return res.failure(
-                    InvalidSyntaxError(self.current_tok.pos_start,
-                                       self.current_tok.pos_end,
-                                       "Expected '='"))
+                expression=res.register(self.expression())
+                if res.error:return res
+                index_node.append(expression)
 
-            res.register_advancement()
-            self.advance()
+        if self.current_tok.type != T_EQ:
+            return res.failure(
+                InvalidSyntaxError(self.current_tok.pos_start,
+                                   self.current_tok.pos_end,
+                                   "Expected '='"))
 
-            expression = res.register(self.expression())
-            if res.error:
-                return res
-            return res.success(VariableAssignNode(var_name, expression))
+        res.register_advancement()
+        self.advance()
 
-        if self.current_tok.type == T_IDENTIFIER:
-            var_name = self.current_tok
-            res.register_advancement()
-            self.advance()
-
-            if self.current_tok.type != T_EQ:
-                return res.failure(
-                    InvalidSyntaxError(self.current_tok.pos_start,
-                                       self.current_tok.pos_end,
-                                       "Expected ="))
-
-            res.register_advancement()
-            self.advance()
-
-            expression = res.register(self.expression())
-            if res.error:
-                return res
-
-            return res.success(VariableAssignNode(var_name, expression))
-
-        return res.failure(
-            InvalidSyntaxError(self.current_tok.pos_start,
-                               self.current_tok.pos_end,
-                               "Expected 'define' or identifier"))
+        expression = res.register(self.expression())
+        if res.error:
+            return res
+        return res.success(VariableAssignNode(var_name, expression,index_node))
 
     def expression(self):
         """

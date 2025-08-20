@@ -64,7 +64,6 @@ def run(filename, input_text):
     """
     lexer = Lexer(filename, input_text)  # Initialize the Lexer with the input text
     tokens, error = lexer.enumerate_tokens()
-    print(tokens)# Generate tokens
 
     # If lexical analysis encounters an error, return it
     if error:

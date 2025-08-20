@@ -54,6 +54,66 @@ class List:
             new_list = self.copy()
             new_list.elements = new_list.elements * operand.value
             return new_list, None
+        
+    def getByIndex(self, indexes):
+        temp_list = self.copy()
+        try:
+            for idx in indexes:
+                if isinstance(temp_list, List):
+                    if isinstance(idx, Number):
+                        temp_list = temp_list.elements[idx.value]
+                    else:
+                        return None, RuntimeError(
+                            idx.pos_start, idx.pos_end,
+                            "Invalid Index Type",
+                            self.context
+                        )
+                else:
+                    return None, RuntimeError(
+                        idx.pos_start, idx.pos_end,
+                        "Can't index a data type which is not iterable",
+                        self.context
+                    )
+
+            return temp_list, None
+
+        except IndexError:
+            bad_idx = indexes[-1]
+            return None, RuntimeError(
+                bad_idx.pos_start, bad_idx.pos_end,
+                "Index out of bounds",
+                self.context
+            )
+
+
+    def assignIndex(self,indexes,val):
+        new_list=self.copy()
+        temp_list=new_list
+        try:
+            for idx in indexes[:-1]:
+                if isinstance(temp_list,List):
+                    if isinstance(idx,Number):temp_list=temp_list.elements[idx.value]
+                    else:
+                        return None,RuntimeError(idx.pos_start, idx.pos_end,
+                                        'Invalid Index Type', self.context)
+                else:
+                    return None,RuntimeError(idx.pos_start, idx.pos_end,
+                                          "Can't index a data type which is not iterable", self.context)
+                
+            if isinstance(temp_list,List):
+                if isinstance(indexes[-1],Number):
+                    temp_list.elements[indexes[-1].value]=val
+                else:
+                    return None,RuntimeError(indexes[-1].pos_start, indexes[-1].pos_end,
+                                        'Invalid Index Type', self.context)
+            else:
+                return None,RuntimeError(indexes[-1].pos_start, indexes[-1].pos_end,
+                                        "Can't index a data type which is not iterable", self.context)
+            return new_list,None
+        except IndexError:
+            bad_idx = indexes[-1]
+            return None, RuntimeError(bad_idx.pos_start, bad_idx.pos_end,
+            'Index out of bounds', self.context)
 
     def is_true(self):
         return len(self.elements) > 0

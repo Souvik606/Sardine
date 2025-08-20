@@ -32,7 +32,7 @@ singleline: expression |statements|if-expression | for-expression | while-expres
 
 jump-statements:KEYWORD:yield expression|KEYWORD:proceed | KEYWORD:escape
 
-statements: IDENTIFIER|index EQUAL expression
+statements: IDENTIFIER (ARROW expression)* EQUAL expression
 
 switch-statement: KEYWORD:menu ternary-expression LPAREN2 NEWLINE* (case-statement* NEWLINE*)* default-statement? NEWLINE* (case_statement* NEWLINE*)* RPAREN2
 
@@ -56,13 +56,11 @@ unary: (PLUS | MINUS) unary | exponent
 
 exponent: factor (EXP unary)*
 
-factor: INT | FLOAT | STRING | IDENTIFIER | LPAREN expression RPAREN |index| list-expression| function-call
-
-index:IDENTIFIER ARROW expression (ARROW expression)*
+factor: INT | FLOAT | STRING | IDENTIFIER (ARROW expression)* | LPAREN expression RPAREN |index| list-expression| function-call
 
 function-call: IDENTIFIER LPAREN (expression(COMMA expression)*)? RPAREN
 
-list-expression: LPAREN3 (expression(COMMA expression)*)? RPAREN RPAREN3
+list-expression: LPAREN3 (expression(COMMA expression)*)? RPAREN3
 
 while-expression: KEYWORD:whenever expression LPAREN2 ((expression|statements) RPAREN2)| (NEWLINE multiline RPAREN2)
 

@@ -64,14 +64,17 @@ class VariableUseNode: # pylint: disable=R0903
         pos_start: The starting position of the variable usage in the source code.
         pos_end: The ending position of the variable usage in the source code.
     """
-    def __init__(self, var_name_tok):
+    def __init__(self, var_name_tok, index_node=None):
+        if index_node is None:
+            index_node = []
         self.var_name_tok = var_name_tok
+        self.index_node=index_node
         self.pos_start = self.var_name_tok.pos_start
-        self.pos_end = self.var_name_tok.pos_end
+        self.pos_end = self.var_name_tok.pos_end if not index_node else self.index_node[-1].pos_end
 
     def __repr__(self):
-        return f'({self.var_name_tok.value})'
-
+        if not self.index_node: return f'({self.var_name_tok.value})'
+        else:return f'({self.var_name_tok.value}:{self.index_node})'
 
 class VariableAssignNode: # pylint: disable=R0903
     """
@@ -83,11 +86,15 @@ class VariableAssignNode: # pylint: disable=R0903
         pos_start: The starting position of the variable assignment in the source code.
         pos_end: The ending position of the variable assignment in the source code.
     """
-    def __init__(self, var_name_tok, value_node):
+    def __init__(self, var_name_tok, value_node, index_node=None):
+        if index_node is None:
+            index_node = []
         self.var_name_tok = var_name_tok
         self.value_node = value_node
+        self.index_node=index_node
         self.pos_start = self.var_name_tok.pos_start
         self.pos_end = self.value_node.pos_end
 
     def __repr__(self):
-        return f'({self.var_name_tok.value}:{self.value_node})'
+        if not self.index_node: return f'({self.var_name_tok.value}:{self.value_node})'
+        else: return f'(({self.var_name_tok.value}:{self.index_node}):{self.value_node})'

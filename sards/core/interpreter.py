@@ -343,20 +343,54 @@ class Interpreter:
                              node.pos_end,
                              f"'{var_name}' is not defined",
                              context)))
+        
+        indexes=[]
 
-        value = value.copy().set_pos(node.pos_start, node.pos_end).set_context(context)
-        return res.success(value)
+        for index in node.index_node:
+            index_val=res.register(self.visit(index,context))
+            indexes.append(index_val)
+
+        if not indexes:
+            value = value.copy().set_pos(node.pos_start, node.pos_end).set_context(context)
+            return res.success(value)
+        else:
+            value,error=value.getByIndex(indexes)
+            if error:return res.failure(error)
+            value=value.copy().set_pos(node.pos_start, node.pos_end).set_context(context)
+            return res.success(value)
 
     def visit_VariableAssignNode(self, node, context):
         res = RunTimeResult()
         var_name = node.var_name_tok.value
-        value = res.register(self.visit(node.value_node, context))
+        indexes=[]
 
+        for index in node.index_node:
+            index_val=res.register(self.visit(index,context))
+            indexes.append(index_val)
+
+        value = res.register(self.visit(node.value_node, context))
         if res.should_return():
             return res
+        
+        if indexes:
+            list_value = context.symbol_table.get(var_name)
+            
+            if list_value is None:
+                return (res.failure(
+                    RuntimeError(node.pos_start,
+                                node.pos_end,
+                                f"'{var_name}' is not defined",
+                                context)))
+            
+            list_value,error=list_value.assignIndex(indexes,value)
+            if error:return res.failure(error)
 
-        context.symbol_table.set(var_name, value)
-        return res.success(value)
+        if not indexes:
+            context.symbol_table.set(var_name, value)
+            return res.success(value)
+        else:
+            context.symbol_table.set(var_name, list_value)
+            return res.success(list_value)
 
     def visit_NumberNode(self, node, context):
         return RunTimeResult().success(
