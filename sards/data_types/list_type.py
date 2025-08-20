@@ -46,7 +46,7 @@ class List:
                 new_list.elements.pop(operand.value)
                 return new_list, None
             except:
-                return None, RuntimeError(operand.pos_start, operand.pos_end,
+                return None, RunTimeError(operand.pos_start, operand.pos_end,
                                           'Index out of bounds', self.context)
 
     def multiply(self, operand):
@@ -65,13 +65,13 @@ class List:
                     elif isinstance(temp, String):
                         temp = String(temp.value[idx.value]).set_context(self.context)
                     else:
-                        return None, RuntimeError(
+                        return None, RunTimeError(
                             idx.pos_start, idx.pos_end,
                             "Can't index a data type which is not iterable",
                             self.context
                         )
                 else:
-                    return None, RuntimeError(
+                    return None, RunTimeError(
                         idx.pos_start, idx.pos_end,
                         "Invalid Index Type",
                         self.context
@@ -81,7 +81,7 @@ class List:
 
         except IndexError:
             bad_idx = indexes[-1]
-            return None, RuntimeError(
+            return None, RunTimeError(
                 bad_idx.pos_start, bad_idx.pos_end,
                 "Index out of bounds",
                 self.context
@@ -96,19 +96,19 @@ class List:
                     if isinstance(temp, List):
                         temp = temp.elements[idx.value]
                     elif isinstance(temp, String):
-                        return None, RuntimeError(
+                        return None, RunTimeError(
                             idx.pos_start, idx.pos_end,
                             "Can't assign inside string beyond one level",
                             self.context
                         )
                     else:
-                        return None, RuntimeError(
+                        return None, RunTimeError(
                             idx.pos_start, idx.pos_end,
                             "Can't index a data type which is not iterable",
                             self.context
                         )
                 else:
-                    return None, RuntimeError(
+                    return None, RunTimeError(
                         idx.pos_start, idx.pos_end,
                         "Invalid Index Type",
                         self.context
@@ -116,7 +116,7 @@ class List:
 
             last_idx = indexes[-1]
             if not isinstance(last_idx, Number):
-                return None, RuntimeError(
+                return None, RunTimeError(
                     last_idx.pos_start, last_idx.pos_end,
                     "Invalid Index Type",
                     self.context
@@ -130,7 +130,7 @@ class List:
             # Case 2: assigning inside a String
             elif isinstance(temp, String):
                 if not isinstance(val, String) or len(val.value) != 1:
-                    return None, RuntimeError(
+                    return None, RunTimeError(
                         getattr(val, "pos_start", None),
                         getattr(val, "pos_end", None),
                         "Assigned value must be a single character string",
@@ -150,14 +150,14 @@ class List:
                     return new_list, None
 
                 except IndexError:
-                    return None, RuntimeError(
+                    return None, RunTimeError(
                         last_idx.pos_start, last_idx.pos_end,
                         "Index out of bounds",
                         self.context
                     )
 
             else:
-                return None, RuntimeError(
+                return None, RunTimeError(
                     last_idx.pos_start, last_idx.pos_end,
                     "Can't index a data type which is not iterable",
                     self.context
@@ -165,7 +165,7 @@ class List:
 
         except IndexError:
             bad_idx = indexes[-1]
-            return None, RuntimeError(
+            return None, RunTimeError(
                 bad_idx.pos_start, bad_idx.pos_end,
                 "Index out of bounds",
                 self.context

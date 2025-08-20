@@ -339,7 +339,7 @@ class Interpreter:
 
         if value is None:
             return (res.failure(
-                RuntimeError(node.pos_start,
+                RunTimeError(node.pos_start,
                              node.pos_end,
                              f"'{var_name}' is not defined",
                              context)))
@@ -377,7 +377,7 @@ class Interpreter:
             
             if list_value is None:
                 return (res.failure(
-                    RuntimeError(node.pos_start,
+                    RunTimeError(node.pos_start,
                                 node.pos_end,
                                 f"'{var_name}' is not defined",
                                 context)))
