@@ -24,6 +24,7 @@ as an Abstract Syntax Tree (AST).
 """
 
 from sards import *
+import os
 
 global_symbol_table = SymbolTable()
 global_symbol_table.set("None", Number(0))
@@ -90,19 +91,61 @@ def run(filename, input_text):
 
     return res.value, res.error
 
-def fact(n):
-    if n==0 or n==1:
-        return 1
-    return n*fact(n-1)
+def run_file(filepath):
+    """
+    Reads and executes code from a file.
+    
+    Parameters:
+    - filepath (str): Path to the code file to execute.
+    
+    Returns:
+    - None: Prints results or errors directly.
+    """
+    try:
+        # Check if file exists
+        if not os.path.exists(filepath):
+            print(f"Error: File '{filepath}' not found.")
+            return
+            
+        # Read the file content
+        with open(filepath, 'r', encoding='utf-8') as file:
+            file_content = file.read()
+            
+        # Execute the file content
+        result, errors = run(filepath, file_content)
+        
+        # Print errors if encountered, otherwise display the result
+        if errors:
+            print(f"Error in {filepath}:")
+            print(errors.to_string())
+        else:
+            if result is not None:
+                print(result)
+                
+    except Exception as e:
+        print(f"Error reading file '{filepath}': {e}")
 
-# REPL (Read-Eval-Print Loop) for continuous user interaction
-count,speedSum=0,0
-while True:
-    count+=1
-    text = input('code > ') # Prompt user for an expression
-    result, errors = run('<stdin>', text)
+choice = input('Enter 0 for REPL mode and 1 for file input: ')
+if(choice == '0'):
+    # REPL (Read-Eval-Print Loop) for continuous user interaction
+    while True:
+        try:
+            text = input('code > ') # Prompt user for an expression
+            if text.lower() in ['exit', 'quit']:
+                print("Goodbye!")
+                break
+            result, errors = run('<stdin>', text)
 
-    # Print errors if encountered, otherwise display the AST
-    if errors:
-        print(errors.to_string())
-    else:print(result)
+            # Print errors if encountered, otherwise display the AST
+            if errors:
+                print(errors.to_string())
+            else:
+                print(result)
+        except KeyboardInterrupt:
+            print("\nGoodbye!")
+            break
+        except EOFError:
+            print("\nGoodbye!")
+            break
+else:
+    run_file('sards/main.sad')

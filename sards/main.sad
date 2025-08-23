@@ -1,0 +1,82 @@
+method range(n) {
+    res = []
+    Cycle i = 0 : n {
+        res = res + [i]
+    }
+    yield res
+}
+
+method copy_list(lst, n) {
+    out = []
+    Cycle i = 0 : n {
+        out = out + [lst->i]
+    }
+    yield out
+}
+
+method reverse_prefix(lst, k) {
+    i = 0
+    j = k
+    whenever i < j {
+        tmp = lst->i
+        lst->i = lst->j
+        lst->j = tmp
+        i = i + 1
+        j = j - 1
+    }
+    yield lst
+}
+
+method max2(a, b) {
+    when a > b {
+        yield a
+    }
+    otherwise {
+        yield b
+    }
+}
+
+method fannkuch(n) {
+    perm = range(n)
+    count = [0] * n
+    max_flips = 0
+    r = n
+
+    whenever 1 {
+        when r != 1 {
+            count->(r - 1) = r
+            r = r - 1
+            proceed
+        }
+
+        perm_copy = copy_list(perm, n)
+        flips_count = 0
+
+        whenever perm_copy->0 != 0 {
+            k = perm_copy->0
+            perm_copy = reverse_prefix(perm_copy, k)
+            flips_count = flips_count + 1
+        }
+
+        max_flips = max2(max_flips, flips_count)
+
+        whenever 1 {
+            when r == n {
+                yield max_flips
+            }
+
+            first = perm->0
+            Cycle i = 0 : r {
+                perm->i = perm->(i + 1)
+            }
+            perm->r = first
+
+            count->r = count->r - 1
+            when count->r > 0 {
+                escape
+            }
+
+            r = r + 1
+        }
+    }
+}
