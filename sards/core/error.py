@@ -57,7 +57,7 @@ class Position:
         """
         self.index += 1
         self.col += 1
-        if current_char == '\n':
+        if current_char == '\n' or current_char == ';':
             self.line += 1
             self.col = 0
         return self

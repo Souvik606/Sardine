@@ -104,6 +104,5 @@ while True:
 
     # Print errors if encountered, otherwise display the AST
     if errors:
-        print(errors)
         print(errors.to_string())
     else:print(result)
