@@ -11,6 +11,7 @@ functionalities such as:
 Classes:
 - Number: Represents a number and supports basic arithmetic operations.
 """
+from sards.core.error import RunTimeError
 
 class Number:
     """

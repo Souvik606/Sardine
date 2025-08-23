@@ -1,6 +1,6 @@
 from .number_type import Number
 from .string_type import String
-
+from sards.core.error import RunTimeError
 
 class ListNode:
     def __init__(self, element_nodes, pos_start, pos_end):

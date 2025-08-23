@@ -1,5 +1,5 @@
 from .number_type import *
-
+from sards.core.error import RunTimeError
 
 class StringNode:
     def __init__(self, token):
