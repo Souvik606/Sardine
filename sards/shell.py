@@ -126,7 +126,7 @@ def run_file(filepath):
         print(f"Error reading file '{filepath}': {e}")
 
 choice = input('Enter 0 for REPL mode and 1 for file input: ')
-if(choice == '0'):
+if choice == '0':
     # REPL (Read-Eval-Print Loop) for continuous user interaction
     while True:
         try:

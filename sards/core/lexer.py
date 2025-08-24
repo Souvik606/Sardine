@@ -48,7 +48,7 @@ class Token:
         Returns:
         - str: Formatted string representation of the token.
         """
-        return f'{self.type}: {self.value}' if self.value is not None else f'{self.type}'
+        return f'{self.type}: {self.value}' if self.value is not None else f'{self.type}'+f' {self.pos_start.line}' if self.pos_start else ''
 
 
 class Lexer:

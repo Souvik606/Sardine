@@ -68,9 +68,9 @@ for-expression: KEYWORD:Cycle IDENTIFIER EQUAL expression COLON expression (COLO
 
 function-definition: KEYWORD:method IDENTIFIER?LPAREN (IDENTIFIER (COMMA IDENTIFIER)*)? RPAREN LPAREN2 ((expression|statements)RPAREN2)| (NEWLINE multiline RPAREN2)
 
-if-expression: KEYWORD:when expression LPAREN2 ((expression|statements) RPAREN2 (elif-expression|else-expression)?) | (NEWLINE multiline RPAREN2 (elif-expression|else-expression))
+if-expression: KEYWORD:when expression LPAREN2 ((expression|statements) RPAREN2 (elif-expression|else-expression)?) | (NEWLINE multiline RPAREN2 NEWLINE*(elif-expression|else-expression))
 
-elif-expression: KEYWORD:orwhen expression LPAREN2 ((expression|statements) RPAREN2 (elif-expression|else-expression)?) | (NEWLINE multiline RPAREN2 (elif-expression|else-expression))
+elif-expression: KEYWORD:orwhen expression LPAREN2 ((expression|statements) RPAREN2 (elif-expression|else-expression)?) | (NEWLINE multiline RPAREN2 NEWLINE*(elif-expression|else-expression))
 
 else-expression: KEYWORD:otherwise LPAREN2 (((expression|statements)RPAREN2)|NEWLINE multiline RPAREN2)
 ```

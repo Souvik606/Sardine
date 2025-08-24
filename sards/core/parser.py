@@ -186,9 +186,7 @@ class Parser: # pylint: disable=R0904
     def multiline(self):
         """
         Grammar Rule:
-
-        NEWLINE* (expression|statements|jump_statements)
-        (NEWLINE* (expression|statements|jump_statements))* NEWLINE*
+        multiline: NEWLINE* (singleline) (NEWLINE* (singleline))* NEWLINE*
         """
         res = ParseResult()
         statements = []
@@ -198,32 +196,25 @@ class Parser: # pylint: disable=R0904
             res.register_advancement()
             self.advance()
 
-        statement = res.register(self.singleline())
+        first_stmt = res.register(self.singleline())
         if res.error:
             return res
-        statements.append(statement)
-
-        more_statements = True
+        statements.append(first_stmt)
 
         while True:
-            newline_count = 0
             while self.current_tok.type == T_NEWLINE:
                 res.register_advancement()
                 self.advance()
-                newline_count += 1
-            if newline_count == 0:
-                more_statements = False
 
-            if not more_statements:
-                break
-
-            statement = res.try_register(self.singleline())
-
-            if not statement:
+            stmt = res.try_register(self.singleline())
+            if not stmt:
                 self.reverse(res.to_reverse_count)
-                more_statements = False
-                continue
-            statements.append(statement)
+                break
+            statements.append(stmt)
+
+        while self.current_tok.type == T_NEWLINE:
+            res.register_advancement()
+            self.advance()
 
         return res.success(ListNode(statements, pos_start, self.current_tok.pos_end.copy()))
 
@@ -317,7 +308,6 @@ class Parser: # pylint: disable=R0904
                     return res
 
             if self.current_tok.type != T_RPAREN3:
-                print(self.current_tok)
                 return res.failure(
                     InvalidSyntaxError(self.current_tok.pos_start,
                                        self.current_tok.pos_end,
@@ -389,7 +379,6 @@ class Parser: # pylint: disable=R0904
                 self.advance()
 
             if self.current_tok.type != T_RPAREN:
-                print(self.current_tok)
                 return res.failure(
                     InvalidSyntaxError(self.current_tok.pos_start,
                                        self.current_tok.pos_end,
@@ -415,11 +404,9 @@ class Parser: # pylint: disable=R0904
         if self.current_tok.type == T_NEWLINE:
             res.register_advancement()
             self.advance()
-
             body = res.register(self.multiline())
             if res.error:
                 return res
-
             if not self.current_tok.type == T_RPAREN2:
                 return res.failure(
                     InvalidSyntaxError(self.current_tok.pos_start,
@@ -745,7 +732,6 @@ class Parser: # pylint: disable=R0904
             body = res.register(self.multiline())
             if res.error:
                 return res
-
             if not self.current_tok.type == T_RPAREN2:
                 return res.failure(
                     InvalidSyntaxError(self.current_tok.pos_start,
@@ -918,9 +904,7 @@ class Parser: # pylint: disable=R0904
             statements = res.register(self.multiline())
             if res.error:
                 return res
-            print(statements)
             cases.append((condition, statements, True))
-
             if self.current_tok.type != T_RPAREN2:
                 return res.failure(
                     InvalidSyntaxError(self.current_tok.pos_start,
@@ -968,6 +952,10 @@ class Parser: # pylint: disable=R0904
         """
         res = ParseResult()
         cases, else_case = [], None
+
+        while self.current_tok.type==T_NEWLINE:
+            res.register_advancement()
+            self.advance()
 
         if self.current_tok.type == T_KEYWORD and self.current_tok.value == 'orwhen':
             all_cases = res.register(self.elif_expression())
@@ -1089,7 +1077,6 @@ class Parser: # pylint: disable=R0904
             if self.current_tok.type == T_NEWLINE:
                 res.register_advancement()
                 self.advance()
-
                 statements = res.register(self.multiline())
                 if res.error:
                     return res
@@ -1378,7 +1365,7 @@ class Parser: # pylint: disable=R0904
             return res.success(BreakNode(self.current_tok.pos_start.copy(),
                                          self.current_tok.pos_start.copy()))
 
-        ternary_node = res.register(self.ternary_expression())
+        ternary_node = res.register(self.logical_expression())
         if res.error:
             return res
         node = res.register(res.success(ternary_node))
@@ -1443,8 +1430,7 @@ class Parser: # pylint: disable=R0904
         left_node = res.register(self.arith_expression())
         if res.error:
             return res
-
-        while self.current_tok and self.current_tok.type in (T_EE, T_LT, T_GT, T_GTE, T_LTE):
+        while self.current_tok and self.current_tok.type in (T_EE,T_NEQ, T_LT, T_GT, T_GTE, T_LTE):
             operator = self.current_tok
             res.register_advancement()
             self.advance()
