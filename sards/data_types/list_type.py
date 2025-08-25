@@ -53,15 +53,30 @@ class List:
 
     def multiply(self, operand):
         if isinstance(operand, Number):
-            new_list = self.copy()
-            new_list.elements = new_list.elements * operand.value
-            return new_list, None
-        else: return None, IllegalOperationError(
-                    operand.pos_start, operand.pos_end, 'Expected a Number type')
+            if operand.value < 0:
+                return None, IllegalOperationError(
+                    operand.pos_start, operand.pos_end, 'List repetition cannot be negative')
+            temp_list=list(self.elements)
+
+            for i in range(operand.value-1):
+                for ele in temp_list:
+                    self.elements.append(ele)
+            return self, None
+        else:
+            return None, IllegalOperationError(
+                operand.pos_start, operand.pos_end, 'Expected a Number type')
 
     def divide(self, operand):
-        return None, IllegalOperationError(
-                self.pos_start, self.pos_end, 'Cannot apply \'/\' to a List')
+        new_list = self.copy()
+        for i, el in enumerate(new_list.elements):
+            if isinstance(operand,List) and isinstance(el,List):
+                if el.get_comparison_eq(operand):
+                    del new_list.elements[i]
+                    break
+            elif not isinstance(el,List) and not isinstance(operand,List) and el.value == operand.value:
+                del new_list.elements[i]
+                break
+        return new_list, None
 
     def modulus(self, operand):
         return None, IllegalOperationError(
