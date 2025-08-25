@@ -40,7 +40,7 @@ class List:
             return new_list, None
 
     def subtract(self, operand):
-        if isinstance(operand, Number):
+        if isinstance(operand, Number) and not isinstance(operand.value, float):
             new_list = self.copy()
             try:
                 new_list.elements.pop(operand.value)
@@ -49,10 +49,10 @@ class List:
                 return None, RunTimeError(operand.pos_start, operand.pos_end,
                                           'Index out of bounds', self.context)
         else: return None, IllegalOperationError(
-                    operand.pos_start, operand.pos_end, 'Index must be of Number type')
+                    operand.pos_start, operand.pos_end, 'Index must be of an integer Number type')
 
     def multiply(self, operand):
-        if isinstance(operand, Number):
+        if isinstance(operand, Number) and not isinstance(operand.value, float):
             if operand.value < 0:
                 return None, IllegalOperationError(
                     operand.pos_start, operand.pos_end, 'List repetition cannot be negative')
@@ -64,7 +64,7 @@ class List:
             return self, None
         else:
             return None, IllegalOperationError(
-                operand.pos_start, operand.pos_end, 'Expected a Number type')
+                operand.pos_start, operand.pos_end, 'Expected an integer Number type')
 
     def divide(self, operand):
         new_list = self.copy()
@@ -139,7 +139,7 @@ class List:
         temp = self.copy()
         try:
             for idx in indexes:
-                if isinstance(idx, Number):
+                if isinstance(idx, Number) and not isinstance(idx.value, float):
                     if isinstance(temp, List):
                         temp = temp.elements[idx.value]
                     elif isinstance(temp, String):
@@ -172,7 +172,7 @@ class List:
         temp = new_list
         try:
             for idx in indexes[:-1]:
-                if isinstance(idx, Number):
+                if isinstance(idx, Number) and not isinstance(idx.value, float):
                     if isinstance(temp, List):
                         temp = temp.elements[idx.value]
                     elif isinstance(temp, String):
@@ -195,7 +195,7 @@ class List:
                     )
 
             last_idx = indexes[-1]
-            if not isinstance(last_idx, Number):
+            if not isinstance(last_idx, Number) or isinstance(last_idx.value, float):
                 return None, RunTimeError(
                     last_idx.pos_start, last_idx.pos_end,
                     "Invalid Index Type",
