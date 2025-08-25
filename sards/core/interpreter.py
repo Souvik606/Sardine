@@ -202,7 +202,8 @@ class Interpreter:
             condition = res.register(self.visit(node.condition_node, context))
             if res.should_return():
                 return res
-            if not condition.is_true():
+            cond, error = condition.is_true()
+            if not cond.value:
                 break
 
             value = res.register(self.visit(node.body_node, context))
@@ -318,7 +319,8 @@ class Interpreter:
             if res.should_return():
                 return res
 
-            if condition_value.is_true():
+            cond, error = condition_value.is_true()
+            if cond.value:
                 expression_value = res.register(self.visit(expression, context))
                 if res.should_return():
                     return res
@@ -467,7 +469,8 @@ class Interpreter:
         if res.should_return():
             return res
 
-        if comp_node.is_true():
+        cond, error = comp_node.is_true()
+        if cond.value:
             true_node = res.register(self.visit(node.true_node, context))
             if res.should_return():
                 return res

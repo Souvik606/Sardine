@@ -1,6 +1,6 @@
 from .number_type import Number
 from .string_type import String
-from sards.core.error import RunTimeError
+from sards.core.error import RunTimeError, IllegalOperationError
 
 class ListNode:
     def __init__(self, element_nodes, pos_start, pos_end):
@@ -48,12 +48,74 @@ class List:
             except:
                 return None, RunTimeError(operand.pos_start, operand.pos_end,
                                           'Index out of bounds', self.context)
+        else: return None, IllegalOperationError(
+                    operand.pos_start, operand.pos_end, 'Index must be of Number type')
 
     def multiply(self, operand):
         if isinstance(operand, Number):
             new_list = self.copy()
             new_list.elements = new_list.elements * operand.value
             return new_list, None
+        else: return None, IllegalOperationError(
+                    operand.pos_start, operand.pos_end, 'Expected a Number type')
+
+    def divide(self, operand):
+        return None, IllegalOperationError(
+                self.pos_start, self.pos_end, 'Cannot apply \'/\' to a List')
+
+    def modulus(self, operand):
+        return None, IllegalOperationError(
+                self.pos_start, self.pos_end, 'Cannot apply \'%\' to a List')
+
+    def floor_divide(self, operand):
+        return None, IllegalOperationError(
+                self.pos_start, self.pos_end, 'Cannot apply \'//\' to a List')
+
+    def exponent(self, operand):
+        return None, IllegalOperationError(
+                self.pos_start, self.pos_end, 'Cannot apply \'**\' to a List')
+
+    def get_comparison_eq(self, operand):
+        if isinstance(operand, List):
+            new_list = self.copy()
+            return Number(int(all(a.value==b.value for a, b in zip(new_list.elements, operand.elements)))).set_context(self.context), None
+        else: return None, IllegalOperationError(
+                    operand.pos_start, operand.pos_end, 'Expected a List')
+
+    def get_comparison_neq(self, operand):
+        if isinstance(operand, List):
+            new_list = self.copy()
+            return Number(int(all(a.value!=b.value for a, b in zip(new_list.elements, operand.elements)))).set_context(self.context), None
+        else: return None, IllegalOperationError(
+                    operand.pos_start, operand.pos_end, 'Expected a List')
+
+    def get_comparison_lte(self, operand):
+        return None, IllegalOperationError(
+                self.pos_start, self.pos_end, 'Cannot apply \'<=\' to a List')
+
+    def get_comparison_lt(self, operand):
+        return None, IllegalOperationError(
+                self.pos_start, self.pos_end, 'Cannot apply \'<\' to a List')
+
+    def get_comparison_gte(self, operand):
+        return None, IllegalOperationError(
+                self.pos_start, self.pos_end, 'Cannot apply \'>=\' to a List')
+
+    def get_comparison_gt(self, operand):
+        return None, IllegalOperationError(
+                self.pos_start, self.pos_end, 'Cannot apply \'>\' to a List')
+
+    def and_by(self, operand):
+        return None, IllegalOperationError(
+                self.pos_start, self.pos_end, 'Cannot apply \'and\' to a List')
+
+    def or_by(self, operand):
+        return None, IllegalOperationError(
+                self.pos_start, self.pos_end, 'Cannot apply \'or\' to a List')
+
+    def not_by(self):
+        return None, IllegalOperationError(
+                self.pos_start, self.pos_end, 'Cannot apply \'not\' to a List')
         
     def getByIndex(self, indexes):
         temp = self.copy()
@@ -172,7 +234,7 @@ class List:
             )
 
     def is_true(self):
-        return len(self.elements) > 0
+        return Number(len(self.elements)).set_context(self.context), None
 
     def __repr__(self):
         return f'[{", ".join([str(x) for x in self.elements])}]'

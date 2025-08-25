@@ -216,7 +216,7 @@ class Number:
         return Number(int(not self.value)).set_context(self.context), None
 
     def is_true(self):
-        return self.value != 0
+        return Number(self.value).set_context(self.context), None
 
     def copy(self):
         copy = Number(self.value)
