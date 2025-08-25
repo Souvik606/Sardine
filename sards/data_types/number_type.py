@@ -111,7 +111,7 @@ class Number:
         else: return None, IllegalOperationError(
                     operand.pos_start, operand.pos_end, 'Expected a Number type')
 
-    def _get_runtime_error():
+    def _get_runtime_error(self):
         from sards.core import RunTimeError
         return RunTimeError
     

@@ -78,14 +78,17 @@ class List:
     def get_comparison_eq(self, operand):
         if isinstance(operand, List):
             new_list = self.copy()
-            return Number(int(all(a.value==b.value for a, b in zip(new_list.elements, operand.elements)))).set_context(self.context), None
+            if len(new_list.elements)==len(operand.elements):
+                return Number(int(all(a.value==b.value for a, b in zip(new_list.elements, operand.elements)))).set_context(self.context), None
+            else:
+                return Number(0).set_context(self.context), None
         else: return None, IllegalOperationError(
                     operand.pos_start, operand.pos_end, 'Expected a List')
 
     def get_comparison_neq(self, operand):
         if isinstance(operand, List):
             new_list = self.copy()
-            return Number(int(all(a.value!=b.value for a, b in zip(new_list.elements, operand.elements)))).set_context(self.context), None
+            return Number(int(not(new_list.get_comparison_eq(operand)[0].value))).set_context(self.context), None
         else: return None, IllegalOperationError(
                     operand.pos_start, operand.pos_end, 'Expected a List')
 
