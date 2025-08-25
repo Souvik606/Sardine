@@ -109,7 +109,7 @@ class String:
                     operand.pos_start, operand.pos_end, 'Expected a String type')
 
     def not_by(self):
-        return len(self.value) == 0
+        return Number(int(not self.value)).set_context(self.context), None
 
     def is_true(self):
         return len(self.value) > 0
