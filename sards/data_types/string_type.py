@@ -32,11 +32,84 @@ class String:
         else: return None, IllegalOperationError(
                     operand.pos_start, operand.pos_end, 'Expected a String type')
 
+    def subtract(self, operand):
+        return None, IllegalOperationError(
+                operand.pos_start, operand.pos_end, 'Cannot apply \'-\' to a String type')
+
     def multiply(self, operand):
         if isinstance(operand, Number):
             return String(self.value * operand.value).set_context(self.context), None
         else: return None, IllegalOperationError(
                     operand.pos_start, operand.pos_end, 'Expected a String type')
+
+    def divide(self, operand):
+        return None, IllegalOperationError(
+                operand.pos_start, operand.pos_end, 'Cannot apply \'/\' to a String type')
+
+    def modulus(self, operand):
+        return None, IllegalOperationError(
+                operand.pos_start, operand.pos_end, 'Cannot apply \'%\' to a String type')
+
+    def floor_divide(self, operand):
+        return None, IllegalOperationError(
+                operand.pos_start, operand.pos_end, 'Cannot apply \'//\' to a String type')
+
+    def exponent(self, operand):
+        return None, IllegalOperationError(
+                operand.pos_start, operand.pos_end, 'Cannot apply \'**\' to a String type')
+
+    def get_comparison_eq(self, operand):
+        if isinstance(operand, String):
+            return String(int(self.value == operand.value)).set_context(self.context), None
+        else: return None, IllegalOperationError(
+                    operand.pos_start, operand.pos_end, 'Expected a String type')
+
+    def get_comparison_neq(self, operand):
+        if isinstance(operand, String):
+            return String(int(self.value != operand.value)).set_context(self.context), None
+        else: return None, IllegalOperationError(
+                    operand.pos_start, operand.pos_end, 'Expected a String type')
+
+    def get_comparison_lte(self, operand):
+        if isinstance(operand, String):
+            return String(int(self.value <= operand.value)).set_context(self.context), None
+        else: return None, IllegalOperationError(
+                    operand.pos_start, operand.pos_end, 'Expected a String type')
+
+    def get_comparison_lt(self, operand):
+        if isinstance(operand, String):
+            return String(int(self.value < operand.value)).set_context(self.context), None
+        else: return None, IllegalOperationError(
+                    operand.pos_start, operand.pos_end, 'Expected a String type')
+
+    def get_comparison_gte(self, operand):
+        if isinstance(operand, String):
+            return String(int(self.value >= operand.value)).set_context(self.context), None
+        else: return None, IllegalOperationError(
+                    operand.pos_start, operand.pos_end, 'Expected a String type')
+
+    def get_comparison_gt(self, operand):
+        if isinstance(operand, String):
+            return String(int(self.value > operand.value)).set_context(self.context), None
+        else: return None, IllegalOperationError(
+                    operand.pos_start, operand.pos_end, 'Expected a String type')
+
+    def and_by(self, operand):
+        if isinstance(operand, String):
+            return (String(int(self.value and operand.value)).set_context(self.context),
+                    None)
+        else: return None, IllegalOperationError(
+                    operand.pos_start, operand.pos_end, 'Expected a String type')
+
+    def or_by(self, operand):
+        if isinstance(operand, String):
+            return (String(int(self.value or operand.value)).set_context(self.context),
+                    None)
+        else: return None, IllegalOperationError(
+                    operand.pos_start, operand.pos_end, 'Expected a String type')
+
+    def not_by(self):
+        return len(self.value) == 0
 
     def is_true(self):
         return len(self.value) > 0

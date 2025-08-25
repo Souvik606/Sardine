@@ -3,7 +3,7 @@ This module initializes the Core package.
 """
 
 from .error import (
-    Error, InvalidSyntaxError, IllegalCharError, ExpectedCharError, RunTimeError, Position
+    Error, InvalidSyntaxError, IllegalCharError, ExpectedCharError, RunTimeError, Position, IllegalOperationError
 )
 from .parser import (
     Parser, ParseResult, TernaryOperationNode, UnaryOperationNode, BinaryOperationNode, NumberNode
@@ -12,7 +12,7 @@ from .interpreter import Interpreter, Context, RunTimeResult
 from .lexer import Lexer, Token
 
 __all__ = ["Error", "InvalidSyntaxError", "IllegalCharError",
-           "ExpectedCharError", "RunTimeError", "Position",
+           "ExpectedCharError", "RunTimeError", "Position", "IllegalOperationError",
            "Parser", "ParseResult",
            "TernaryOperationNode", "UnaryOperationNode", "BinaryOperationNode", "NumberNode",
            "Lexer", "Token", "Interpreter", "Context", "RunTimeResult"]
