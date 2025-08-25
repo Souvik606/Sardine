@@ -1,6 +1,6 @@
 method range(m, n) {
     res = []
-    Cycle i = m : n {
+    Cycle i = m : n - 1 {
         res = res + [i]
     }
     yield res
@@ -8,7 +8,7 @@ method range(m, n) {
 
 method copy_list(lst, n) {
     out = []
-    Cycle i = 0 : n {
+    Cycle i = 0 : n - 1 {
         out = out + [lst->i]
     }
     yield out
@@ -52,48 +52,46 @@ method fannkuch(n) {
             when maxFlipsCount < flipsCount {
                 maxFlipsCount = flipsCount
             }
-            when permSign == 1 {
+            when permSign {
                 checksum = checksum + flipsCount
-            }
-            otherwise {
+            } otherwise {
                 checksum = checksum - flipsCount
             }
         }
 
-        when permSign == 1 {
+        when permSign {
             tmp = perm1->0
             perm1->0 = perm1->1
             perm1->1 = tmp
             permSign = 0
-        }
-        otherwise {
+        } otherwise {
             tmp = perm1->1
             perm1->1 = perm1->2
             perm1->2 = tmp
             permSign = 1
+
             broken = 0
-            Cycle ri = 0 : (n - 3) {
+            Cycle ri = 0 : (n - 3) - 1 {
                 r = rxrange->ri
-                when count->r != 0 {
+                when (count->r) != 0 {
                     broken = 1;
                     escape
                 }
-                count->r = r;
+                (count->r) = r;
                 perm0 = perm1->0
                 Cycle i = 0 : r {
                     perm1->i = perm1->(i + 1)
                 }
                 perm1->(r + 1) = perm0
             }
-            when broken != 1 {
+            when broken == 0 {
                 r = nm
-                when count->r == 0 {
+                when (count->r) == 0 {
                     show(checksum)
                     yield maxFlipsCount
-                    escape
                 }
             }
-            count->r = count->r - 1
+            count->r = (count->r) - 1
         }
     }
 }

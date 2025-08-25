@@ -127,16 +127,14 @@ def run_file(filepath):
 
 choice = input('Enter 0 for REPL mode and 1 for file input: ')
 if choice == '0':
-    # REPL (Read-Eval-Print Loop) for continuous user interaction
     while True:
         try:
-            text = input('code > ') # Prompt user for an expression
+            text = input('code > ')
             if text.lower() in ['exit', 'quit']:
                 print("Goodbye!")
                 break
             result, errors = run('<stdin>', text)
 
-            # Print errors if encountered, otherwise display the AST
             if errors:
                 print(errors.to_string())
             else:
@@ -148,51 +146,5 @@ if choice == '0':
             print("\nGoodbye!")
             break
 else:
-    def fannkuch(n):
-        maxFlipsCount = 0
-        permSign = True
-        checksum = 0
-
-        perm1 = list(range(n))
-        count = perm1[:]
-        rxrange = range(2, n - 1)
-        nm = n - 1
-        while 1:
-            k = perm1[0]
-            if k:
-                perm = perm1[:]
-                flipsCount = 1
-                kk = perm[k]
-                while kk:
-                    perm[:k+1] = perm[k::-1]
-                    flipsCount += 1
-                    k = kk
-                    kk = perm[kk]
-                if maxFlipsCount < flipsCount:
-                    maxFlipsCount = flipsCount
-                checksum += flipsCount if permSign else -flipsCount
-
-            # Use incremental change to generate another permutation
-            if permSign:
-                perm1[0],perm1[1] = perm1[1],perm1[0]
-                permSign = False
-            else:
-                perm1[1],perm1[2] = perm1[2],perm1[1]
-                permSign = True
-                for r in rxrange:
-                    if count[r]:
-                        break
-                    count[r] = r
-                    perm0 = perm1[0]
-                    perm1[:r+1] = perm1[1:r+2]
-                    perm1[r+1] = perm0
-                else:
-                    r = nm
-                    if not count[r]:
-                        print( checksum )
-                        return maxFlipsCount
-                count[r] -= 1
-    n = 3
-    print(( "Pfannkuchen(%i) = %i" % (n, fannkuch(n)) ))
-    run_file('sards/main.sad')
+    run_file('sards/samples/main.sad')
 
