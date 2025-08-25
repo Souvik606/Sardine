@@ -11,7 +11,7 @@ functionalities such as:
 Classes:
 - Number: Represents a number and supports basic arithmetic operations.
 """
-from sards.core.error import RunTimeError
+from sards.core.error import RunTimeError, IllegalOperationError
 
 class Number:
     """
@@ -72,10 +72,12 @@ class Number:
 
         Returns:
         - Number: A new Number instance with the result.
-        - None: Indicates no error.
+        - IllegalOperationError: An error if operand is not of type Number.
         """
         if isinstance(operand, Number):
             return Number(self.value + operand.value).set_context(self.context), None
+        else: return None, IllegalOperationError(
+                    operand.pos_start, operand.pos_end, 'Expected a Number type')
 
     def subtract(self, operand):
         """
@@ -86,10 +88,12 @@ class Number:
 
         Returns:
         - Number: A new Number instance with the result.
-        - None: Indicates no error.
+        - IllegalOperationError: An error if operand is not of type Number.
         """
         if isinstance(operand, Number):
             return Number(self.value - operand.value).set_context(self.context), None
+        else: return None, IllegalOperationError(
+                    operand.pos_start, operand.pos_end, 'Expected a Number type')
 
     def multiply(self, operand):
         """
@@ -100,10 +104,12 @@ class Number:
 
         Returns:
         - Number: A new Number instance with the result.
-        - None: Indicates no error.
+        - IllegalOperationError: An error if operand is not of type Number.
         """
         if isinstance(operand, Number):
             return Number(self.value * operand.value).set_context(self.context), None
+        else: return None, IllegalOperationError(
+                    operand.pos_start, operand.pos_end, 'Expected a Number type')
 
     def _get_runtime_error():
         from sards.core import RunTimeError
@@ -119,6 +125,7 @@ class Number:
         Returns:
         - Number: A new Number instance with the result if division is successful.
         - RunTimeError: An error if division by zero is attempted.
+        - IllegalOperationError: An error if operand is not of type Number.
         """
         if isinstance(operand, Number):
             if operand.value == 0:
@@ -126,6 +133,8 @@ class Number:
                     operand.pos_start, operand.pos_end, 'Division by zero', self.context
                 )
             return Number(self.value / operand.value).set_context(self.context), None
+        else: return None, IllegalOperationError(
+                    operand.pos_start, operand.pos_end, 'Expected a Number type')
 
     def modulus(self, operand):
         if isinstance(operand, Number):
@@ -134,6 +143,8 @@ class Number:
                     operand.pos_start, operand.pos_end, 'Division by zero', self.context
                 )
             return Number(self.value % operand.value).set_context(self.context), None
+        else: return None, IllegalOperationError(
+                    operand.pos_start, operand.pos_end, 'Expected a Number type')
 
     def floor_divide(self, operand):
         if isinstance(operand, Number):
@@ -142,44 +153,64 @@ class Number:
                     operand.pos_start, operand.pos_end, 'Division by zero', self.context
                 )
             return Number(self.value // operand.value).set_context(self.context), None
+        else: return None, IllegalOperationError(
+                    operand.pos_start, operand.pos_end, 'Expected a Number type')
 
     def exponent(self, operand):
         if isinstance(operand, Number):
             return Number(self.value ** operand.value).set_context(self.context), None
+        else: return None, IllegalOperationError(
+                    operand.pos_start, operand.pos_end, 'Expected a Number type')
 
     def get_comparison_eq(self, operand):
         if isinstance(operand, Number):
             return Number(int(self.value == operand.value)).set_context(self.context), None
+        else: return None, IllegalOperationError(
+                    operand.pos_start, operand.pos_end, 'Expected a Number type')
 
     def get_comparison_neq(self, operand):
         if isinstance(operand, Number):
             return Number(int(self.value != operand.value)).set_context(self.context), None
+        else: return None, IllegalOperationError(
+                    operand.pos_start, operand.pos_end, 'Expected a Number type')
 
     def get_comparison_lte(self, operand):
         if isinstance(operand, Number):
             return Number(int(self.value <= operand.value)).set_context(self.context), None
+        else: return None, IllegalOperationError(
+                    operand.pos_start, operand.pos_end, 'Expected a Number type')
 
     def get_comparison_lt(self, operand):
         if isinstance(operand, Number):
             return Number(int(self.value < operand.value)).set_context(self.context), None
+        else: return None, IllegalOperationError(
+                    operand.pos_start, operand.pos_end, 'Expected a Number type')
 
     def get_comparison_gte(self, operand):
         if isinstance(operand, Number):
             return Number(int(self.value >= operand.value)).set_context(self.context), None
+        else: return None, IllegalOperationError(
+                    operand.pos_start, operand.pos_end, 'Expected a Number type')
 
     def get_comparison_gt(self, operand):
         if isinstance(operand, Number):
             return Number(int(self.value > operand.value)).set_context(self.context), None
+        else: return None, IllegalOperationError(
+                    operand.pos_start, operand.pos_end, 'Expected a Number type')
 
     def and_by(self, operand):
         if isinstance(operand, Number):
             return (Number(int(self.value != 0 and operand.value != 0)).set_context(self.context),
                     None)
+        else: return None, IllegalOperationError(
+                    operand.pos_start, operand.pos_end, 'Expected a Number type')
 
     def or_by(self, operand):
         if isinstance(operand, Number):
             return (Number(int(self.value != 0 or operand.value != 0)).set_context(self.context),
                     None)
+        else: return None, IllegalOperationError(
+                    operand.pos_start, operand.pos_end, 'Expected a Number type')
 
     def not_by(self):
         return Number(int(not self.value)).set_context(self.context), None

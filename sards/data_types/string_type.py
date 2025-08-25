@@ -1,5 +1,5 @@
 from .number_type import *
-from sards.core.error import RunTimeError
+from sards.core.error import RunTimeError, IllegalOperationError
 
 class StringNode:
     def __init__(self, token):
@@ -29,10 +29,14 @@ class String:
     def add(self, operand):
         if isinstance(operand, String):
             return String(self.value + operand.value).set_context(self.context), None
+        else: return None, IllegalOperationError(
+                    operand.pos_start, operand.pos_end, 'Expected a String type')
 
     def multiply(self, operand):
         if isinstance(operand, Number):
             return String(self.value * operand.value).set_context(self.context), None
+        else: return None, IllegalOperationError(
+                    operand.pos_start, operand.pos_end, 'Expected a String type')
 
     def is_true(self):
         return len(self.value) > 0
