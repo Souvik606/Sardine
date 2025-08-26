@@ -1,4 +1,6 @@
-Cycle i=1:10{when i==4{
-        escape
-    }show(i)
-}
+method fact(a){when a==0 or a==1{yield 1
+    }
+    yield a*fact(a-1)
+   }
+
+show(fact(7))

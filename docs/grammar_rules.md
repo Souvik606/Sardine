@@ -68,13 +68,13 @@ while-expression: KEYWORD:whenever expression LPAREN2 (multiline|jump-statements
 
 for-expression: KEYWORD:Cycle IDENTIFIER EQUAL expression COLON expression (COLON:expression)?LPAREN2 (multiline|jump-statements)* RPAREN2
 
-function-definition: KEYWORD:method IDENTIFIER?LPAREN (IDENTIFIER (COMMA IDENTIFIER)*)? RPAREN LPAREN2 (multiline|jump-statements)* RPAREN2
+function-definition: KEYWORD:method IDENTIFIER?LPAREN (IDENTIFIER (COMMA IDENTIFIER)*)? RPAREN LPAREN2 (multiline|jump-statements|yield-statement)* RPAREN2
 
-if-expression: KEYWORD:when expression LPAREN2 multiline* RPAREN2 NEWLINE*(elif-expression|else-expression))
+if-expression: KEYWORD:when expression LPAREN2 (multiline|jump-statements)* RPAREN2 NEWLINE*(elif-expression|else-expression))
 
-elif-expression: KEYWORD:orwhen expression LPAREN2 multiline* RPAREN2 NEWLINE*(elif-expression|else-expression))
+elif-expression: KEYWORD:orwhen expression LPAREN2 (multiline|jump-statements)* RPAREN2 NEWLINE*(elif-expression|else-expression))
 
-else-expression: KEYWORD:otherwise LPAREN2 multiline* RPAREN2
+else-expression: KEYWORD:otherwise LPAREN2 (multiline|jump-statements)* RPAREN2
 ```
 
 ## Operator Precedence
