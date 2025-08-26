@@ -127,14 +127,16 @@ def run_file(filepath):
 
 choice = input('Enter 0 for REPL mode and 1 for file input: ')
 if choice == '0':
+    # REPL (Read-Eval-Print Loop) for continuous user interaction
     while True:
         try:
-            text = input('code > ')
+            text = input('code > ') # Prompt user for an expression
             if text.lower() in ['exit', 'quit']:
                 print("Goodbye!")
                 break
             result, errors = run('<stdin>', text)
 
+            # Print errors if encountered, otherwise display the AST
             if errors:
                 print(errors.to_string())
             else:

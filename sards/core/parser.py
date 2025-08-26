@@ -762,108 +762,96 @@ class Parser: # pylint: disable=R0904
 
     def for_expression(self):
         """
-        Grammar Rule:
-
-        KEYWORD:Cycle IDENTIFIER EQUAL expression COLON expression (COLON:expression)?
-        LPAREN2 ((expression|statements)RPAREN2)| (NEWLINE multiline RPAREN2)
+        for-expression:
+            KEYWORD:Cycle IDENTIFIER EQUAL expression COLON expression (COLON expression)?
+            LPAREN2 (multiline | jump-statements)* RPAREN2
         """
         res = ParseResult()
         step_value = None
 
+        # 'Cycle'
         if not (self.current_tok.type == T_KEYWORD and self.current_tok.value == 'Cycle'):
             return res.failure(
                 InvalidSyntaxError(self.current_tok.pos_start,
                                    self.current_tok.pos_end,
                                    "Expected 'Cycle'"))
-
         res.register_advancement()
         self.advance()
 
+        # Identifier
         if not self.current_tok.type == T_IDENTIFIER:
             return res.failure(
                 InvalidSyntaxError(self.current_tok.pos_start,
                                    self.current_tok.pos_end,
                                    "Expected identifier"))
-
         var_name = self.current_tok
         res.register_advancement()
         self.advance()
 
+        # '='
         if not self.current_tok.type == T_EQ:
-            return res.failure(InvalidSyntaxError(self.current_tok.pos_start,
-                                                  self.current_tok.pos_end,
-                                                  "Expected '='"))
-
+            return res.failure(
+                InvalidSyntaxError(self.current_tok.pos_start,
+                                   self.current_tok.pos_end,
+                                   "Expected '='"))
         res.register_advancement()
         self.advance()
 
+        # start expression
         start_value = res.register(self.expression())
-        if res.error:
-            return res
+        if res.error: return res
 
+        # ':'
         if not self.current_tok.type == T_COLON:
-            return res.failure(InvalidSyntaxError(self.current_tok.pos_start,
-                                                  self.current_tok.pos_end,
-                                                  "Expected ':'"))
-
+            return res.failure(
+                InvalidSyntaxError(self.current_tok.pos_start,
+                                   self.current_tok.pos_end,
+                                   "Expected ':'"))
         res.register_advancement()
         self.advance()
 
+        # end expression
         end_value = res.register(self.expression())
-        if res.error:
-            return res
+        if res.error: return res
 
+        # optional step expression
         if self.current_tok.type == T_COLON:
             res.register_advancement()
             self.advance()
-
             step_value = res.register(self.expression())
-            if res.error:
-                return res
+            if res.error: return res
 
+        # '{'
         if not self.current_tok.type == T_LPAREN2:
-            return res.failure(InvalidSyntaxError(self.current_tok.pos_start,
-                                                  self.current_tok.pos_end,
-                                                  "Expected '{'"))
-
+            return res.failure(
+                InvalidSyntaxError(self.current_tok.pos_start,
+                                   self.current_tok.pos_end,
+                                   "Expected '{'"))
         res.register_advancement()
         self.advance()
 
-        if self.current_tok.type == T_NEWLINE:
-            res.register_advancement()
-            self.advance()
+        body_node,pos_start=[],self.current_tok.pos_start
+        while self.current_tok.type != T_RPAREN2 and self.current_tok.type != T_EOF:
+            if self.current_tok.type==T_IDENTIFIER and (self.current_tok.value in ("escape","proceed")):
+                jump_node = res.register(self.jump_statements())
+                if res.error: return res
+                body_node.append(jump_node)
+            else:
+                multiline_node = res.register(self.multiline())
+                if res.error: return res
+                body_node.extend(multiline_node.element_nodes)
 
-            body = res.register(self.multiline())
-            if res.error:
-                return res
-
-            if not self.current_tok.type == T_RPAREN2:
-                return res.failure(
-                    InvalidSyntaxError(self.current_tok.pos_start,
-                                       self.current_tok.pos_end,
-                                       "Expected '}'"))
-
-            res.register_advancement()
-            self.advance()
-
-            return res.success(ForNode(var_name, start_value, end_value, step_value, body, True))
-
-        if self.current_tok.type == T_IDENTIFIER and self.peek() and self.peek().type == T_EQ:
-            body_node = res.register(self.statements())
-        else:
-            body_node = res.register(self.expression())
-        if res.error:
-            return res
-
+        body_node=ListNode(body_node,pos_start,self.current_tok.pos_end)
+        # '}'
         if not self.current_tok.type == T_RPAREN2:
-            return res.failure(InvalidSyntaxError(self.current_tok.pos_start,
-                                                  self.current_tok.pos_end,
-                                                  "Expected '}'"))
-
+            return res.failure(
+                InvalidSyntaxError(self.current_tok.pos_start,
+                                   self.current_tok.pos_end,
+                                   "Expected '}'"))
         res.register_advancement()
         self.advance()
 
-        return res.success(ForNode(var_name, start_value, end_value, step_value, body_node, False))
+        return res.success(ForNode(var_name, start_value, end_value, step_value, body_node,False))
 
     def if_expression(self):
         """
@@ -1333,6 +1321,46 @@ class Parser: # pylint: disable=R0904
         if res.error:
             return res
         return res.success(VariableAssignNode(var_name, expression,index_node))
+
+    def jump_statements(self):
+        res = ParseResult()
+
+        if not (self.current_tok.type == T_KEYWORD and (self.current_tok.value == 'escape' or self.current_tok.value=="proceed")):
+            return res.failure(InvalidSyntaxError(self.current_tok.pos_start,
+                                                  self.current_tok.pos_end,
+                                                  "Expected 'proceed' or 'escape' "))
+
+        if self.current_tok.type == T_KEYWORD and self.current_tok.value == 'proceed':
+            res.register_advancement()
+            self.advance()
+            return res.success(ContinueNode(self.current_tok.pos_start.copy(),
+                                            self.current_tok.pos_start.copy()))
+
+        if self.current_tok.type == T_KEYWORD and self.current_tok.value == 'escape':
+            res.register_advancement()
+            self.advance()
+            return res.success(BreakNode(self.current_tok.pos_start.copy(),
+                                         self.current_tok.pos_start.copy()))
+
+    def yield_statements(self):
+        res = ParseResult()
+
+        if not (self.current_tok.type == T_KEYWORD and self.current_tok.value == 'yield'):
+            return res.failure(InvalidSyntaxError(self.current_tok.pos_start,
+                                   self.current_tok.pos_end,
+                                   "Expected 'yield'"))
+
+        res.register_advancement()
+        self.advance()
+
+        expression = res.try_register(self.expression())
+        if not expression:
+            self.reverse(res.to_reverse_count)
+
+        return res.success(
+            ReturnNode(expression, self.current_tok.pos_start.copy(),
+                       self.current_tok.pos_start.copy()))
+
 
     def expression(self):
         """

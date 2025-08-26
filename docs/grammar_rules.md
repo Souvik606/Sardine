@@ -30,7 +30,9 @@ multiline: NEWLINE* (singleline) (NEWLINE* (singleline))* NEWLINE*
 
 singleline: expression |statements|if-expression | for-expression | while-expression |switch-statement| function-definition
 
-jump-statements:KEYWORD:yield expression|KEYWORD:proceed | KEYWORD:escape
+yield-statement: KEYWORD:yield expression
+
+jump-statements: KEYWORD:proceed | KEYWORD:escape
 
 statements: IDENTIFIER (ARROW expression)* EQUAL expression
 
@@ -62,17 +64,17 @@ function-call: IDENTIFIER LPAREN (expression(COMMA expression)*)? RPAREN
 
 list-expression: LPAREN3 (expression(COMMA expression)*)? RPAREN3
 
-while-expression: KEYWORD:whenever expression LPAREN2 ((expression|statements) RPAREN2)| (NEWLINE multiline RPAREN2)
+while-expression: KEYWORD:whenever expression LPAREN2 (multiline|jump-statements)* RPAREN2
 
-for-expression: KEYWORD:Cycle IDENTIFIER EQUAL expression COLON expression (COLON:expression)?LPAREN2 ((expression|statements)RPAREN2)| (NEWLINE multiline RPAREN2)
+for-expression: KEYWORD:Cycle IDENTIFIER EQUAL expression COLON expression (COLON:expression)?LPAREN2 (multiline|jump-statements)* RPAREN2
 
-function-definition: KEYWORD:method IDENTIFIER?LPAREN (IDENTIFIER (COMMA IDENTIFIER)*)? RPAREN LPAREN2 ((expression|statements)RPAREN2)| (NEWLINE multiline RPAREN2)
+function-definition: KEYWORD:method IDENTIFIER?LPAREN (IDENTIFIER (COMMA IDENTIFIER)*)? RPAREN LPAREN2 (multiline|jump-statements)* RPAREN2
 
-if-expression: KEYWORD:when expression LPAREN2 ((expression|statements) RPAREN2 (elif-expression|else-expression)?) | (NEWLINE multiline RPAREN2 NEWLINE*(elif-expression|else-expression))
+if-expression: KEYWORD:when expression LPAREN2 multiline* RPAREN2 NEWLINE*(elif-expression|else-expression))
 
-elif-expression: KEYWORD:orwhen expression LPAREN2 ((expression|statements) RPAREN2 (elif-expression|else-expression)?) | (NEWLINE multiline RPAREN2 NEWLINE*(elif-expression|else-expression))
+elif-expression: KEYWORD:orwhen expression LPAREN2 multiline* RPAREN2 NEWLINE*(elif-expression|else-expression))
 
-else-expression: KEYWORD:otherwise LPAREN2 (((expression|statements)RPAREN2)|NEWLINE multiline RPAREN2)
+else-expression: KEYWORD:otherwise LPAREN2 multiline* RPAREN2
 ```
 
 ## Operator Precedence
