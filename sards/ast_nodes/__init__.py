@@ -12,4 +12,5 @@ from .while_node import WhileNode
 
 __all__ = ["ForNode", "IfNode", "BreakNode", "ReturnNode", "ContinueNode",
            "SwitchNode", "VariableUseNode", "VariableAssignNode", "SymbolTable",
-           "WhileNode", "FunctionCallNode", "FunctionDefinitionNode"]
+           "WhileNode", "FunctionCallNode", "FunctionDefinitionNode",
+           ]

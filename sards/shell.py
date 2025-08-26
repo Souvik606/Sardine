@@ -23,7 +23,8 @@ as an Abstract Syntax Tree (AST).
 
 """
 
-from sards import * # pylint: disable=W0401,W0614
+from sards import *
+import os
 
 global_symbol_table = SymbolTable()
 global_symbol_table.set("None", Number(0))
@@ -63,7 +64,7 @@ def run(filename, input_text):
         print(ast)
     """
     lexer = Lexer(filename, input_text)  # Initialize the Lexer with the input text
-    tokens, error = lexer.enumerate_tokens()  # Generate tokens
+    tokens, error = lexer.enumerate_tokens()
 
     # If lexical analysis encounters an error, return it
     if error:
@@ -90,15 +91,60 @@ def run(filename, input_text):
 
     return res.value, res.error
 
+def run_file(filepath):
+    """
+    Reads and executes code from a file.
+    
+    Parameters:
+    - filepath (str): Path to the code file to execute.
+    
+    Returns:
+    - None: Prints results or errors directly.
+    """
+    try:
+        # Check if file exists
+        if not os.path.exists(filepath):
+            print(f"Error: File '{filepath}' not found.")
+            return
+            
+        # Read the file content
+        with open(filepath, 'r', encoding='utf-8') as file:
+            file_content = file.read()
+            
+        # Execute the file content
+        result, errors = run(filepath, file_content)
+        
+        # Print errors if encountered, otherwise display the result
+        if errors:
+            print(f"Error in {filepath}:")
+            print(errors.to_string())
+        else:
+            if result is not None:
+                print(result)
+                
+    except Exception as e:
+        print(f"Error reading file '{filepath}': {e}")
 
-# REPL (Read-Eval-Print Loop) for continuous user interaction
-while True:
-    text = input('code > ')  # Prompt user for an expression
-    result, errors = run('<stdin>', text)  # Process input
+choice = input('Enter 0 for REPL mode and 1 for file input: ')
+if choice == '0':
+    while True:
+        try:
+            text = input('code > ')
+            if text.lower() in ['exit', 'quit']:
+                print("Goodbye!")
+                break
+            result, errors = run('<stdin>', text)
 
-    # Print errors if encountered, otherwise display the AST
-    if errors:
-        print(errors)
-        print(errors.to_string())
-    elif result:
-        print(result)
+            if errors:
+                print(errors.to_string())
+            else:
+                print(result)
+        except KeyboardInterrupt:
+            print("\nGoodbye!")
+            break
+        except EOFError:
+            print("\nGoodbye!")
+            break
+else:
+    run_file('sards/samples/main.sad')
+

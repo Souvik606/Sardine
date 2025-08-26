@@ -48,7 +48,7 @@ class Token:
         Returns:
         - str: Formatted string representation of the token.
         """
-        return f'{self.type}: {self.value}' if self.value is not None else f'{self.type}'
+        return f'{self.type}: {self.value}' if self.value is not None else f'{self.type}'+f' {self.pos_start.line}' if self.pos_start else ''
 
 
 class Lexer:
@@ -122,6 +122,17 @@ class Lexer:
 
         return Token(token_type, pos_start=pos_start, pos_end=self.pos)
 
+    def make_sub(self):
+        pos_start=self.pos.copy()
+        self.advance()
+        token_type=T_MINUS
+
+        if self.current_char==">":
+            self.advance()
+            token_type=T_ARROW
+
+        return Token(token_type,pos_start=pos_start,pos_end=self.pos)
+
     def make_not_equals(self):
         pos_start = self.pos.copy()
         self.advance()
@@ -166,13 +177,13 @@ class Lexer:
         while self.current_char is not None and self.current_char != '"' or escape_character:
             if escape_character:
                 string += escape_characters.get(self.current_char, self.current_char)
+                escape_character = False
             else:
                 if self.current_char == '\\':
                     escape_character = True
                 else:
                     string += self.current_char
             self.advance()
-            escape_character = False
 
         self.advance()
         return Token(T_STRING, string, pos_start, self.pos)
@@ -214,7 +225,7 @@ class Lexer:
         while self.current_char is not None:
             if self.current_char in ' \t':
                 self.advance()
-            elif self.current_char in ';':
+            elif self.current_char in [';', '\n']:
                 tokens.append(Token(T_NEWLINE, pos_start=self.pos))
                 self.advance()
             elif self.current_char in DIGITS:
@@ -224,11 +235,10 @@ class Lexer:
             elif self.current_char == '"':
                 tokens.append(self.make_string())
             elif self.current_char == '+':
+                self.advance()
                 tokens.append(Token(T_PLUS, pos_start=self.pos))
-                self.advance()
             elif self.current_char == '-':
-                tokens.append(Token(T_MINUS, pos_start=self.pos))
-                self.advance()
+                tokens.append(self.make_sub())
             elif self.current_char == '*':
                 tokens.append(self.make_mul())
             elif self.current_char == '/':

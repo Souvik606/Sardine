@@ -57,7 +57,7 @@ class Position:
         """
         self.index += 1
         self.col += 1
-        if current_char == '\n':
+        if current_char == '\n' or current_char == ';':
             self.line += 1
             self.col = 0
         return self
@@ -111,7 +111,6 @@ class Error: # pylint: disable=too-few-public-methods
             f"File {self.pos_start.file_name}, line {self.pos_start.line + 1}"
         )
 
-
 class IllegalCharError(Error): # pylint: disable=too-few-public-methods
     """
     Handles errors caused by illegal characters in the input text.
@@ -132,6 +131,26 @@ class IllegalCharError(Error): # pylint: disable=too-few-public-methods
         """
         super().__init__(pos_start, pos_end, 'Illegal Character', details)
 
+class IllegalOperationError(Error): # pylint: disable=too-few-public-methods
+    """
+    Handles errors caused by illegal operations.
+
+    Inherits from:
+    - Error
+    """
+
+    def __init__(self, pos_start, pos_end, details=''):
+        """
+        Initializes an IllegalOperationError instance.
+
+        Parameters:
+        - pos_start (Position): The starting position of the illegal operation.
+        - pos_end (Position): The ending position of the illegal operation.
+        - details (str, optional): Additional information about the error. Defaults
+            to an empty string.
+        """
+        super().__init__(pos_start, pos_end, 'Illegal Operation', details)
+        
 class ExpectedCharError(Error): # pylint: disable=too-few-public-methods
     """
     Handles errors caused by absence of expected characters in the input text.

@@ -1,0 +1,101 @@
+method range(m, n) {
+    res = []
+    Cycle i = m : n - 1 {
+        res = res + [i]
+    }
+    yield res
+}
+
+method copy_list(lst, n) {
+    out = []
+    Cycle i = 0 : n - 1 {
+        out = out + [lst->i]
+    }
+    yield out
+}
+
+method reverse_prefix(lst, k) {
+    i = 0
+    j = k
+    whenever i < j {
+        tmp = lst->i
+        lst->i = lst->j
+        lst->j = tmp
+        i = i + 1
+        j = j - 1
+    }
+    yield lst
+}
+
+method fannkuch(n) {
+    maxFlipsCount = 0
+    permSign = 1
+    checksum = 0
+
+    perm1 = range(0, n)
+    count = copy_list(perm1, n)
+    rxrange = range(2, n - 1)
+    nm = n - 1
+
+    whenever 1 {
+        k = perm1->0
+        when k != 0 {
+            perm = copy_list(perm1, n)
+            flipsCount = 1
+            kk = perm->k
+            whenever kk != 0 {
+                perm = reverse_prefix(perm, k)
+                flipsCount = flipsCount + 1
+                k = kk
+                kk = perm->kk
+            }
+            when maxFlipsCount < flipsCount {
+                maxFlipsCount = flipsCount
+            }
+            when permSign {
+                checksum = checksum + flipsCount
+            } otherwise {
+                checksum = checksum - flipsCount
+            }
+        }
+
+        when permSign {
+            tmp = perm1->0
+            perm1->0 = perm1->1
+            perm1->1 = tmp
+            permSign = 0
+        } otherwise {
+            tmp = perm1->1
+            perm1->1 = perm1->2
+            perm1->2 = tmp
+            permSign = 1
+
+            broken = 0
+            Cycle ri = 0 : (n - 3) - 1 {
+                r = rxrange->ri
+                when (count->r) != 0 {
+                    broken = 1;
+                    escape
+                }
+                (count->r) = r;
+                perm0 = perm1->0
+                Cycle i = 0 : r {
+                    perm1->i = perm1->(i + 1)
+                }
+                perm1->(r + 1) = perm0
+            }
+            when broken == 0 {
+                r = nm
+                when (count->r) == 0 {
+                    show(checksum)
+                    yield maxFlipsCount
+                }
+            }
+            count->r = (count->r) - 1
+        }
+    }
+}
+
+n = 3
+res = fannkuch(n)
+show("Pfannkuchen(" + n + ") = " + res)
