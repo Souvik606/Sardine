@@ -40,7 +40,7 @@ case-statement: KEYWORD:choice ternary-expression LPAREN2 ((expression|statement
 
 default-statement: KEYWORD:fallback LPAREN2 ((expression|statements) RPAREN2)| (NEWLINE multiline RPAREN2)
 
-expression: jump_statements | ternary-expression 
+expression: jump_statements | ternary-expression
 
 ternary-expression: (logical-expression|statements) (QUESTION ternary-expression COLON ternary-expression)*
 
@@ -56,9 +56,11 @@ unary: (PLUS | MINUS) unary | exponent
 
 exponent: factor (EXP unary)*
 
-factor: INT | FLOAT | STRING | IDENTIFIER (ARROW expression)* | LPAREN expression RPAREN |index| list-expression| function-call
+factor: INT | FLOAT | STRING | IDENTIFIER (ARROW expression)* | LPAREN expression RPAREN | index | list-expression | dict-expression | function-call
 
 function-call: IDENTIFIER LPAREN (expression(COMMA expression)*)? RPAREN
+
+dict-expression: LPAREN2 (expression COLON expression(COMMA expression COLON expression)*)? RPAREN2
 
 list-expression: LPAREN3 (expression(COMMA expression)*)? RPAREN3
 
@@ -81,7 +83,7 @@ The grammar enforces standard operator precedence:
 
 1. **Parentheses (`()`):**  
    Expressions within parentheses are evaluated first.
-2. **Exponentiation (`**`):**  
+2. **Exponentiation (`**`):\*\*  
    Evaluated before multiplication and division, with right-to-left associativity.
 3. **Unary Operators (`+`, `-`):**  
    Applied directly to the following factor.
