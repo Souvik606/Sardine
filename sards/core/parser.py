@@ -318,6 +318,72 @@ class Parser: # pylint: disable=R0904
 
         return res.success(ListNode(element_nodes, pos_start, self.current_tok.pos_end.copy()))
 
+    def dict_expression(self):
+        """
+        Grammar Rule:
+
+        LPAREN2 (expression COLON expression(COMMA expression COLON expression)*)? RPAREN2
+        """
+        res = ParseResult()
+        keyval_nodes = []
+        pos_start = self.current_tok.pos_start.copy()
+        if self.current_tok.type != T_LPAREN2:
+            return res.failure(
+                InvalidSyntaxError(self.current_tok.pos_start,
+                                   self.current_tok.pos_end,
+                                   "Expected '{'"))
+        res.register_advancement() 
+        self.advance()
+
+        if self.current_tok.type == T_RPAREN2:
+            res.register_advancement()
+            self.advance()
+        else:
+            key_node = res.register(self.expression())
+            if res.error:
+                return res
+            if self.current_tok.type != T_COLON:
+                return res.failure(
+                    InvalidSyntaxError(self.current_tok.pos_start,
+                                       self.current_tok.pos_end,
+                                       "Expected ':'"))
+            res.register_advancement()
+            self.advance()
+            value_node = res.register(self.expression())
+            if res.error:
+                return res
+            keyval_nodes.append((key_node, value_node))
+
+            while self.current_tok and self.current_tok.type == T_COMMA:
+                res.register_advancement()
+                self.advance()
+
+                key_node = res.register(self.expression())
+                if res.error:
+                    return res
+                if self.current_tok.type != T_COLON:
+                    return res.failure(
+                        InvalidSyntaxError(self.current_tok.pos_start,
+                                           self.current_tok.pos_end,
+                                           "Expected ':'"))
+                res.register_advancement()
+                self.advance()
+                value_node = res.register(self.expression())
+                if res.error:
+                    return res
+                keyval_nodes.append((key_node, value_node))
+
+            if self.current_tok.type != T_RPAREN2:
+                return res.failure(
+                    InvalidSyntaxError(self.current_tok.pos_start,
+                                       self.current_tok.pos_end,
+                                       "Expected ',' or '}'"))
+
+            res.register_advancement()
+            self.advance()
+
+        return res.success(DictionaryNode(key_value_nodes, pos_start, self.current_tok.pos_end.copy()))
+
     def function_definition(self):
         """
         Grammar Rule:
@@ -1263,6 +1329,12 @@ class Parser: # pylint: disable=R0904
             if res.error:
                 return res
             return res.success(list_expression)
+        
+        if token.type == T_LPAREN2:
+            dict_expression = res.register(self.dict_expression())
+            if res.error:
+                return res
+            return res.success(dict_expression)
 
         return res.failure(
             InvalidSyntaxError(token.pos_start,
