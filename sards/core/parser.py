@@ -196,22 +196,22 @@ class Parser: # pylint: disable=R0904
             res.register_advancement()
             self.advance()
 
-        first_stmt = res.try_register(self.singleline())
-        if res.error:
-            return res
-        if not first_stmt:self.reverse(res.to_reverse_count)
-        if first_stmt:statements.append(first_stmt)
+        if self.current_tok.type!=T_EOF:
+            first_stmt = res.register(self.singleline())
+            if res.error:
+                return res
+            statements.append(first_stmt)
 
         while True:
             while self.current_tok.type == T_NEWLINE:
                 res.register_advancement()
                 self.advance()
 
-            stmt = res.try_register(self.singleline())
-            if not stmt:
-                self.reverse(res.to_reverse_count)
+            if self.current_tok.type!=T_EOF:
+                stmt = res.register(self.singleline())
+                if res.error:return res
+                statements.append(stmt)
                 break
-            statements.append(stmt)
 
         while self.current_tok.type == T_NEWLINE:
             res.register_advancement()
@@ -410,9 +410,18 @@ class Parser: # pylint: disable=R0904
                 if res.error: return res
                 body_nodes.append(jump_node)
             else:
-                multiline_node = res.register(self.multiline())
+                multiline_node = res.try_register(self.multiline())
                 if res.error: return res
-                body_nodes.extend(multiline_node.element_nodes)
+                if not multiline_node:
+                    if not (self.current_tok.type == T_KEYWORD and (
+                            self.current_tok.value in ("escape", "proceed", "yield"))) and not (
+                            self.current_tok.type == T_RPAREN2
+                    ):
+                        return res.failure(
+                            InvalidSyntaxError(self.current_tok.pos_start,
+                                               self.current_tok.pos_end,
+                                               "Expected identifier,when,whenever,method or Cycle"))
+                if multiline_node: body_nodes.extend(multiline_node.element_nodes)
 
         body_node = ListNode(body_nodes, pos_start, self.current_tok.pos_end)
 
@@ -725,9 +734,18 @@ class Parser: # pylint: disable=R0904
                 if res.error: return res
                 body_nodes.append(jump_node)
             else:
-                multiline_node = res.register(self.multiline())
+                multiline_node = res.try_register(self.multiline())
                 if res.error: return res
-                body_nodes.extend(multiline_node.element_nodes)
+                if not multiline_node:
+                    if not(self.current_tok.type == T_KEYWORD and (
+                            self.current_tok.value in ("escape", "proceed", "yield"))) and not(
+                        self.current_tok.type==T_RPAREN2
+                    ):
+                        return res.failure(
+                            InvalidSyntaxError(self.current_tok.pos_start,
+                                               self.current_tok.pos_end,
+                                               "Expected identifier,when,whenever,method or Cycle"))
+                if multiline_node:body_nodes.extend(multiline_node.element_nodes)
 
         body_node = ListNode(body_nodes, pos_start, self.current_tok.pos_end)
 
@@ -819,9 +837,18 @@ class Parser: # pylint: disable=R0904
                 if res.error: return res
                 body_node.append(jump_node)
             else:
-                multiline_node = res.register(self.multiline())
+                multiline_node = res.try_register(self.multiline())
                 if res.error: return res
-                body_node.extend(multiline_node.element_nodes)
+                if not multiline_node:
+                    if not (self.current_tok.type == T_KEYWORD and (
+                            self.current_tok.value in ("escape", "proceed", "yield"))) and not (
+                            self.current_tok.type == T_RPAREN2
+                    ):
+                        return res.failure(
+                            InvalidSyntaxError(self.current_tok.pos_start,
+                                               self.current_tok.pos_end,
+                                               "Expected identifier,when,whenever,method or Cycle"))
+                if multiline_node: body_node.extend(multiline_node.element_nodes)
 
         body_node=ListNode(body_node,pos_start,self.current_tok.pos_end)
         # '}'
@@ -876,9 +903,18 @@ class Parser: # pylint: disable=R0904
                 if res.error: return res
                 body_nodes.append(jump_node)
             else:
-                multiline_node = res.register(self.multiline())
+                multiline_node = res.try_register(self.multiline())
                 if res.error: return res
-                body_nodes.extend(multiline_node.element_nodes)
+                if not multiline_node:
+                    if not (self.current_tok.type == T_KEYWORD and (
+                            self.current_tok.value in ("escape", "proceed", "yield"))) and not (
+                            self.current_tok.type == T_RPAREN2
+                    ):
+                        return res.failure(
+                            InvalidSyntaxError(self.current_tok.pos_start,
+                                               self.current_tok.pos_end,
+                                               "Expected identifier,when,whenever,method or Cycle"))
+                if multiline_node: body_nodes.extend(multiline_node.element_nodes)
 
         body_node = ListNode(body_nodes, pos_start, self.current_tok.pos_end)
 
@@ -960,9 +996,18 @@ class Parser: # pylint: disable=R0904
                 if res.error: return res
                 body_nodes.append(jump_node)
             else:
-                multiline_node = res.register(self.multiline())
+                multiline_node = res.try_register(self.multiline())
                 if res.error: return res
-                body_nodes.extend(multiline_node.element_nodes)
+                if not multiline_node:
+                    if not (self.current_tok.type == T_KEYWORD and (
+                            self.current_tok.value in ("escape", "proceed", "yield"))) and not (
+                            self.current_tok.type == T_RPAREN2
+                    ):
+                        return res.failure(
+                            InvalidSyntaxError(self.current_tok.pos_start,
+                                               self.current_tok.pos_end,
+                                               "Expected identifier,when,whenever,method or Cycle"))
+                if multiline_node: body_nodes.extend(multiline_node.element_nodes)
 
         body_node = ListNode(body_nodes, pos_start, self.current_tok.pos_end)
 
@@ -1014,9 +1059,18 @@ class Parser: # pylint: disable=R0904
                     if res.error: return res
                     body_nodes.append(jump_node)
                 else:
-                    multiline_node = res.register(self.multiline())
+                    multiline_node = res.try_register(self.multiline())
                     if res.error: return res
-                    body_nodes.extend(multiline_node.element_nodes)
+                    if not multiline_node:
+                        if not (self.current_tok.type == T_KEYWORD and (
+                                self.current_tok.value in ("escape", "proceed", "yield"))) and not (
+                                self.current_tok.type == T_RPAREN2
+                        ):
+                            return res.failure(
+                                InvalidSyntaxError(self.current_tok.pos_start,
+                                                   self.current_tok.pos_end,
+                                                   "Expected identifier,when,whenever,method or Cycle"))
+                    if multiline_node: body_nodes.extend(multiline_node.element_nodes)
 
             body_node = ListNode(body_nodes, pos_start, self.current_tok.pos_end)
 

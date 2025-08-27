@@ -1,6 +1,10 @@
-method fact(a){when a==0 or a==1{yield 1
-    }
-    yield a*fact(a-1)
-   }
+method test(i) {
+    whenever i > 0 {
+        i = i - 1;
+        show(i)
+        escape
+        }
+    yield 9
+}
 
-show(fact(7))
+show(test(5))
