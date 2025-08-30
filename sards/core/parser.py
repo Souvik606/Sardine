@@ -27,7 +27,7 @@ Methods:
 """
 
 from sards.ast_nodes import *
-from sards.data_types import ListNode, StringNode
+from sards.data_types import ListNode, StringNode, DictNode
 from .constants import *
 from .error import InvalidSyntaxError
 
@@ -382,7 +382,7 @@ class Parser: # pylint: disable=R0904
             res.register_advancement()
             self.advance()
 
-        return res.success(DictionaryNode(key_value_nodes, pos_start, self.current_tok.pos_end.copy()))
+        return res.success(DictNode(keyval_nodes, pos_start, self.current_tok.pos_end.copy()))
 
     def function_definition(self):
         """

@@ -1,5 +1,6 @@
 from .number_type import Number
 from .string_type import String
+from .dict_type import Dict
 from sards.core.error import RunTimeError, IllegalOperationError
 
 class ListNode:
@@ -28,7 +29,7 @@ class List:
         return self
 
     def add(self, operand):
-        if isinstance(operand, Number) or isinstance(operand, String):
+        if isinstance(operand, Number) or isinstance(operand, String) or isinstance(operand, Dict):
             new_list = self.copy()
             new_list.elements.append(operand)
             return new_list, None
@@ -139,7 +140,16 @@ class List:
         temp = self.copy()
         try:
             for idx in indexes:
-                if isinstance(idx, Number) and not isinstance(idx.value, float):
+                if isinstance(temp, Dict):
+                    if isinstance(idx, (Number, String)):
+                        temp = temp.elements[idx.value]
+                    else:
+                        return None, RunTimeError(
+                            idx.pos_start, idx.pos_end,
+                            "Dictionary keys must be numbers or strings",
+                            self.context
+                        )
+                elif isinstance(idx, Number) and not isinstance(idx.value, float):
                     if isinstance(temp, List):
                         temp = temp.elements[idx.value]
                     elif isinstance(temp, String):
@@ -172,7 +182,16 @@ class List:
         temp = new_list
         try:
             for idx in indexes[:-1]:
-                if isinstance(idx, Number) and not isinstance(idx.value, float):
+                if isinstance(temp, Dict):
+                    if isinstance(idx, (Number, String)):
+                        temp = temp.elements[idx.value]
+                    else:
+                        return None, RunTimeError(
+                            idx.pos_start, idx.pos_end,
+                            "Dictionary keys must be numbers or strings",
+                            self.context
+                        )
+                elif isinstance(idx, Number) and not isinstance(idx.value, float):
                     if isinstance(temp, List):
                         temp = temp.elements[idx.value]
                     elif isinstance(temp, String):
@@ -195,6 +214,19 @@ class List:
                     )
 
             last_idx = indexes[-1]
+
+            #Case 3: assigning inside a Dict
+            if isinstance(temp, Dict):
+                if isinstance(last_idx, (Number, String)):
+                    temp.elements[last_idx.value] = val
+                    return new_list, None
+                else:
+                    return None, RunTimeError(
+                        last_idx.pos_start, last_idx.pos_end,
+                        "Dictionary keys must be numbers or strings",
+                        self.context
+                    )
+
             if not isinstance(last_idx, Number) or isinstance(last_idx.value, float):
                 return None, RunTimeError(
                     last_idx.pos_start, last_idx.pos_end,
@@ -221,7 +253,7 @@ class List:
                     s[last_idx.value] = val.value
                     replaced = String("".join(s)).set_context(self.context)
 
-                    # Instead of indexing into String, go back to the parent List
+                    # Instead of indexing into String, go back to the parent List or Dict
                     parent = new_list
                     for idx in indexes[:-2]:
                         parent = parent.elements[idx.value]
