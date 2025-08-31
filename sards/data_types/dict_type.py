@@ -246,8 +246,7 @@ class Dict:
             return None, IllegalOperationError(
                 operand.pos_start, 
                 operand.pos_end,
-                'Expected a Dictionary',
-                self.context
+                'Expected a Dictionary'
             )
             
         if len(self.elements) != len(operand.elements):
@@ -270,8 +269,7 @@ class Dict:
             return None, IllegalOperationError(
                 operand.pos_start, 
                 operand.pos_end,
-                'Expected a Dictionary',
-                self.context
+                'Expected a Dictionary'
             )
         result, error = self.get_comparison_eq(operand)
         if error:
