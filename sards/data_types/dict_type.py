@@ -307,84 +307,72 @@ class Dict:
         return None, IllegalOperationError(
             self.pos_start, self.pos_end,
             'Cannot apply \'*\' to a Dictionary',
-            self.context
         )
 
     def divide(self, operand):
         return None, IllegalOperationError(
             self.pos_start, self.pos_end,
             'Cannot apply \'/\' to a Dictionary',
-            self.context
         )
 
     def modulus(self, operand):
         return None, IllegalOperationError(
             self.pos_start, self.pos_end,
             'Cannot apply \'%\' to a Dictionary',
-            self.context
         )
 
     def floor_divide(self, operand):
         return None, IllegalOperationError(
             self.pos_start, self.pos_end,
             'Cannot apply \'//\' to a Dictionary',
-            self.context
         )
 
     def exponent(self, operand):
         return None, IllegalOperationError(
             self.pos_start, self.pos_end,
             'Cannot apply \'^\' to a Dictionary',
-            self.context
         )
 
     def get_comparison_lt(self, operand):
         return None, IllegalOperationError(
             self.pos_start, self.pos_end,
             'Cannot apply \'<\' to a Dictionary',
-            self.context
         )
 
     def get_comparison_gt(self, operand):
         return None, IllegalOperationError(
             self.pos_start, self.pos_end,
             'Cannot apply \'>\' to a Dictionary',
-            self.context
         )
 
     def get_comparison_lte(self, operand):
         return None, IllegalOperationError(
             self.pos_start, self.pos_end,
             'Cannot apply \'<=\' to a Dictionary',
-            self.context
         )
 
     def get_comparison_gte(self, operand):
         return None, IllegalOperationError(
             self.pos_start, self.pos_end,
             'Cannot apply \'>=\' to a Dictionary',
-            self.context
         )
 
-    def and_(self, operand):
+    def and_by(self, operand):
         return None, IllegalOperationError(
             self.pos_start, self.pos_end,
             'Cannot apply \'and\' to a Dictionary',
-            self.context
         )
 
-    def or_(self, operand):
+    def or_by(self, operand):
         return None, IllegalOperationError(
             self.pos_start, self.pos_end,
             'Cannot apply \'or\' to a Dictionary',
-            self.context
         )
 
-    def not_(self):
+    def not_by(self):
         return None, IllegalOperationError(
             self.pos_start, self.pos_end,
             'Cannot apply \'not\' to a Dictionary',
-            self.context
         )
 
 
