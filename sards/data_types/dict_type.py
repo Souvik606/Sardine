@@ -116,11 +116,11 @@ class Dict:
 
             return temp, None
 
-        except IndexError:
+        except KeyError:
             bad_idx = indexes[-1]
             return None, RunTimeError(
                 bad_idx.pos_start, bad_idx.pos_end,
-                "Index out of bounds",
+                "Key does not exist",
                 self.context
             )
 
