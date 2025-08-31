@@ -1,6 +1,6 @@
 from .number_type import Number
 from .string_type import String
-from sards.core.error import RunTimeError, IllegalOperationError
+from sards.core.error import RunTimeError, IllegalOperationError, DictKeyError
 
 class DictNode:
     def __init__(self, keyval_nodes, pos_start, pos_end):
@@ -51,37 +51,6 @@ class Dict:
     def is_true(self):
         return Number(len(self.elements)).set_context(self.context), None    
 
-    def get(self, key):
-        """Get value for key, return (value, None) or (None, Error)"""
-        if not isinstance(key, (Number, String)):
-            return None, IllegalOperationError(
-                key.pos_start,
-                key.pos_end,
-                'Dictionary keys must be numbers or strings'
-            )
-        
-        if key.value in self.elements:
-            return self.elements[key.value], None
-        
-        return None, RunTimeError(
-            key.pos_start, 
-            key.pos_end,
-            f'Key {str(key)} not found in dictionary',
-            self.context
-        )
-
-    def set(self, key, value):
-        """Set key-value pair, return (self, None) or (None, Error)"""
-        if not isinstance(key, (Number, String)):
-            return None, IllegalOperationError(
-                key.pos_start,
-                key.pos_end,
-                'Dictionary keys must be numbers or strings'
-            )
-            
-        self.elements[key.value] = value
-        return self, None
-
     def getByIndex(self, indexes):
         from .list_type import List #Avoiding Circular Import
         temp = self.copy()
@@ -89,12 +58,16 @@ class Dict:
             for idx in indexes:
                 if isinstance(temp, Dict):
                     if isinstance(idx, (Number, String)):
-                        temp = temp.elements[idx.value]
+                        temp = temp.elements.get(idx.value)
+                        if temp is None:
+                            return None, DictKeyError(
+                                idx.pos_start, idx.pos_end,
+                                "Key does not exist"
+                            )
                     else:
-                        return None, RunTimeError(
+                        return None, DictKeyError(
                             idx.pos_start, idx.pos_end,
-                            "Dictionary keys must be numbers or strings",
-                            self.context
+                            "Dictionary keys must be numbers or strings"
                         )
                 elif isinstance(idx, Number) and not isinstance(idx.value, float):
                     if isinstance(temp, List):
@@ -116,11 +89,11 @@ class Dict:
 
             return temp, None
 
-        except KeyError:
+        except IndexError:
             bad_idx = indexes[-1]
             return None, RunTimeError(
                 bad_idx.pos_start, bad_idx.pos_end,
-                "Key does not exist",
+                "Index out of bounds",
                 self.context
             )
 
@@ -132,12 +105,16 @@ class Dict:
             for idx in indexes[:-1]:
                 if isinstance(temp, Dict):
                     if isinstance(idx, (Number, String)):
-                        temp = temp.elements[idx.value]
+                        temp = temp.elements.get(idx.value)
+                        if temp is None:
+                            return None, DictKeyError(
+                                idx.pos_start, idx.pos_end,
+                                "Key does not exist"
+                            )
                     else:
-                        return None, RunTimeError(
+                        return None, DictKeyError(
                             idx.pos_start, idx.pos_end,
-                            "Dictionary keys must be numbers or strings",
-                            self.context
+                            "Dictionary keys must be numbers or strings"
                         )
                 elif isinstance(idx, Number) and not isinstance(idx.value, float):
                     if isinstance(temp, List):
@@ -169,10 +146,9 @@ class Dict:
                     temp.elements[last_idx.value] = val
                     return new_dict, None
                 else:
-                    return None, RunTimeError(
+                    return None, DictKeyError(
                         last_idx.pos_start, last_idx.pos_end,
                         "Dictionary keys must be numbers or strings",
-                        self.context
                     )
                 
             if not isinstance(last_idx, Number) or isinstance(last_idx.value, float):
@@ -251,11 +227,10 @@ class Dict:
     def subtract(self, operand):
         """Removes key-value pair with given key if it exists"""
         if not isinstance(operand, (Number, String)):
-            return None, IllegalOperationError(
+            return None, DictKeyError(
                 operand.pos_start,
                 operand.pos_end,
-                'Dictionary key must be a number or string',
-                self.context
+                'Dictionary key must be a number or string'
             )
         
         new_dict = self.copy()

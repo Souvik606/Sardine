@@ -1,7 +1,7 @@
 from .number_type import Number
 from .string_type import String
 from .dict_type import Dict
-from sards.core.error import RunTimeError, IllegalOperationError
+from sards.core.error import RunTimeError, IllegalOperationError, DictKeyError
 
 class ListNode:
     def __init__(self, element_nodes, pos_start, pos_end):
@@ -142,12 +142,16 @@ class List:
             for idx in indexes:
                 if isinstance(temp, Dict):
                     if isinstance(idx, (Number, String)):
-                        temp = temp.elements[idx.value]
+                        temp = temp.elements.get(idx.value)
+                        if temp is None:
+                            return None, DictKeyError(
+                                idx.pos_start, idx.pos_end,
+                                "Key does not exist"
+                            )
                     else:
-                        return None, RunTimeError(
+                        return None, DictKeyError(
                             idx.pos_start, idx.pos_end,
-                            "Dictionary keys must be numbers or strings",
-                            self.context
+                            "Dictionary keys must be numbers or strings"
                         )
                 elif isinstance(idx, Number) and not isinstance(idx.value, float):
                     if isinstance(temp, List):
@@ -184,12 +188,16 @@ class List:
             for idx in indexes[:-1]:
                 if isinstance(temp, Dict):
                     if isinstance(idx, (Number, String)):
-                        temp = temp.elements[idx.value]
+                        temp = temp.elements.get(idx.value)
+                        if temp is None:
+                            return None, DictKeyError(
+                                idx.pos_start, idx.pos_end,
+                                "Key does not exist"
+                            )
                     else:
-                        return None, RunTimeError(
+                        return None, DictKeyError(
                             idx.pos_start, idx.pos_end,
-                            "Dictionary keys must be numbers or strings",
-                            self.context
+                            "Dictionary keys must be numbers or strings"
                         )
                 elif isinstance(idx, Number) and not isinstance(idx.value, float):
                     if isinstance(temp, List):
@@ -221,10 +229,9 @@ class List:
                     temp.elements[last_idx.value] = val
                     return new_list, None
                 else:
-                    return None, RunTimeError(
+                    return None, DictKeyError(
                         last_idx.pos_start, last_idx.pos_end,
                         "Dictionary keys must be numbers or strings",
-                        self.context
                     )
 
             if not isinstance(last_idx, Number) or isinstance(last_idx.value, float):

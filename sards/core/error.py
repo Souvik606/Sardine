@@ -182,6 +182,15 @@ class InvalidSyntaxError(Error): # pylint: disable=too-few-public-methods
         """
         super().__init__(pos_start, pos_end, 'Invalid Syntax', details)
 
+class DictKeyError(Error): # pylint: disable=too-few-public-methods
+    """
+    Handles errors caused by non-existent dictionary keys or invalid key types. 
+
+    Inherits from:
+    - Error
+    """
+    def __init__(self,pos_start,pos_end,details):
+        super().__init__(pos_start,pos_end,'Dictionary Key Error',details)
 
 class RunTimeError(Error):
     """
