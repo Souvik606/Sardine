@@ -34,7 +34,7 @@ yield-statement: KEYWORD:yield expression
 
 jump-statements: KEYWORD:proceed | KEYWORD:escape
 
-statements: IDENTIFIER (LPAREN3 expression RPAREN3)* EQUAL expression
+statements: IDENTIFIER (LPAREN3 expression RPAREN3)* (COMMA IDENTIFIER (LPAREN3 expression RPAREN3)*)* EQUAL expression (COMMA expression)*
 
 switch-statement: KEYWORD:menu ternary-expression LPAREN2 NEWLINE* (case-statement* NEWLINE*)* default-statement? NEWLINE* (case-statement* NEWLINE*)* RPAREN2
 

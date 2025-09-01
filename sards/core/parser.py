@@ -1279,52 +1279,95 @@ class Parser: # pylint: disable=R0904
 
     def statements(self):
         """
-        Grammar Rule:
-        IDENTIFIER (ARROW expression)* EQUAL expression
+        statements:
+            IDENTIFIER (LPAREN3 expression RPAREN3)*
+            (COMMA IDENTIFIER (LPAREN3 expression RPAREN3)*)*
+            EQUAL expression (COMMA expression)*
         """
         res = ParseResult()
-        index_node=[]
 
-        if self.current_tok.type != T_IDENTIFIER:
-            return res.failure(
-                InvalidSyntaxError(self.current_tok.pos_start,
-                                   self.current_tok.pos_end,
-                                   "Expected identifier"))
+        var_name_toks = []
+        index_nodes = []
+        value_nodes = []
 
-        var_name = self.current_tok
-        res.register_advancement()
-        self.advance()
-
-        if self.current_tok.type==T_LPAREN3:
-            while self.current_tok and self.current_tok.type==T_LPAREN3:
-                res.register_advancement()
-                self.advance()
-
-                expression=res.register(self.expression())
-                if res.error:return res
-                index_node.append(expression)
-
-                if self.current_tok.type!=T_RPAREN3:
-                    return res.failure(InvalidSyntaxError(
+        # --- Parse LHS (variables and optional indices)
+        while True:
+            if self.current_tok.type != T_IDENTIFIER:
+                return res.failure(
+                    InvalidSyntaxError(
                         self.current_tok.pos_start,
-                        self.current_tok.pos_end,"Expected ']"
-                    ))
+                        self.current_tok.pos_end,
+                        "Expected identifier"
+                    )
+                )
+
+            var_name_toks.append(self.current_tok)
+            res.register_advancement()
+            self.advance()
+
+            indices = []
+            while self.current_tok and self.current_tok.type == T_LPAREN3:
                 res.register_advancement()
                 self.advance()
 
+                expr = res.register(self.expression())
+                if res.error:
+                    return res
+                indices.append(expr)
+
+                if self.current_tok.type != T_RPAREN3:
+                    return res.failure(
+                        InvalidSyntaxError(
+                            self.current_tok.pos_start,
+                            self.current_tok.pos_end,
+                            "Expected ')'"
+                        )
+                    )
+                res.register_advancement()
+                self.advance()
+
+            index_nodes.append(indices if indices else None)
+
+            if self.current_tok.type != T_COMMA:
+                break
+            res.register_advancement()
+            self.advance()
+
+        # --- Expect '='
         if self.current_tok.type != T_EQ:
             return res.failure(
-                InvalidSyntaxError(self.current_tok.pos_start,
-                                   self.current_tok.pos_end,
-                                   "Expected '='"))
-
+                InvalidSyntaxError(
+                    self.current_tok.pos_start,
+                    self.current_tok.pos_end,
+                    "Expected '='"
+                )
+            )
         res.register_advancement()
         self.advance()
 
-        expression = res.register(self.expression())
-        if res.error:
-            return res
-        return res.success(VariableAssignNode(var_name, expression,index_node))
+        # --- Parse RHS (expressions)
+        while True:
+            expr = res.register(self.expression())
+            if res.error:
+                return res
+            value_nodes.append(expr)
+
+            if self.current_tok.type != T_COMMA:
+                break
+            res.register_advancement()
+            self.advance()
+
+        # --- Validation: number of vars == number of values
+        if len(var_name_toks) != len(value_nodes):
+            return res.failure(
+                InvalidSyntaxError(
+                    var_name_toks[0].pos_start,
+                    value_nodes[-1].pos_end,
+                    f"Mismatched assignment count: {len(var_name_toks)} variables, {len(value_nodes)} values"
+                )
+            )
+
+        return res.success(VariableAssignNode(var_name_toks, value_nodes, index_nodes))
 
     def jump_statements(self):
         res = ParseResult()
