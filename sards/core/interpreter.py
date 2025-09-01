@@ -15,6 +15,7 @@ from .constants import (T_PLUS, T_MINUS, T_MUL, T_DIVIDE, T_MODULUS, T_FLOOR, T_
                         T_NEQ, T_GT, T_GTE, T_LT, T_LTE, T_KEYWORD)
 from .error import RunTimeError
 
+
 class Context: # pylint: disable=R0903
     """
     Represents the execution context of a program.
@@ -351,8 +352,8 @@ class Interpreter:
 
         for index in node.index_node:
             index_val=res.register(self.visit(index,context))
+            if res.error:return res
             indexes.append(index_val)
-
         if not indexes:
             value = value.copy().set_pos(node.pos_start, node.pos_end).set_context(context)
             return res.success(value)

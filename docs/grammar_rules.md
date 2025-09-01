@@ -34,7 +34,7 @@ yield-statement: KEYWORD:yield expression
 
 jump-statements: KEYWORD:proceed | KEYWORD:escape
 
-statements: IDENTIFIER (ARROW expression)* EQUAL expression
+statements: IDENTIFIER (LPAREN3 expression RPAREN3)* EQUAL expression
 
 switch-statement: KEYWORD:menu ternary-expression LPAREN2 NEWLINE* (case-statement* NEWLINE*)* default-statement? NEWLINE* (case-statement* NEWLINE*)* RPAREN2
 
@@ -58,7 +58,7 @@ unary: (PLUS | MINUS) unary | exponent
 
 exponent: factor (EXP unary)*
 
-factor: INT | FLOAT | STRING | IDENTIFIER (ARROW expression)* | LPAREN expression RPAREN | index | list-expression | function-call
+factor: INT | FLOAT | STRING | IDENTIFIER (LPAREN3 expression RPAREN3)* | LPAREN expression RPAREN | list-expression | function-call
 
 function-call: IDENTIFIER LPAREN (expression(COMMA expression)*)? RPAREN
 

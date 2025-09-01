@@ -134,6 +134,7 @@ class Parser: # pylint: disable=R0904
         self.current_tok = None
         self.tok_index = -1
         self.advance()
+        self.call=0
 
     def advance(self):
         """Moves to the next token in the token sequence."""
@@ -188,6 +189,7 @@ class Parser: # pylint: disable=R0904
         Grammar Rule:
         multiline: NEWLINE* (singleline) (NEWLINE* (singleline))* NEWLINE*
         """
+
         res = ParseResult()
         statements = []
         pos_start = self.current_tok.pos_start.copy()
@@ -207,17 +209,18 @@ class Parser: # pylint: disable=R0904
                 res.register_advancement()
                 self.advance()
 
-            if self.current_tok.type!=T_EOF:
+            if self.current_tok.type!=T_EOF and self.current_tok.type!=T_RPAREN2:
+                tok=self.current_tok
                 stmt = res.register(self.singleline())
                 if res.error:return res
                 statements.append(stmt)
-                break
-
+            else:break
         while self.current_tok.type == T_NEWLINE:
             res.register_advancement()
             self.advance()
 
-        return res.success(ListNode(statements, pos_start, self.current_tok.pos_end.copy()))
+        result=res.success(ListNode(statements, pos_start, self.current_tok.pos_end.copy()))
+        return result
 
     def singleline(self):
         res = ParseResult()
@@ -1205,14 +1208,22 @@ class Parser: # pylint: disable=R0904
             self.advance()
             var_name_tok,index_node=token,[]
 
-            if self.current_tok.type == T_ARROW:
-                while self.current_tok and self.current_tok.type == T_ARROW:
+            if self.current_tok.type == T_LPAREN3:
+                while self.current_tok and self.current_tok.type == T_LPAREN3:
                     res.register_advancement()
                     self.advance()
 
                     expression = res.register(self.expression())
                     if res.error: return res
                     index_node.append(expression)
+
+                    if self.current_tok.type != T_RPAREN3:
+                        return res.failure(InvalidSyntaxError(
+                            self.current_tok.pos_start,
+                            self.current_tok.pos_end, "Expected ']"
+                        ))
+                    res.register_advancement()
+                    self.advance()
 
             return res.success(VariableUseNode(token,index_node))
 
@@ -1284,14 +1295,22 @@ class Parser: # pylint: disable=R0904
         res.register_advancement()
         self.advance()
 
-        if self.current_tok.type==T_ARROW:
-            while self.current_tok and self.current_tok.type==T_ARROW:
+        if self.current_tok.type==T_LPAREN3:
+            while self.current_tok and self.current_tok.type==T_LPAREN3:
                 res.register_advancement()
                 self.advance()
 
                 expression=res.register(self.expression())
                 if res.error:return res
                 index_node.append(expression)
+
+                if self.current_tok.type!=T_RPAREN3:
+                    return res.failure(InvalidSyntaxError(
+                        self.current_tok.pos_start,
+                        self.current_tok.pos_end,"Expected ']"
+                    ))
+                res.register_advancement()
+                self.advance()
 
         if self.current_tok.type != T_EQ:
             return res.failure(
@@ -1347,7 +1366,7 @@ class Parser: # pylint: disable=R0904
         """
         res = ParseResult()
 
-        ternary_node = res.register(self.logical_expression())
+        ternary_node = res.register(self.ternary_expression())
         if res.error:
             return res
         node = res.register(res.success(ternary_node))
