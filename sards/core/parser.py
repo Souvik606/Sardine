@@ -256,26 +256,21 @@ class Parser: # pylint: disable=R0904
                 return res
             return res.success(switch_statement)
 
-        if (self.check_is_statement()):
-            statement_node = res.register(self.statements())
-            if res.error: return res
-            node = res.register(res.success(statement_node))
+        if token.type==T_IDENTIFIER and self.peek() and self.peek().type==T_LPAREN:
+            call_node=res.register(self.function_call())
             if res.error:
-                return res.failure(
-                    InvalidSyntaxError(self.current_tok.pos_start,
-                                       self.current_tok.pos_end,
-                                       "Expected int,float,identifier"))
-            return res.success(node)
-        else:
-            expression_node = res.register(self.expression())
-            if res.error: return res
-            node = res.register(res.success(expression_node))
-            if res.error:
-                return res.failure(
-                    InvalidSyntaxError(self.current_tok.pos_start,
-                                       self.current_tok.pos_end,
-                                       "Expected int,float,identifier"))
-            return res.success(node)
+                return res
+            return res.success(call_node)
+
+        statement_node = res.register(self.statements())
+        if res.error: return res
+        node = res.register(res.success(statement_node))
+        if res.error:
+            return res.failure(
+                InvalidSyntaxError(self.current_tok.pos_start,
+                                   self.current_tok.pos_end,
+                                   "Expected int,float,identifier"))
+        return res.success(node)
 
     def list_expression(self):
         """

@@ -28,7 +28,7 @@ Below is the complete grammar definition:
 ```grammar
 multiline: NEWLINE* (singleline)* (NEWLINE* (singleline))* NEWLINE*
 
-singleline: expression | statements | if-expression | for-expression | while-expression | switch-statement | function-definition
+singleline: function-call | statements | if-expression | for-expression | while-expression | switch-statement | function-definition
 
 yield-statement: KEYWORD:yield expression
 
@@ -42,7 +42,7 @@ case-statement: KEYWORD:choice ternary-expression LPAREN2 ((expression | stateme
 
 default-statement: KEYWORD:fallback LPAREN2 ((expression | statements) RPAREN2) | (NEWLINE multiline RPAREN2)
 
-expression: jump-statements | ternary-expression
+expression: ternary-expression
 
 ternary-expression: (logical-expression | statements) (QUESTION ternary-expression COLON ternary-expression)*
 
