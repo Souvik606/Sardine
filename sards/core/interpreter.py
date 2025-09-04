@@ -15,6 +15,7 @@ from .constants import (T_PLUS, T_MINUS, T_MUL, T_DIVIDE, T_MODULUS, T_FLOOR, T_
                         T_NEQ, T_GT, T_GTE, T_LT, T_LTE, T_KEYWORD)
 from .error import RunTimeError
 
+
 class Context: # pylint: disable=R0903
     """
     Represents the execution context of a program.
@@ -351,8 +352,8 @@ class Interpreter:
 
         for index in node.index_node:
             index_val=res.register(self.visit(index,context))
+            if res.error:return res
             indexes.append(index_val)
-
         if not indexes:
             value = value.copy().set_pos(node.pos_start, node.pos_end).set_context(context)
             return res.success(value)
@@ -364,36 +365,52 @@ class Interpreter:
 
     def visit_VariableAssignNode(self, node, context):
         res = RunTimeResult()
-        var_name = node.var_name_tok.value
-        indexes=[]
 
-        for index in node.index_node:
-            index_val=res.register(self.visit(index,context))
-            indexes.append(index_val)
+        for var_tok, value_node, indexes in zip(node.var_name_toks, node.value_nodes, node.index_nodes):
+            var_name = var_tok.value
+            indexes_vals = []
 
-        value = res.register(self.visit(node.value_node, context))
-        if res.should_return():
-            return res
-        
-        if indexes:
-            list_value = context.symbol_table.get(var_name)
-            
-            if list_value is None:
-                return (res.failure(
-                    RunTimeError(node.pos_start,
-                                node.pos_end,
-                                f"'{var_name}' is not defined",
-                                context)))
-            
-            list_value,error=list_value.assignIndex(indexes,value)
-            if error:return res.failure(error)
+            # --- Resolve indexes (if any)
+            if indexes:
+                for index in indexes:
+                    index_val = res.register(self.visit(index, context))
+                    if res.should_return():
+                        return res
+                    indexes_vals.append(index_val)
 
-        if not indexes:
-            context.symbol_table.set(var_name, value)
-            return res.success(value)
-        else:
-            context.symbol_table.set(var_name, list_value)
-            return res.success(list_value)
+            # --- Evaluate value expression
+            value = res.register(self.visit(value_node, context))
+            if res.should_return():
+                return res
+
+            # --- Assignment logic
+            if indexes_vals:
+                # Indexed assignment
+                list_value = context.symbol_table.get(var_name)
+
+                if list_value is None:
+                    return res.failure(
+                        RunTimeError(
+                            var_tok.pos_start,
+                            value_node.pos_end,
+                            f"'{var_name}' is not defined",
+                            context
+                        )
+                    )
+
+                list_value, error = list_value.assignIndex(indexes_vals, value)
+                if error:
+                    return res.failure(error)
+
+                context.symbol_table.set(var_name, list_value)
+                last_result = list_value
+
+            else:
+                # Simple assignment
+                context.symbol_table.set(var_name, value)
+                last_result = value
+
+        return res.success(last_result)
 
     def visit_NumberNode(self, node, context):
         return RunTimeResult().success(
