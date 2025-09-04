@@ -22,3 +22,6 @@ class WhileNode:
         self.pos_start = self.condition_node.pos_start
         self.pos_end = self.body_node.pos_end
         self.return_null = return_null
+
+    def __repr__(self):
+        return f'{self.condition_node}:{self.body_node}'

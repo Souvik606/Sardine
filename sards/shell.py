@@ -101,40 +101,38 @@ def run_file(filepath):
     Returns:
     - None: Prints results or errors directly.
     """
-    try:
         # Check if file exists
-        if not os.path.exists(filepath):
-            print(f"Error: File '{filepath}' not found.")
-            return
-            
-        # Read the file content
-        with open(filepath, 'r', encoding='utf-8') as file:
-            file_content = file.read()
-            
-        # Execute the file content
-        result, errors = run(filepath, file_content)
-        
-        # Print errors if encountered, otherwise display the result
-        if errors:
-            print(f"Error in {filepath}:")
-            print(errors.to_string())
-        else:
-            if result is not None:
-                print(result)
-                
-    except Exception as e:
-        print(f"Error reading file '{filepath}': {e}")
+    if not os.path.exists(filepath):
+        print(f"Error: File '{filepath}' not found.")
+        return
+
+    # Read the file content
+    with open(filepath, 'r', encoding='utf-8') as file:
+        file_content = file.read()
+
+    # Execute the file content
+    result, errors = run(filepath, file_content)
+
+    # Print errors if encountered, otherwise display the result
+    if errors:
+        print(f"Error in {filepath}:")
+        print(errors.to_string())
+    else:
+        if result is not None:
+            print(result)
 
 choice = input('Enter 0 for REPL mode and 1 for file input: ')
 if choice == '0':
+    # REPL (Read-Eval-Print Loop) for continuous user interaction
     while True:
         try:
-            text = input('code > ')
+            text = input('code > ') # Prompt user for an expression
             if text.lower() in ['exit', 'quit']:
                 print("Goodbye!")
                 break
             result, errors = run('<stdin>', text)
 
+            # Print errors if encountered, otherwise display the AST
             if errors:
                 print(errors.to_string())
             else:
