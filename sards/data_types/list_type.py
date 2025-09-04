@@ -258,7 +258,13 @@ class List:
         return f'[{", ".join([str(x) for x in self.elements])}]'
 
     def copy(self):
-        copy = List(self.elements)
+        copy_elements = []
+        for element in self.elements:
+            if hasattr(element, 'copy'):
+                copy_elements.append(element.copy())
+            else:
+                copy_elements.append(element)
+        copy = List(copy_elements)
         copy.set_pos(self.pos_start, self.pos_end)
         copy.set_context(self.context)
         return copy
