@@ -28,11 +28,9 @@ Below is the complete grammar definition:
 ```grammar
 multiline: NEWLINE* (singleline)* (NEWLINE* (singleline))* NEWLINE*
 
-singleline: function-call | statements | if-expression | for-expression | while-expression | switch-statement | function-definition
+singleline: function-call | statements | if-expression | for-expression | while-expression | switch-statement | function-definition |exception-handling
 
-yield-statement: KEYWORD:yield expression
-
-jump-statements: KEYWORD:proceed | KEYWORD:escape
+jump-statements: KEYWORD:proceed | KEYWORD:escape |KEYWORD:yield expression 
 
 statements: IDENTIFIER (LPAREN3 expression RPAREN3)* (COMMA IDENTIFIER (LPAREN3 expression RPAREN3)*)* EQUAL expression (COMMA expression)*
 
@@ -63,6 +61,14 @@ factor: INT | FLOAT | STRING | IDENTIFIER (LPAREN3 expression RPAREN3)* | LPAREN
 function-call: IDENTIFIER LPAREN (expression(COMMA expression)*)? RPAREN
 
 list-expression: LPAREN3 (expression(COMMA expression)*)? RPAREN3
+
+exception-handling: try-expression ( trap-block (trap-block)* clean-block? | clean-block)
+
+try-expression: KEYWORD:risk LPAREN2 multiline RPAREN2
+
+catch-expression: KEYWORD:trap (ERROR (IDENTIFIER)?)? LPAREN2 multiline RPAREN2
+
+finally-expression: KEYWORD:clean LPAREN2 multiline RPAREN2
 
 while-expression: KEYWORD:whenever expression LPAREN2 (multiline | jump-statements)* RPAREN2
 

@@ -1,9 +1,9 @@
-a=[[1,2,3],[4,5,6],[7,8,9]]
-
-Cycle i=0:2{
-    Cycle j=0:2{
-       a[i][j]=a[i][j]*2
-    }
+risk{
+    a = 10 / 0
 }
-
-show(a)
+heal RunTimeError e {
+    show(e)
+}
+clean{
+    show("cleanup")
+}

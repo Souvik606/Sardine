@@ -17,6 +17,7 @@ T_FLOAT = 'FLOAT'  # Floating-point number token
 T_STRING = 'STRING'
 T_IDENTIFIER = 'IDENTIFIER'  # Identifier token
 T_KEYWORD = 'KEYWORD'
+T_ERROR='ERROR'
 T_PLUS = 'PLUS'  # Addition operator (+)
 T_MINUS = 'MINUS'  # Subtraction operator (-)
 T_MUL = 'MUL'  # Multiplication operator (*)
@@ -47,4 +48,7 @@ T_QUESTION = 'QUESTION'
 # Keywords list
 
 KEYWORDS = ['define', 'and', 'or', 'not', 'when', 'orwhen', 'otherwise', 'Cycle', 'whenever',
-            'method', 'yield', 'escape', 'proceed', 'menu', 'choice', 'fallback']
+            'method', 'yield', 'escape', 'proceed', 'menu', 'choice', 'fallback','risk','trap','clean']
+
+ERROR_TYPES=['RunTimeError','IllegalOperationError','DivisionByZeroError','IndexOutOfBoundsError',
+             'NameError','ArgumentError']
