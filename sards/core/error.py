@@ -240,3 +240,12 @@ class ArgumentError(RuntimeError):
     def __init__(self, pos_start, pos_end, details, context):
         super().__init__(pos_start, pos_end, details, context)
         self.error_name = "ArgumentError"
+
+class NotImplementedError(RuntimeError):
+    """
+    Error for function call argument mismatches.
+    Example: myFunc(1, 2, 3) when definition is myFunc(a, b).
+    """
+    def __init__(self, pos_start, pos_end, details, context):
+        super().__init__(pos_start, pos_end, details, context)
+        self.error_name = "NotImplementedError"

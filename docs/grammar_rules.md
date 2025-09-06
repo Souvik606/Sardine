@@ -62,13 +62,14 @@ function-call: IDENTIFIER LPAREN (expression(COMMA expression)*)? RPAREN
 
 list-expression: LPAREN3 (expression(COMMA expression)*)? RPAREN3
 
-exception-handling: try-expression ( trap-block (trap-block)* clean-block? | clean-block)
+exception-handling: try-expression NEWLINE* ( trap-block NEWLINE* (trap-block)* NEWLINE* clean-block? | clean-block)
 
-try-expression: KEYWORD:risk LPAREN2 multiline RPAREN2
 
-catch-expression: KEYWORD:trap (ERROR (IDENTIFIER)?)? LPAREN2 multiline RPAREN2
+try-expression: KEYWORD:risk LPAREN2 (multiline | jump-statements)* RPAREN2
 
-finally-expression: KEYWORD:clean LPAREN2 multiline RPAREN2
+catch-expression: KEYWORD:trap (ERROR (IDENTIFIER)?)? LPAREN2 (multiline | jump-statements)* RPAREN2
+
+finally-expression: KEYWORD:clean LPAREN2 (multiline | jump-statements)* RPAREN2
 
 while-expression: KEYWORD:whenever expression LPAREN2 (multiline | jump-statements)* RPAREN2
 

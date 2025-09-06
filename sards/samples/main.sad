@@ -1,9 +1,7 @@
 risk{
     a = 10 / 0
-}
-heal RunTimeError e {
+}trap RunTimeError e {
     show(e)
-}
-clean{
+}clean{
     show("cleanup")
 }
