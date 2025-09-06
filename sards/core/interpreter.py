@@ -13,7 +13,7 @@ Classes:
 from sards.data_types import Number, String, List
 from .constants import (T_PLUS, T_MINUS, T_MUL, T_DIVIDE, T_MODULUS, T_FLOOR, T_EXP, T_EE,
                         T_NEQ, T_GT, T_GTE, T_LT, T_LTE, T_KEYWORD)
-from .error import RunTimeError
+from .error import NameError
 
 
 class Context: # pylint: disable=R0903
@@ -343,7 +343,7 @@ class Interpreter:
 
         if value is None:
             return (res.failure(
-                RunTimeError(node.pos_start,
+                NameError(node.pos_start,
                              node.pos_end,
                              f"'{var_name}' is not defined",
                              context)))
@@ -390,7 +390,7 @@ class Interpreter:
 
                 if list_value is None:
                     return res.failure(
-                        RunTimeError(
+                        NameError(
                             var_tok.pos_start,
                             value_node.pos_end,
                             f"'{var_name}' is not defined",

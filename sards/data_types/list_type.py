@@ -1,6 +1,7 @@
 from .number_type import Number
 from .string_type import String
-from sards.core.error import RunTimeError, IllegalOperationError
+from sards.core.error import RunTimeError, IllegalOperationError, IndexOutOfBoundsError
+
 
 class ListNode:
     def __init__(self, element_nodes, pos_start, pos_end):
@@ -46,7 +47,7 @@ class List:
                 new_list.elements.pop(operand.value)
                 return new_list, None
             except:
-                return None, RunTimeError(operand.pos_start, operand.pos_end,
+                return None, IndexOutOfBoundsError(operand.pos_start, operand.pos_end,
                                           'Index out of bounds', self.context)
         else: return None, IllegalOperationError(
                     operand.pos_start, operand.pos_end, 'Index must be of an integer Number type')
@@ -103,7 +104,7 @@ class List:
     def get_comparison_neq(self, operand):
         if isinstance(operand, List):
             new_list = self.copy()
-            return Number(int(not(new_list.get_comparison_eq(operand)[0].value))).set_context(self.context), None
+            return Number(int(not new_list.get_comparison_eq(operand)[0].value)).set_context(self.context), None
         else: return None, IllegalOperationError(
                     operand.pos_start, operand.pos_end, 'Expected a List')
 
@@ -145,13 +146,13 @@ class List:
                     elif isinstance(temp, String):
                         temp = String(temp.value[idx.value]).set_context(self.context)
                     else:
-                        return None, RunTimeError(
+                        return None, IllegalOperationError(
                             idx.pos_start, idx.pos_end,
                             "Can't index a data type which is not iterable",
                             self.context
                         )
                 else:
-                    return None, RunTimeError(
+                    return None, IllegalOperationError(
                         idx.pos_start, idx.pos_end,
                         "Invalid Index Type",
                         self.context
@@ -161,7 +162,7 @@ class List:
 
         except IndexError:
             bad_idx = indexes[-1]
-            return None, RunTimeError(
+            return None, IndexOutOfBoundsError(
                 bad_idx.pos_start, bad_idx.pos_end,
                 "Index out of bounds",
                 self.context
@@ -176,19 +177,19 @@ class List:
                     if isinstance(temp, List):
                         temp = temp.elements[idx.value]
                     elif isinstance(temp, String):
-                        return None, RunTimeError(
+                        return None, IllegalOperationError(
                             idx.pos_start, idx.pos_end,
                             "Can't assign inside string beyond one level",
                             self.context
                         )
                     else:
-                        return None, RunTimeError(
+                        return None, IllegalOperationError(
                             idx.pos_start, idx.pos_end,
                             "Can't index a data type which is not iterable",
                             self.context
                         )
                 else:
-                    return None, RunTimeError(
+                    return None, IllegalOperationError(
                         idx.pos_start, idx.pos_end,
                         "Invalid Index Type",
                         self.context
@@ -196,7 +197,7 @@ class List:
 
             last_idx = indexes[-1]
             if not isinstance(last_idx, Number) or isinstance(last_idx.value, float):
-                return None, RunTimeError(
+                return None, IllegalOperationError(
                     last_idx.pos_start, last_idx.pos_end,
                     "Invalid Index Type",
                     self.context
@@ -210,7 +211,7 @@ class List:
             # Case 2: assigning inside a String
             elif isinstance(temp, String):
                 if not isinstance(val, String) or len(val.value) != 1:
-                    return None, RunTimeError(
+                    return None, IllegalOperationError(
                         getattr(val, "pos_start", None),
                         getattr(val, "pos_end", None),
                         "Assigned value must be a single character string",
@@ -230,14 +231,14 @@ class List:
                     return new_list, None
 
                 except IndexError:
-                    return None, RunTimeError(
+                    return None, IndexOutOfBoundsError(
                         last_idx.pos_start, last_idx.pos_end,
                         "Index out of bounds",
                         self.context
                     )
 
             else:
-                return None, RunTimeError(
+                return None, IllegalOperationError(
                     last_idx.pos_start, last_idx.pos_end,
                     "Can't index a data type which is not iterable",
                     self.context
@@ -245,7 +246,7 @@ class List:
 
         except IndexError:
             bad_idx = indexes[-1]
-            return None, RunTimeError(
+            return None, IndexOutOfBoundsError(
                 bad_idx.pos_start, bad_idx.pos_end,
                 "Index out of bounds",
                 self.context

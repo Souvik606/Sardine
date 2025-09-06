@@ -9,7 +9,8 @@ Classes:
 """
 
 from sards.ast_nodes import SymbolTable
-from sards.core import RunTimeResult, RunTimeError, Interpreter
+from sards.core import RunTimeResult, Interpreter
+from sards.core.error import ArgumentError
 from sards.data_types import Number, String, List
 
 
@@ -84,13 +85,13 @@ class BaseFunction:
 
         if len(args) > len(arg_names):
             return res.failure(
-                RunTimeError(self.pos_start, self.pos_end,
+                ArgumentError(self.pos_start, self.pos_end,
                     f"{len(args) - len(arg_names)} too many args passed into '{self.name}'",
                     self.context))
 
         if len(args) < len(arg_names):
             return res.failure(
-                RunTimeError(self.pos_start, self.pos_end,
+                ArgumentError(self.pos_start, self.pos_end,
                     f"{len(arg_names) - len(args)} too few args passed into '{self.name}'",
                     self.context))
         return res.success(None)
