@@ -28,13 +28,15 @@ Below is the complete grammar definition:
 ```grammar
 multiline: NEWLINE* (singleline)* (NEWLINE* (singleline))* NEWLINE*
 
-singleline: function-call | statements | if-expression | for-expression | while-expression | switch-statement | function-definition
+singleline: function-call | statements | if-expression | for-expression | while-expression | switch-statement | function-definition | augmented-statement
 
 yield-statement: KEYWORD:yield expression
 
 jump-statements: KEYWORD:proceed | KEYWORD:escape
 
 statements: IDENTIFIER (LPAREN3 expression RPAREN3)* (COMMA IDENTIFIER (LPAREN3 expression RPAREN3)*)* EQUAL expression (COMMA expression)*
+
+augmented-statement: IDENTIFIER (LPAREN3 expression RPAREN3)* (COMMA IDENTIFIER (LPAREN3 expression RPAREN3)*)* (PLUSEQUAL | MINUSEQUAL | MULEQUAL | DIVEQUAL | MODEQUAL | FLOOREQUAL) expression (COMMA expression)*
 
 switch-statement: KEYWORD:menu ternary-expression LPAREN2 NEWLINE* (case-statement* NEWLINE*)* default-statement? NEWLINE* (case-statement* NEWLINE*)* RPAREN2
 
@@ -52,7 +54,7 @@ comp-expression: KEYWORD:NOT comp-expression | arith-expression ((EE | NEQ | LT 
 
 arith-expression: term ((PLUS | MINUS) term)*
 
-term: unary ((MUL | DIV | MODULUS | FLOOR_DIV) unary)*
+term: unary ((MUL | DIV | MOD | FLOOR) unary)*
 
 unary: (PLUS | MINUS) unary | exponent
 

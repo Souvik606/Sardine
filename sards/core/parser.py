@@ -30,6 +30,7 @@ from sards.ast_nodes import *
 from sards.data_types import ListNode, StringNode
 from .constants import *
 from .error import InvalidSyntaxError
+from .lexer import Token
 
 class ParseResult:
     """Stores the result of a parsing operation, including errors and the parsed node."""
@@ -1363,6 +1364,106 @@ class Parser: # pylint: disable=R0904
             )
 
         return res.success(VariableAssignNode(var_name_toks, value_nodes, index_nodes))
+
+    def augmented_statements(self):
+        """
+        augmented-statements:
+            IDENTIFIER (LPAREN3 expression RPAREN3)*
+            (COMMA IDENTIFIER (LPAREN3 expression RPAREN3)*)*
+            (PLUSEQUAL | MINUSEQUAL | MULEQUAL | DIVEQUAL | MODEQUAL | FLOOREQUAL | EXPEQUAL) expression (COMMA expression)*
+        """
+        res = ParseResult()
+
+        var_name_toks = []
+        index_nodes = []
+        value_nodes = []
+
+        # --- Parse LHS (variables and optional indices)
+        while True:
+            if self.current_tok.type != T_IDENTIFIER:
+                return res.failure(
+                    InvalidSyntaxError(
+                        self.current_tok.pos_start,
+                        self.current_tok.pos_end,
+                        "Expected identifier"
+                    )
+                )
+
+            var_name_toks.append(self.current_tok)
+            res.register_advancement()
+            self.advance()
+
+            indices = []
+            while self.current_tok and self.current_tok.type == T_LPAREN3:
+                res.register_advancement()
+                self.advance()
+
+                expr = res.register(self.expression())
+                if res.error:
+                    return res
+                indices.append(expr)
+
+                if self.current_tok.type != T_RPAREN3:
+                    return res.failure(
+                        InvalidSyntaxError(
+                            self.current_tok.pos_start,
+                            self.current_tok.pos_end,
+                            "Expected ')'"
+                        )
+                    )
+                res.register_advancement()
+                self.advance()
+
+            index_nodes.append(indices if indices else None)
+
+            if self.current_tok.type != T_COMMA:
+                break
+            res.register_advancement()
+            self.advance()
+
+        # --- Expect augmented assignment operator
+        if self.current_tok.type not in (T_PLUSEQUAL, T_MINUSEQUAL, T_MULEQUAL, T_DIVIDEEQUAL, T_MODULUSEQUAL, T_FLOOREQUAL, T_EXPEQUAL):
+            return res.failure(
+                InvalidSyntaxError(
+                    self.current_tok.pos_start,
+                    self.current_tok.pos_end,
+                    "Expected '+=' or '-=' or '*=' or '/=' or '%=' or '//=' or '**='"
+                )
+            )
+        operator = Token(
+            self.current_tok.type.replace('EQUAL', ''),  # Remove 'EQUAL' from token type
+            pos_start=self.current_tok.pos_start,
+            pos_end=self.current_tok.pos_end
+        )
+        res.register_advancement()
+        self.advance()
+
+        # --- Parse RHS (expressions)
+        idx = 0
+        while True:
+            expr = res.register(self.expression())
+            if res.error:
+                return res
+            if var_name_toks[idx]:
+                value_nodes.append(BinaryOperationNode(left_node=VariableUseNode(var_name_tok=var_name_toks[idx], index_node=index_nodes[idx]), operator=operator, right_node=expr))
+            idx+=1
+
+            if self.current_tok.type != T_COMMA:
+                break
+            res.register_advancement()
+            self.advance()
+
+        if len(var_name_toks) != len(value_nodes):
+            return res.failure(
+                InvalidSyntaxError(
+                    var_name_toks[0].pos_start,
+                    value_nodes[-1].pos_end,
+                    f"Mismatched assignment count: {len(var_name_toks)} variables, {len(value_nodes)} values"
+                )
+            )
+
+        return res.success(VariableAssignNode(var_name_toks, value_nodes, index_nodes))
+
 
     def jump_statements(self):
         res = ParseResult()
