@@ -64,7 +64,6 @@ list-expression: LPAREN3 (expression(COMMA expression)*)? RPAREN3
 
 exception-handling: try-expression NEWLINE* ( trap-block NEWLINE* (trap-block)* NEWLINE* clean-block? | clean-block)
 
-
 try-expression: KEYWORD:risk LPAREN2 (multiline | jump-statements)* RPAREN2
 
 catch-expression: KEYWORD:trap (ERROR (IDENTIFIER)?)? LPAREN2 (multiline | jump-statements)* RPAREN2

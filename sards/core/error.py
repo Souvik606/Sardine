@@ -249,3 +249,12 @@ class NotImplementedError(RuntimeError):
     def __init__(self, pos_start, pos_end, details, context):
         super().__init__(pos_start, pos_end, details, context)
         self.error_name = "NotImplementedError"
+
+class InvalidErrorTypeError(RunTimeError):
+    """
+    Error raised when a 'trap' block specifies an invalid or unsupported error type.
+    Example: trap UnknownError e { ... }
+    """
+    def __init__(self, pos_start, pos_end, details, context):
+        super().__init__(pos_start, pos_end, details, context)
+        self.error_name = "InvalidErrorTypeError"

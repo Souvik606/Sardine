@@ -1,7 +1,13 @@
 risk{
-    a = 10 / 0
-}trap RunTimeError e {
-    show(e)
+    risk{
+        a = [1,2,3,4]
+        b[2]=4
+    }
+    trap NameError n{
+        show(n)
+    }
+}trap{
+    show("Error")
 }clean{
     show("cleanup")
 }

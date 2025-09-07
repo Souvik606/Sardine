@@ -51,4 +51,4 @@ KEYWORDS = ['define', 'and', 'or', 'not', 'when', 'orwhen', 'otherwise', 'Cycle'
             'method', 'yield', 'escape', 'proceed', 'menu', 'choice', 'fallback','risk','trap','clean']
 
 ERROR_TYPES=['RunTimeError','IllegalOperationError','DivisionByZeroError','IndexOutOfBoundsError',
-             'NameError','ArgumentError']
+             'NameError','ArgumentError','InvalidErrorTypeError']
