@@ -12,8 +12,21 @@ Classes:
 
 from sards.data_types import Number, String, List, Dict
 from .constants import (T_PLUS, T_MINUS, T_MUL, T_DIVIDE, T_MODULUS, T_FLOOR, T_EXP, T_EE,
-                        T_NEQ, T_GT, T_GTE, T_LT, T_LTE, T_KEYWORD)
-from .error import RunTimeError
+                        T_NEQ, T_GT, T_GTE, T_LT, T_LTE, T_KEYWORD, ERROR_TYPES)
+from .error import NameError, NotImplementedError, InvalidErrorTypeError, RunTimeError, IllegalOperationError, \
+    IndexOutOfBoundsError, ArgumentError, DivisionByZeroError
+from sards.ast_nodes import SymbolTable
+
+ERROR_CLASS_MAP = {
+    "RunTimeError": RunTimeError,
+    "IllegalOperationError": IllegalOperationError,
+    "DivisionByZeroError": DivisionByZeroError,
+    "IndexOutOfBoundsError": IndexOutOfBoundsError,
+    "NameError": NameError,
+    "ArgumentError": ArgumentError,
+    "NotImplementedError": NotImplementedError,
+    "InvalidErrorTypeError":InvalidErrorTypeError
+}
 
 
 class Context: # pylint: disable=R0903
@@ -136,7 +149,78 @@ class Interpreter:
         Raises:
         - Exception: Indicates that the node type is unsupported.
         """
-        raise NotImplementedError(f'No visit_{type(node).__name__} method defined')
+        return RunTimeResult().failure(NotImplementedError(node.pos_end,node.pos_end,f'No visit_{type(node).__name__} method defined',context))
+
+    def visit_TryNode(self, node, context):
+        res = RunTimeResult()
+
+        try_result = res.register(self.visit(node.body_node, context))
+
+        # If no error, return normally
+        if not res.error:
+            if node.clean_node:
+                res.register(self.visit(node.clean_node.body_node, context))
+                if res.should_return(): return res
+            return res.success(try_result)
+
+        # -------------------------------
+        # Handle runtime errors
+        # -------------------------------
+        error = res.error
+        handled = False
+
+        for trap_node in node.trap_nodes:
+            # Validate error type
+            if trap_node.error_type and trap_node.error_type.value not in ERROR_CLASS_MAP:
+                return res.failure(
+                    InvalidErrorTypeError(
+                        trap_node.pos_start, trap_node.pos_end,
+                        f"'{trap_node.error_type}' is not a valid error type",
+                        context
+                    )
+                )
+
+            matches = False
+            if trap_node.error_type is None:
+                matches = True
+            else:
+                caught_cls = ERROR_CLASS_MAP[trap_node.error_type.value]
+                actual_cls = type(error)
+                if issubclass(actual_cls, caught_cls):
+                    matches = True
+
+            # Match error (type check or wildcard)
+            if matches:
+                # Create a fresh context for the trap block
+                trap_context = Context("<trap block>", context, trap_node.pos_start)
+                trap_context.symbol_table = SymbolTable(parent=context.symbol_table)
+
+                # Bind error variable if provided
+                if trap_node.error_name:
+                    trap_context.symbol_table.set(
+                        trap_node.error_name.value,
+                        String(error.to_string())
+                        .set_pos(trap_node.pos_start, trap_node.pos_end)
+                        .set_context(trap_context)
+                    )
+
+                # Run the trap body
+                trap_result = res.register(self.visit(trap_node.body_node, trap_context))
+                if res.should_return():
+                    return res
+                handled = True
+                break
+
+        # Always run clean if exists
+        if node.clean_node:
+            res.register(self.visit(node.clean_node.body_node, context))
+            if res.should_return(): return res
+
+        if handled:
+            return res.success(None)
+
+        # If not handled -> propagate error
+        return res.failure(error)
 
     def visit_ListNode(self, node, context):
         res = RunTimeResult()
@@ -373,7 +457,7 @@ class Interpreter:
 
         if value is None:
             return (res.failure(
-                RunTimeError(node.pos_start,
+                NameError(node.pos_start,
                              node.pos_end,
                              f"'{var_name}' is not defined",
                              context)))
@@ -420,7 +504,7 @@ class Interpreter:
 
                 if list_value is None:
                     return res.failure(
-                        RunTimeError(
+                        NameError(
                             var_tok.pos_start,
                             value_node.pos_end,
                             f"'{var_name}' is not defined",

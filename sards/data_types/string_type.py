@@ -1,5 +1,6 @@
 from .number_type import *
-from sards.core.error import RunTimeError, IllegalOperationError
+from sards.core.error import RunTimeError, IllegalOperationError, IndexOutOfBoundsError
+
 
 class StringNode:
     def __init__(self, token):
@@ -30,83 +31,83 @@ class String:
         if isinstance(operand, String):
             return String(self.value + operand.value).set_context(self.context), None
         else: return None, IllegalOperationError(
-                    operand.pos_start, operand.pos_end, 'Expected a String type')
+                    operand.pos_start, operand.pos_end, 'Expected a String type', self.context)
 
     def subtract(self, operand):
         return None, IllegalOperationError(
-                self.pos_start, self.pos_end, 'Cannot apply \'-\' to a String type')
+                self.pos_start, self.pos_end, 'Cannot apply \'-\' to a String type', self.context)
 
     def multiply(self, operand):
         if isinstance(operand, Number) and not isinstance(operand.value, float):
             return String(self.value * operand.value).set_context(self.context), None
         else: return None, IllegalOperationError(
-                    operand.pos_start, operand.pos_end, 'Expected an integer Number type')
+                    operand.pos_start, operand.pos_end, 'Expected an integer Number type', self.context)
 
     def divide(self, operand):
         return None, IllegalOperationError(
-                self.pos_start, self.pos_end, 'Cannot apply \'/\' to a String type')
+                self.pos_start, self.pos_end, 'Cannot apply \'/\' to a String type', self.context)
 
     def modulus(self, operand):
         return None, IllegalOperationError(
-                self.pos_start, self.pos_end, 'Cannot apply \'%\' to a String type')
+                self.pos_start, self.pos_end, 'Cannot apply \'%\' to a String type', self.context)
 
     def floor_divide(self, operand):
         return None, IllegalOperationError(
-                self.pos_start, self.pos_end, 'Cannot apply \'//\' to a String type')
+                self.pos_start, self.pos_end, 'Cannot apply \'//\' to a String type', self.context)
 
     def exponent(self, operand):
         return None, IllegalOperationError(
-                self.pos_start, self.pos_end, 'Cannot apply \'**\' to a String type')
+                self.pos_start, self.pos_end, 'Cannot apply \'**\' to a String type', self.context)
 
     def get_comparison_eq(self, operand):
         if isinstance(operand, String):
             return Number(int(self.value == operand.value)).set_context(self.context), None
         else: return None, IllegalOperationError(
-                    operand.pos_start, operand.pos_end, 'Expected a String type')
+                    operand.pos_start, operand.pos_end, 'Expected a String type', self.context)
 
     def get_comparison_neq(self, operand):
         if isinstance(operand, String):
             return Number(int(self.value != operand.value)).set_context(self.context), None
         else: return None, IllegalOperationError(
-                    operand.pos_start, operand.pos_end, 'Expected a String type')
+                    operand.pos_start, operand.pos_end, 'Expected a String type', self.context)
 
     def get_comparison_lte(self, operand):
         if isinstance(operand, String):
             return Number(int(self.value <= operand.value)).set_context(self.context), None
         else: return None, IllegalOperationError(
-                    operand.pos_start, operand.pos_end, 'Expected a String type')
+                    operand.pos_start, operand.pos_end, 'Expected a String type', self.context)
 
     def get_comparison_lt(self, operand):
         if isinstance(operand, String):
             return Number(int(self.value < operand.value)).set_context(self.context), None
         else: return None, IllegalOperationError(
-                    operand.pos_start, operand.pos_end, 'Expected a String type')
+                    operand.pos_start, operand.pos_end, 'Expected a String type', self.context)
 
     def get_comparison_gte(self, operand):
         if isinstance(operand, String):
             return Number(int(self.value >= operand.value)).set_context(self.context), None
         else: return None, IllegalOperationError(
-                    operand.pos_start, operand.pos_end, 'Expected a String type')
+                    operand.pos_start, operand.pos_end, 'Expected a String type', self.context)
 
     def get_comparison_gt(self, operand):
         if isinstance(operand, String):
             return Number(int(self.value > operand.value)).set_context(self.context), None
         else: return None, IllegalOperationError(
-                    operand.pos_start, operand.pos_end, 'Expected a String type')
+                    operand.pos_start, operand.pos_end, 'Expected a String type', self.context)
 
     def and_by(self, operand):
         if isinstance(operand, String):
             return (Number(int(self.value and operand.value)).set_context(self.context),
                     None)
         else: return None, IllegalOperationError(
-                    operand.pos_start, operand.pos_end, 'Expected a String type')
+                    operand.pos_start, operand.pos_end, 'Expected a String type', self.context)
 
     def or_by(self, operand):
         if isinstance(operand, String):
             return (Number(int(self.value or operand.value)).set_context(self.context),
                     None)
         else: return None, IllegalOperationError(
-                    operand.pos_start, operand.pos_end, 'Expected a String type')
+                    operand.pos_start, operand.pos_end, 'Expected a String type', self.context)
 
     def not_by(self):
         return Number(int(not self.value)).set_context(self.context), None
@@ -120,14 +121,14 @@ class String:
             for idx in indexes:
                 if isinstance(idx, Number) and not isinstance(idx.value, float):
                     if not isinstance(temp, str):
-                        return None, RunTimeError(
+                        return None, IllegalOperationError(
                             idx.pos_start, idx.pos_end,
                             "Can't index a non-string value",
                             self.context
                         )
                     temp = temp[idx.value]
                 else:
-                    return None, RunTimeError(
+                    return None, IllegalOperationError(
                         idx.pos_start, idx.pos_end,
                         "Invalid Index Type",
                         self.context
@@ -135,7 +136,7 @@ class String:
             return String(temp).set_context(self.context), None
         except IndexError:
             bad_idx = indexes[-1]
-            return None, RunTimeError(
+            return None, IndexOutOfBoundsError(
                 bad_idx.pos_start, bad_idx.pos_end,
                 "Index out of bounds",
                 self.context
@@ -143,7 +144,7 @@ class String:
 
     def assignIndex(self, indexes, val):
         if not isinstance(val, String) or len(val.value) != 1:
-            return None, RunTimeError(
+            return None, IllegalOperationError(
                 getattr(val, "pos_start", None),
                 getattr(val, "pos_end", None),
                 "Assigned value must be a single character string",
@@ -154,13 +155,13 @@ class String:
             s = list(self.value)
             for idx in indexes[:-1]:
                 if not isinstance(idx, Number) or isinstance(idx.value, float):
-                    return None, RunTimeError(
+                    return None, IllegalOperationError(
                         idx.pos_start, idx.pos_end,
                         "Invalid Index Type",
                         self.context
                     )
                 
-                return None, RunTimeError(
+                return None, IllegalOperationError(
                     idx.pos_start, idx.pos_end,
                     "Can't index beyond one dimension in string",
                     self.context
@@ -178,7 +179,7 @@ class String:
                 s[last_idx.value] = val.value
                 return String("".join(s)).set_context(self.context), None
             except IndexError:
-                return None, RunTimeError(
+                return None, IndexOutOfBoundsError(
                     last_idx.pos_start, last_idx.pos_end,
                     "Index out of bounds",
                     self.context
