@@ -132,16 +132,6 @@ class ExpectedCharError(BaseError):
     def __init__(self, pos_start, pos_end, details=''):
         super().__init__(pos_start, pos_end, "Expected Character", details)
 
-class DictKeyError(BaseError): # pylint: disable=too-few-public-methods
-    """
-    Handles errors caused by non-existent dictionary keys or invalid key types. 
-
-    Inherits from:
-    - Error
-    """
-    def __init__(self,pos_start,pos_end,details):
-        super().__init__(pos_start,pos_end,'Dictionary Key Error',details)
-
 # ------------------------------
 # RUNTIME ERRORS
 # ------------------------------
@@ -267,3 +257,12 @@ class InvalidErrorTypeError(RunTimeError):
     def __init__(self, pos_start, pos_end, details, context):
         super().__init__(pos_start, pos_end, details, context)
         self.error_name = "InvalidErrorTypeError"
+
+class DictKeyError(RunTimeError):
+    """
+    Error raised when a 'trap' block specifies an invalid or unsupported error type.
+    Example: trap UnknownError e { ... }
+    """
+    def __init__(self, pos_start, pos_end, details, context):
+        super().__init__(pos_start, pos_end, details, context)
+        self.error_name = "DictKeyError"

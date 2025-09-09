@@ -246,7 +246,7 @@ class Interpreter:
                 
             if not isinstance(key, (Number, String)):
                 return res.failure(
-                    RunTimeError(
+                    IllegalOperationError(
                         key_node.pos_start,
                         key_node.pos_end,
                         "Dictionary keys must be numbers or strings",

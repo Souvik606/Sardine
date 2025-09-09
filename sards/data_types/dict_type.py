@@ -14,14 +14,11 @@ class DictNode:
     
 class Dict:
     def __init__(self, elements):
+        self.pos_end = None
+        self.context = None
+        self.pos_start = None
         self.elements = {}
         for key, value in elements:
-            if not isinstance(key, (Number, String)):
-                raise IllegalOperationError(
-                    key.pos_start, 
-                    key.pos_end,
-                    'Dictionary keys must be numbers or strings'
-                )
             self.elements[key.value] = value
             
         self.set_pos()
@@ -62,12 +59,14 @@ class Dict:
                         if temp is None:
                             return None, DictKeyError(
                                 idx.pos_start, idx.pos_end,
-                                "Key does not exist"
+                                "Key does not exist",
+                                self.context
                             )
                     else:
                         return None, DictKeyError(
                             idx.pos_start, idx.pos_end,
-                            "Dictionary keys must be numbers or strings"
+                            "Dictionary keys must be numbers or strings",
+                            self.context
                         )
                 elif isinstance(idx, Number) and not isinstance(idx.value, float):
                     if isinstance(temp, List):
@@ -109,12 +108,14 @@ class Dict:
                         if temp is None:
                             return None, DictKeyError(
                                 idx.pos_start, idx.pos_end,
-                                "Key does not exist"
+                                "Key does not exist",
+                                self.context
                             )
                     else:
                         return None, DictKeyError(
                             idx.pos_start, idx.pos_end,
-                            "Dictionary keys must be numbers or strings"
+                            "Dictionary keys must be numbers or strings",
+                            self.context
                         )
                 elif isinstance(idx, Number) and not isinstance(idx.value, float):
                     if isinstance(temp, List):
@@ -149,6 +150,7 @@ class Dict:
                     return None, DictKeyError(
                         last_idx.pos_start, last_idx.pos_end,
                         "Dictionary keys must be numbers or strings",
+                        self.context
                     )
                 
             if not isinstance(last_idx, Number) or isinstance(last_idx.value, float):
@@ -230,7 +232,8 @@ class Dict:
             return None, DictKeyError(
                 operand.pos_start,
                 operand.pos_end,
-                'Dictionary key must be a number or string'
+                'Dictionary key must be a number or string',
+                self.context
             )
         
         new_dict = self.copy()
@@ -246,7 +249,8 @@ class Dict:
             return None, IllegalOperationError(
                 operand.pos_start, 
                 operand.pos_end,
-                'Expected a Dictionary'
+                'Expected a Dictionary',
+                self.context
             )
             
         if len(self.elements) != len(operand.elements):
@@ -269,7 +273,8 @@ class Dict:
             return None, IllegalOperationError(
                 operand.pos_start, 
                 operand.pos_end,
-                'Expected a Dictionary'
+                'Expected a Dictionary',
+                self.context
             )
         result, error = self.get_comparison_eq(operand)
         if error:
@@ -280,73 +285,82 @@ class Dict:
         return None, IllegalOperationError(
             self.pos_start, self.pos_end,
             'Cannot apply \'*\' to a Dictionary',
+            self.context
         )
 
     def divide(self, operand):
         return None, IllegalOperationError(
             self.pos_start, self.pos_end,
             'Cannot apply \'/\' to a Dictionary',
+            self.context
         )
 
     def modulus(self, operand):
         return None, IllegalOperationError(
             self.pos_start, self.pos_end,
             'Cannot apply \'%\' to a Dictionary',
+            self.context
         )
 
     def floor_divide(self, operand):
         return None, IllegalOperationError(
             self.pos_start, self.pos_end,
             'Cannot apply \'//\' to a Dictionary',
+            self.context
         )
 
     def exponent(self, operand):
         return None, IllegalOperationError(
             self.pos_start, self.pos_end,
             'Cannot apply \'^\' to a Dictionary',
+            self.context
         )
 
     def get_comparison_lt(self, operand):
         return None, IllegalOperationError(
             self.pos_start, self.pos_end,
             'Cannot apply \'<\' to a Dictionary',
+            self.context
         )
 
     def get_comparison_gt(self, operand):
         return None, IllegalOperationError(
             self.pos_start, self.pos_end,
             'Cannot apply \'>\' to a Dictionary',
+            self.context
         )
 
     def get_comparison_lte(self, operand):
         return None, IllegalOperationError(
             self.pos_start, self.pos_end,
             'Cannot apply \'<=\' to a Dictionary',
+            self.context
         )
 
     def get_comparison_gte(self, operand):
         return None, IllegalOperationError(
             self.pos_start, self.pos_end,
             'Cannot apply \'>=\' to a Dictionary',
+            self.context
         )
 
     def and_by(self, operand):
         return None, IllegalOperationError(
             self.pos_start, self.pos_end,
             'Cannot apply \'and\' to a Dictionary',
+            self.context
         )
 
     def or_by(self, operand):
         return None, IllegalOperationError(
             self.pos_start, self.pos_end,
             'Cannot apply \'or\' to a Dictionary',
+            self.context
         )
 
     def not_by(self):
         return None, IllegalOperationError(
             self.pos_start, self.pos_end,
             'Cannot apply \'not\' to a Dictionary',
+            self.context
         )
-
-
-
