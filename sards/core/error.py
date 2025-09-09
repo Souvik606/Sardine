@@ -132,7 +132,7 @@ class ExpectedCharError(BaseError):
     def __init__(self, pos_start, pos_end, details=''):
         super().__init__(pos_start, pos_end, "Expected Character", details)
 
-class DictKeyError(Error): # pylint: disable=too-few-public-methods
+class DictKeyError(BaseError): # pylint: disable=too-few-public-methods
     """
     Handles errors caused by non-existent dictionary keys or invalid key types. 
 
