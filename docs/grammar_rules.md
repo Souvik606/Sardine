@@ -28,7 +28,7 @@ Below is the complete grammar definition:
 ```grammar
 multiline: NEWLINE* (singleline)* (NEWLINE* (singleline))* NEWLINE*
 
-singleline: function-call | statements | if-expression | for-expression | while-expression | switch-statement | function-definition | augmented-statement
+singleline: function-call | statements | if-expression | for-expression | while-expression | switch-statement | function-definition
 
 yield-statement: KEYWORD:yield expression
 

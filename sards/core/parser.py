@@ -1370,7 +1370,7 @@ class Parser: # pylint: disable=R0904
 
         # --- Validation: number of vars == number of values
         if len(var_name_toks) != len(value_nodes):
-            if operator and len(var_name_toks) > 1 and len(value_nodes) == 1:
+            if operator and len(value_nodes) == 1:
                 # Allow cases like: a, b += 5
                 for i in range(1, len(var_name_toks)):
                     value_nodes.append(BinaryOperationNode(
