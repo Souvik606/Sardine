@@ -10,7 +10,7 @@ Classes:
 - Interpreter: Evaluates AST nodes and executes operations.
 """
 
-from sards.data_types import Number, String, List
+from sards.data_types import Number, String, List, Dict
 from .constants import (T_PLUS, T_MINUS, T_MUL, T_DIVIDE, T_MODULUS, T_FLOOR, T_EXP, T_EE,
                         T_NEQ, T_GT, T_GTE, T_LT, T_LTE, T_KEYWORD, ERROR_TYPES)
 from .error import NameError, NotImplementedError, InvalidErrorTypeError, RunTimeError, IllegalOperationError, \
@@ -235,6 +235,37 @@ class Interpreter:
                             .set_context(context)
                             .set_pos(node.pos_start, node.pos_end)))
 
+    def visit_DictNode(self, node, context):
+        res = RunTimeResult()
+        elements = []
+
+        for key_node, value_node in node.keyval_nodes:
+            key = res.register(self.visit(key_node, context))
+            if res.should_return():
+                return res
+                
+            if not isinstance(key, (Number, String)):
+                return res.failure(
+                    IllegalOperationError(
+                        key_node.pos_start,
+                        key_node.pos_end,
+                        "Dictionary keys must be numbers or strings",
+                        context
+                    )
+                )
+
+            value = res.register(self.visit(value_node, context))
+            if res.should_return():
+                return res
+
+            elements.append((key, value))
+
+        return res.success(
+            Dict(elements)
+                .set_context(context)
+                .set_pos(node.pos_start, node.pos_end)
+        )
+
     def visit_StringNode(self, node, context):
         return RunTimeResult().success(
             String(node.token.value).set_context(context).set_pos(node.pos_start, node.pos_end)
@@ -395,7 +426,6 @@ class Interpreter:
                                                 .set_context(context)
                                                 .set_pos(node.pos_start,
                                                                                            node.pos_end)))
-
     def visit_IfNode(self, node, context):
         res = RunTimeResult()
 

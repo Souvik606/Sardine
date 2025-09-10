@@ -56,9 +56,11 @@ unary: (PLUS | MINUS) unary | exponent
 
 exponent: factor (EXP unary)*
 
-factor: INT | FLOAT | STRING | IDENTIFIER (LPAREN3 expression RPAREN3)* | LPAREN expression RPAREN | list-expression | function-call
+factor: INT | FLOAT | STRING | IDENTIFIER (LPAREN3 expression RPAREN3)* | LPAREN expression RPAREN | list-expression | dict-expression | function-call
 
 function-call: IDENTIFIER LPAREN (expression(COMMA expression)*)? RPAREN
+
+dict-expression: LPAREN2 (expression COLON expression(COMMA expression COLON expression)*)? RPAREN2
 
 list-expression: LPAREN3 (expression(COMMA expression)*)? RPAREN3
 
