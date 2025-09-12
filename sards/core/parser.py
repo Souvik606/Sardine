@@ -209,16 +209,19 @@ class Parser: # pylint: disable=R0904
                 res.register_advancement()
                 self.advance()
 
-            if self.current_tok.type!=T_EOF and self.current_tok.type!=T_RPAREN2:
-                tok=self.current_tok
+            if self.current_tok.type!=T_EOF and self.current_tok.type!=T_RPAREN2 and not(
+                self.current_tok.type==T_KEYWORD and self.current_tok.value in ("yield","escape","proceed")
+            ):
                 stmt = res.register(self.singleline())
-                if res.error:return res
+                if res.error:
+                    return res
                 statements.append(stmt)
-            else:break
+            else:
+                break
+
         while self.current_tok.type == T_NEWLINE:
             res.register_advancement()
             self.advance()
-
         result=res.success(ListNode(statements, pos_start, self.current_tok.pos_end.copy()))
         return result
 
@@ -708,6 +711,7 @@ class Parser: # pylint: disable=R0904
                 body_nodes.append(jump_node)
             else:
                 multiline_node = res.try_register(self.multiline())
+
                 if res.error: return res
                 if not multiline_node:
                     if not (self.current_tok.type == T_KEYWORD and (

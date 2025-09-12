@@ -1,13 +1,13 @@
-risk{
-    risk{
-        a = [1,2,3,4]
-        b[2]=4
+method div(a, b) {
+    show(a)
+    show(b)
+    risk {
+        when a>b {
+            escape;
+        }
     }
-    trap NameError n{
-        show(n)
-    }
-}trap{
-    show("Error")
-}clean{
-    show("cleanup")
+    clean {show(a*b)}
 }
+
+x,y=9,0
+div(x,y)

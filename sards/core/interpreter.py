@@ -74,7 +74,7 @@ class RunTimeResult:
         self.loop_or_switch_break = False
 
     def register(self, res):
-        self.error = res.should_return()
+        self.error = res.error if res.error else None
         self.func_return_value = res.func_return_value
         self.loop_continue = res.loop_continue
         self.loop_or_switch_break = res.loop_or_switch_break
@@ -206,7 +206,7 @@ class Interpreter:
 
                 # Run the trap body
                 trap_result = res.register(self.visit(trap_node.body_node, trap_context))
-                if res.should_return():
+                if res.error:
                     return res
                 handled = True
                 break
@@ -466,7 +466,7 @@ class Interpreter:
 
         for index in node.index_node:
             index_val=res.register(self.visit(index,context))
-            if res.error:return res
+            if res:return res
             indexes.append(index_val)
         if not indexes:
             value = value.copy().set_pos(node.pos_start, node.pos_end).set_context(context)
