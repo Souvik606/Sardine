@@ -231,7 +231,7 @@ class NameError(RunTimeError):
         self.error_name = "NameError"
 
 
-class ArgumentError(RuntimeError):
+class ArgumentError(RunTimeError):
     """
     Error for function call argument mismatches.
     Example: myFunc(1, 2, 3) when definition is myFunc(a, b).
@@ -240,7 +240,7 @@ class ArgumentError(RuntimeError):
         super().__init__(pos_start, pos_end, details, context)
         self.error_name = "ArgumentError"
 
-class NotImplementedError(RuntimeError):
+class NotImplementedError(RunTimeError):
     """
     Error for function call argument mismatches.
     Example: myFunc(1, 2, 3) when definition is myFunc(a, b).

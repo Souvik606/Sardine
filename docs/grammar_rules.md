@@ -42,7 +42,7 @@ attr-item: IDENTIFIER (EQUAL expression)?
 
 constructor-definition: KEYWORD:init LPAREN (IDENTIFIER (COMMA IDENTIFIER)*)? RPAREN LPAREN2 NEWLINE* (initializer-list)? (multiline | jump-statements)* NEWLINE* RPAREN2
 
-initializer-list: initializer-item (COMMA NEWLINE* initializer-item)*
+initializer-list: initializer-item ((COMMA NEWLINE* | NEWLINE+) initializer-item)*
 
 initializer-item: IDENTIFIER COLON expression
 
@@ -72,10 +72,9 @@ unary: (PLUS | MINUS) unary | exponent
 
 exponent: factor (EXP unary)*
 
-call: factor (DOT IDENTIFIER | LPAREN (expression(COMMA expression)*)? RPAREN | LPAREN3 expression RPAREN3)*
+factor: INT | FLOAT | STRING | IDENTIFIER (LPAREN3 expression RPAREN3)* | LPAREN expression RPAREN | list-expression | dict-expression | function-call
 
-factor: INT | FLOAT | STRING | IDENTIFIER | LPAREN expression RPAREN | list-expression | dict-expression
-
+function-call: IDENTIFIER LPAREN (expression(COMMA expression)*)? RPAREN
 
 dict-expression: LPAREN2 (expression COLON expression(COMMA expression COLON expression)*)? RPAREN2
 
