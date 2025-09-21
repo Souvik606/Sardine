@@ -22,6 +22,9 @@ class ReturnNode: # pylint: disable=R0903
         self.pos_start = pos_start
         self.pos_end = pos_end
 
+    def __repr__(self):
+        return f'({self.node_to_return})'
+
 class ContinueNode: # pylint: disable=R0903
     """
     Represents a 'continue' statement node in the abstract syntax tree (AST).

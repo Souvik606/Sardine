@@ -48,7 +48,8 @@ class Token:
         Returns:
         - str: Formatted string representation of the token.
         """
-        return f'{self.type}: {self.value}' if self.value is not None else f'{self.type}'+f' {self.pos_start.line}' if self.pos_start else ''
+        return f'{self.type}: {self.value}' if self.value is not None else (f'{self.type}:'
+                f'{self.pos_start.line if self.pos_start else ""}')
 
 
 class Lexer:
@@ -86,7 +87,10 @@ class Lexer:
             id_str += self.current_char
             self.advance()
 
-        token_type = T_KEYWORD if id_str in KEYWORDS else T_IDENTIFIER
+        if id_str in KEYWORDS:token_type=T_KEYWORD
+        elif id_str in ERROR_TYPES:token_type=T_ERROR
+        else:token_type=T_IDENTIFIER
+
         return Token(token_type, id_str, pos_start, self.pos)
 
     def make_equals(self):
