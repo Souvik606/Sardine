@@ -16,3 +16,6 @@ model Animal{
         show(age)
     }
 }
+
+cat=Animal("Tom",5,"M")
+cat.showName()
