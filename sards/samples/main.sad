@@ -1,13 +1,18 @@
-method div(a, b) {
-    show(a)
-    show(b)
-    risk {
-        when a>b {
-            escape;
-        }
-    }
-    clean {show(a*b)}
-}
+model Animal{
+    attr<name>
+    attr<age,gender>
+    attr<weight=10,height>
 
-x,y=9,0
-div(x,y)
+    init(name,age,gender) {
+        name:name,age:2*age
+        gender:gender
+    }
+
+    method showName(){
+        show(name)
+    }
+
+    method showAge(){
+        show(age)
+    }
+}

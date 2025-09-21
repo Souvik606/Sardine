@@ -30,6 +30,22 @@ multiline: NEWLINE* (singleline)* (NEWLINE* (singleline))* NEWLINE*
 
 singleline: function-call | statements | if-expression | for-expression | while-expression | switch-statement | function-definition |exception-handling
 
+class-definition:KEYWORD:model IDENTIFIER LPAREN2 NEWLINE* (class-member NEWLINE*)* RPAREN2
+
+class-member:attr-declaration | constructor-definition | function-definition
+
+attr-declaration: KEYWORD:attr LT attr-list GT
+
+attr-list: attr-item (COMMA attr-item)*
+
+attr-item: IDENTIFIER (EQUAL expression)?
+
+constructor-definition: KEYWORD:init LPAREN (IDENTIFIER (COMMA IDENTIFIER)*)? RPAREN LPAREN2 NEWLINE* (initializer-list)? (multiline | jump-statements)* NEWLINE* RPAREN2
+
+initializer-list: initializer-item (COMMA NEWLINE* initializer-item)*
+
+initializer-item: IDENTIFIER COLON expression
+
 jump-statements: KEYWORD:proceed | KEYWORD:escape |KEYWORD:yield expression 
 
 statements: IDENTIFIER (LPAREN3 expression RPAREN3)* (COMMA IDENTIFIER (LPAREN3 expression RPAREN3)*)* EQUAL expression (COMMA expression)*

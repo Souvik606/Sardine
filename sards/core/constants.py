@@ -48,7 +48,8 @@ T_QUESTION = 'QUESTION'
 # Keywords list
 
 KEYWORDS = ['define', 'and', 'or', 'not', 'when', 'orwhen', 'otherwise', 'Cycle', 'whenever',
-            'method', 'yield', 'escape', 'proceed', 'menu', 'choice', 'fallback','risk','trap','clean']
+            'method', 'yield', 'escape', 'proceed', 'menu', 'choice', 'fallback','risk','trap','clean',
+            'model','attr','init']
 
 ERROR_TYPES=['RunTimeError','IllegalOperationError','DivisionByZeroError','IndexOutOfBoundsError',
              'NameError','ArgumentError','InvalidErrorTypeError']
