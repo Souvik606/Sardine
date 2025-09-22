@@ -28,7 +28,7 @@ Below is the complete grammar definition:
 ```grammar
 multiline: NEWLINE* (singleline)* (NEWLINE* (singleline))* NEWLINE*
 
-singleline: function-call | statements | if-expression | for-expression | while-expression | switch-statement | function-definition |exception-handling| class-definition
+singleline: call | statements | if-expression | for-expression | while-expression | switch-statement | function-definition |exception-handling| class-definition
 
 class-definition:KEYWORD:model IDENTIFIER LPAREN2 NEWLINE* (class-member NEWLINE*)* RPAREN2
 
@@ -70,17 +70,19 @@ term: unary ((MUL | DIV | MODULUS | FLOOR_DIV) unary)*
 
 unary: (PLUS | MINUS) unary | exponent
 
-exponent: factor (EXP unary)*
+exponent: call (EXP unary)*
 
-factor: INT | FLOAT | STRING | IDENTIFIER (LPAREN3 expression RPAREN3)* | LPAREN expression RPAREN | list-expression | dict-expression | function-call
+call:attr-access (LPAREN (expression(COMMA expression)*)? RPAREN)*
 
-function-call: IDENTIFIER LPAREN (expression(COMMA expression)*)? RPAREN
+attr-access: factor (DOT IDENTIFIER)*
+
+factor: INT | FLOAT | STRING | IDENTIFIER (LPAREN3 expression RPAREN3)* | LPAREN expression RPAREN | list-expression | dict-expression
 
 dict-expression: LPAREN2 (expression COLON expression(COMMA expression COLON expression)*)? RPAREN2
 
 list-expression: LPAREN3 (expression(COMMA expression)*)? RPAREN3
 
-exception-handling: try-expression NEWLINE* ( trap-block NEWLINE* (trap-block)* NEWLINE* clean-block? | clean-block)
+exception-handling: try-expression NEWLINE* ( catch-expression NEWLINE* (catch-expression)* NEWLINE* finally-expression? | finally-expression)
 
 try-expression: KEYWORD:risk LPAREN2 (multiline | jump-statements)* RPAREN2
 
@@ -92,11 +94,11 @@ while-expression: KEYWORD:whenever expression LPAREN2 (multiline | jump-statemen
 
 for-expression: KEYWORD:Cycle IDENTIFIER EQUAL expression COLON expression (COLON expression)? LPAREN2 (multiline | jump-statements)* RPAREN2
 
-function-definition: KEYWORD:method IDENTIFIER? LPAREN (IDENTIFIER (COMMA IDENTIFIER)*)? RPAREN LPAREN2 (multiline |jump-statements | yield-statement)* RPAREN2
+function-definition: KEYWORD:method IDENTIFIER? LPAREN (IDENTIFIER (COMMA IDENTIFIER)*)? RPAREN LPAREN2 (multiline |jump-statements)* RPAREN2
 
-if-expression: KEYWORD:when expression LPAREN2 (multiline | jump-statements)* RPAREN2 NEWLINE* (elif-expression | else-expression)
+if-expression: KEYWORD:when expression LPAREN2 (multiline | jump-statements)* RPAREN2 NEWLINE* (elif-expression | else-expression)?
 
-elif-expression: KEYWORD:orwhen expression LPAREN2 (multiline | jump-statements)* RPAREN2 NEWLINE* (elif-expression |else-expression)
+elif-expression: KEYWORD:orwhen expression LPAREN2 (multiline | jump-statements)* RPAREN2 NEWLINE* (elif-expression |else-expression)?
 
 else-expression: KEYWORD:otherwise LPAREN2 (multiline | jump-statements)* RPAREN2
 ```
