@@ -9,7 +9,6 @@ Classes:
 """
 
 from sards.ast_nodes import SymbolTable
-from sards.core import RunTimeResult, Interpreter
 from sards.core.error import ArgumentError
 from sards.data_types import Number, String, List
 
@@ -24,6 +23,7 @@ class BaseFunction:
         pos_end: The ending position of the function in the source code.
         context: The context in which the function is executed.
     """
+
     def __init__(self, name):
         """
         Initializes a BaseFunction instance.
@@ -81,6 +81,7 @@ class BaseFunction:
         Returns:
             res: The result of the argument check.
         """
+        from sards.core import RunTimeResult
         res = RunTimeResult()
 
         if len(args) > len(arg_names):
@@ -122,6 +123,7 @@ class BaseFunction:
         Returns:
             res: The result of the argument check and population.
         """
+        from sards.core import RunTimeResult
         res = RunTimeResult()
         res.register(self.check_args(arg_names, args))
         if res.should_return():
@@ -156,30 +158,45 @@ class Function(BaseFunction):
         self.arg_names = arg_names
         self.auto_return = auto_return
 
+    # In your Function class's execute method
+
+    # --- REPLACE the existing execute method in your Function class with this final version ---
+
     def execute(self, args):
-        """
-        Executes the function with the given arguments.
+        from sards.core import RunTimeResult, Interpreter, Context
 
-        Args:
-            args: A list of arguments.
-
-        Returns:
-            res: The result of the function execution.
-        """
         res = RunTimeResult()
         interpreter = Interpreter()
-        exec_context = self.generate_new_context()
 
+        # #################### THE FINAL FIX ####################
+        if hasattr(self, 'bound_this'):
+            # This is a method call.
+            instance = self.bound_this
+            # Create a new context whose parent is the INSTANCE'S context.
+            exec_context = Context(self.name, instance.context, self.pos_start)
+            # The new symbol table's parent is the INSTANCE'S symbol table.
+            # This is the crucial link that was missing.
+            exec_context.symbol_table = SymbolTable(instance.symbol_table)
+            exec_context.symbol_table.set("this", instance)
+        else:
+            # This is a normal function call.
+            exec_context = self.generate_new_context()
+        # #######################################################
+
+        # Check and populate the arguments into the new execution context
         res.register(self.check_and_populate_args(self.arg_names, args, exec_context))
         if res.should_return():
             return res
 
+        # Visit the function's body to execute its code
         value = res.register(interpreter.visit(self.body_node, exec_context))
         if res.should_return() and res.func_return_value is None:
             return res
 
+        # Determine the final return value
         return_value = ((value if self.auto_return else None) or
                         res.func_return_value or Number(0))
+
         return res.success(return_value)
 
     def copy(self):
@@ -227,6 +244,8 @@ class BuiltInFunction(BaseFunction):
         Returns:
             res: The result of the function execution.
         """
+        from sards.core import RunTimeResult
+
         res = RunTimeResult()
         exec_context = self.generate_new_context()
 
@@ -286,6 +305,7 @@ class BuiltInFunction(BaseFunction):
         Returns:
             res: The result of the function execution.
         """
+        from sards.core import RunTimeResult
         print(str(exec_context.symbol_table.get('value')))
         return RunTimeResult().success(Number(0))
 
@@ -301,6 +321,7 @@ class BuiltInFunction(BaseFunction):
         Returns:
             res: The result of the function execution.
         """
+        from sards.core import RunTimeResult
         text = input()
         return RunTimeResult().success(String(text))
 
@@ -316,6 +337,7 @@ class BuiltInFunction(BaseFunction):
         Returns:
             res: The result of the function execution.
         """
+        from sards.core import RunTimeResult
         try:
             number = int(exec_context.symbol_table.get('value').value)
         except ValueError as exc:
@@ -335,6 +357,7 @@ class BuiltInFunction(BaseFunction):
         Returns:
             res: The result of the function execution.
         """
+        from sards.core import RunTimeResult
         try:
             string = str(exec_context.symbol_table.get('value').value)
         except ValueError as exc:
@@ -354,6 +377,7 @@ class BuiltInFunction(BaseFunction):
         Returns:
             res: The result of the function execution.
         """
+        from sards.core import RunTimeResult
         data = exec_context.symbol_table.get('value')
         if isinstance(data, Number):
             print("type <Number>")

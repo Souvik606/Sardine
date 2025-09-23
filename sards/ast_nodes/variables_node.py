@@ -21,18 +21,11 @@ class SymbolTable: # pylint: disable=R0903
         self.parent = parent
 
     def get(self, name):
-        """
-        Retrieves the value of a variable from the symbol table.
-
-        Args:
-            name: The name of the variable.
-
-        Returns:
-            The value of the variable, or None if the variable is not found.
-        """
         value = self.symbols.get(name, None)
+
         if value is None and self.parent:
             return self.parent.get(name)
+
         return value
 
     def set(self, name, value):

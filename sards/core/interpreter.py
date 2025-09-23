@@ -16,6 +16,7 @@ from .constants import (T_PLUS, T_MINUS, T_MUL, T_DIVIDE, T_MODULUS, T_FLOOR, T_
 from .error import NameError, NotImplementedError, InvalidErrorTypeError, RunTimeError, IllegalOperationError, \
     IndexOutOfBoundsError, ArgumentError, DivisionByZeroError
 from sards.ast_nodes import SymbolTable
+from sards.oops_types import Model
 
 ERROR_CLASS_MAP = {
     "RunTimeError": RunTimeError,
@@ -151,26 +152,70 @@ class Interpreter:
         """
         return RunTimeResult().failure(NotImplementedError(node.pos_end,node.pos_end,f'No visit_{type(node).__name__} method defined',context))
 
+
+    def visit_ModelNode(self, node, context):
+        from sards.ast_nodes import FunctionDefinitionNode, InitNode, AttrNode
+
+        res = RunTimeResult()
+        model_name = node.name_tok.value
+
+        method_nodes = {}
+        init_node = None
+        attr_nodes = []
+
+        for member in node.body_nodes:
+            if isinstance(member, FunctionDefinitionNode):
+                method_nodes[member.var_name_tok.value] = member
+
+            elif isinstance(member, InitNode):
+                init_node = member
+
+            elif isinstance(member, AttrNode):
+                attr_nodes.append(member)
+
+        model = Model(model_name, attr_nodes, init_node, method_nodes)
+
+        model.set_context(context)
+        model.set_pos(node.pos_start, node.pos_end)
+
+        context.symbol_table.set(model_name, model)
+        return res.success(model)
+
+    def visit_AttrAccessNode(self, node, context):
+        res = RunTimeResult()
+
+        object_val = res.register(self.visit(node.object_node, context))
+        if res.should_return():
+            return res
+
+        attr_name = node.attr_name_tok.value
+
+        value, error = object_val.get_attr(attr_name)
+
+        if error:
+            return res.failure(error)
+
+        value = value.copy()
+        value.set_pos(node.pos_start, node.pos_end)
+        value.set_context(context)
+
+        return res.success(value)
+
     def visit_TryNode(self, node, context):
         res = RunTimeResult()
 
         try_result = res.register(self.visit(node.body_node, context))
 
-        # If no error, return normally
         if not res.error:
             if node.clean_node:
                 res.register(self.visit(node.clean_node.body_node, context))
                 if res.should_return(): return res
             return res.success(try_result)
 
-        # -------------------------------
-        # Handle runtime errors
-        # -------------------------------
         error = res.error
         handled = False
 
         for trap_node in node.trap_nodes:
-            # Validate error type
             if trap_node.error_type and trap_node.error_type.value not in ERROR_CLASS_MAP:
                 return res.failure(
                     InvalidErrorTypeError(
@@ -296,6 +341,13 @@ class Interpreter:
             return res
         call_value = call_value.copy().set_pos(node.pos_start, node.pos_end)
 
+        if not hasattr(call_value, 'execute'):
+            return res.failure(TypeError(
+                node.pos_start, node.pos_end,
+                f"'{type(call_value).__name__}' object is not callable",
+                context
+            ))
+
         for arg_node in node.arg_nodes:
             args.append(res.register(self.visit(arg_node, context)))
             if res.should_return():
@@ -304,6 +356,7 @@ class Interpreter:
         return_value = res.register(call_value.execute(args))
         if res.should_return():
             return res
+
         return_value = (return_value.copy()
                         .set_pos(node.pos_start, node.pos_end)
                         .set_context(context))
@@ -453,38 +506,58 @@ class Interpreter:
     def visit_VariableUseNode(self, node, context):
         res = RunTimeResult()
         var_name = node.var_name_tok.value
-        value = context.symbol_table.get(var_name)
+        value = None
+
+        instance = context.symbol_table.get("this")
+
+        if instance:
+            value = instance.symbol_table.get(var_name)
 
         if value is None:
-            return (res.failure(
-                NameError(node.pos_start,
-                             node.pos_end,
-                             f"'{var_name}' is not defined",
-                             context)))
-        
-        indexes=[]
+            value = context.symbol_table.get(var_name)
 
-        for index in node.index_node:
-            index_val=res.register(self.visit(index,context))
-            if res:return res
+        if value is None:
+            print(f"  - FAILED: '{var_name}' was not found anywhere.")
+            return res.failure(
+                NameError(
+                    node.pos_start,
+                    node.pos_end,
+                    f"'{var_name}' is not defined",
+                    context
+                )
+            )
+
+        indexes = []
+        for index_node in node.index_node:
+            index_val = res.register(self.visit(index_node, context))
+            # Corrected a minor bug here to check the result properly
+            if res.should_return():
+                return res
             indexes.append(index_val)
+
         if not indexes:
             value = value.copy().set_pos(node.pos_start, node.pos_end).set_context(context)
             return res.success(value)
         else:
-            value,error=value.getByIndex(indexes)
-            if error:return res.failure(error)
-            value=value.copy().set_pos(node.pos_start, node.pos_end).set_context(context)
+            value, error = value.getByIndex(indexes)
+            if error:
+                return res.failure(error)
+
+            value = value.copy().set_pos(node.pos_start, node.pos_end).set_context(context)
             return res.success(value)
+
+    # --- REPLACE the existing visit_VariableAssignNode in your Interpreter class with this one ---
+
+    # --- REPLACE this method in your interpreter.py file ---
 
     def visit_VariableAssignNode(self, node, context):
         res = RunTimeResult()
+        last_result = None
 
         for var_tok, value_node, indexes in zip(node.var_name_toks, node.value_nodes, node.index_nodes):
             var_name = var_tok.value
             indexes_vals = []
 
-            # --- Resolve indexes (if any)
             if indexes:
                 for index in indexes:
                     index_val = res.register(self.visit(index, context))
@@ -492,37 +565,41 @@ class Interpreter:
                         return res
                     indexes_vals.append(index_val)
 
-            # --- Evaluate value expression
             value = res.register(self.visit(value_node, context))
             if res.should_return():
                 return res
 
-            # --- Assignment logic
             if indexes_vals:
-                # Indexed assignment
                 list_value = context.symbol_table.get(var_name)
-
                 if list_value is None:
                     return res.failure(
-                        NameError(
-                            var_tok.pos_start,
-                            value_node.pos_end,
-                            f"'{var_name}' is not defined",
-                            context
-                        )
+                        NameError(var_tok.pos_start, value_node.pos_end, f"'{var_name}' is not defined", context)
                     )
-
                 list_value, error = list_value.assignIndex(indexes_vals, value)
                 if error:
                     return res.failure(error)
-
                 context.symbol_table.set(var_name, list_value)
                 last_result = list_value
-
             else:
-                # Simple assignment
-                context.symbol_table.set(var_name, value)
+                # #################### THE FINAL FIX ####################
+                instance = context.symbol_table.get("this")
+
+                all_attr_names = []
+                if instance and hasattr(instance.model, 'attr_nodes'):
+                    for attr_node in instance.model.attr_nodes:
+                        for decl in attr_node.declarations:
+                            all_attr_names.append(decl[0].value)
+
+                is_attr = instance and var_name in all_attr_names
+
+                if is_attr:
+                    # This was the missing line. We need to actually set the attribute.
+                    instance.symbol_table.set(var_name, value)
+                else:
+                    context.symbol_table.set(var_name, value)
+
                 last_result = value
+                # #######################################################
 
         return res.success(last_result)
 

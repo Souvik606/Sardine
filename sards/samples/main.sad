@@ -1,7 +1,7 @@
 model Animal{
     attr<name>
     attr<age,gender>
-    attr<weight=10,height>
+    attr<weight=20,height>
 
     init(name,age,gender) {
         name:name,age:2*age
@@ -18,4 +18,7 @@ model Animal{
 }
 
 cat=Animal("Tom",5,"M")
-cat.showName()
+show(cat.name)
+show(cat.age)
+show(cat.gender)
+show(cat.weight)
