@@ -231,7 +231,7 @@ class NameError(RunTimeError):
         self.error_name = "NameError"
 
 
-class ArgumentError(RuntimeError):
+class ArgumentError(RunTimeError):
     """
     Error for function call argument mismatches.
     Example: myFunc(1, 2, 3) when definition is myFunc(a, b).
@@ -240,7 +240,7 @@ class ArgumentError(RuntimeError):
         super().__init__(pos_start, pos_end, details, context)
         self.error_name = "ArgumentError"
 
-class NotImplementedError(RuntimeError):
+class NotImplementedError(RunTimeError):
     """
     Error for function call argument mismatches.
     Example: myFunc(1, 2, 3) when definition is myFunc(a, b).
@@ -266,3 +266,21 @@ class DictKeyError(RunTimeError):
     def __init__(self, pos_start, pos_end, details, context):
         super().__init__(pos_start, pos_end, details, context)
         self.error_name = "DictKeyError"
+
+class TypeError(RunTimeError):
+    """
+    Error for performing an operation on an inappropriate type.
+    Example: calling an attribute that is not a method, like my_obj.age()
+    """
+    def __init__(self, pos_start, pos_end, details, context):
+        super().__init__(pos_start, pos_end, details, context)
+        self.error_name = "TypeError"
+
+class AttributeError(RunTimeError):
+    """
+    Error for accessing a non-existent attribute or method on an object.
+    Example: my_obj.fake_property
+    """
+    def __init__(self, pos_start, pos_end, details, context):
+        super().__init__(pos_start, pos_end, details, context)
+        self.error_name = "AttributeError"

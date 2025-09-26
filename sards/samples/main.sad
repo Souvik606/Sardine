@@ -1,13 +1,71 @@
-method div(a, b) {
-    show(a)
-    show(b)
-    risk {
-        when a>b {
-            escape;
-        }
+model Animal{
+    attr<name>
+    attr<age,gender>
+    attr<weight=20,height>
+
+    init(name,age,gender,weight) {
+        name:name,age:2*age
+        gender:gender
+        weight:weight
     }
-    clean {show(a*b)}
+
+    method showName(){
+        show(name)
+    }
+
+    method showAge(){
+        show(age)
+    }
+
+    method showWeight(){
+        show(weight)
+    }
+
+    method showHeight(){
+        show(height)
+    }
 }
 
-x,y=9,0
-div(x,y)
+cat=Animal("Tom",5,"M",30)
+cat.showName()
+cat.showAge()
+show(cat.gender)
+cat.showWeight()
+cat.showHeight()
+
+model Car {
+    attr<engine, chassis>
+    attr<year, mascot>
+    attr<modelName, colour>
+
+    init(engine, modelName, year, colour, mascot) {
+        engine: "E+" + engine, year: "'" + String(year<2000?year-1900:year-2000)
+        colour: colour
+        modelName: modelName + " " + String(year) + " " + colour
+        mascot: mascot
+    }
+    method showE(){
+        show(engine)
+    }
+    method showY(){
+        show(year)
+    }
+    method showC(){
+        show(colour)
+    }
+    method showM(){
+        show(modelName)
+    }
+}
+
+test=Car("VTEC", "City", 2021, "Black", cat)
+show(test==cat)
+test.showE()
+test.showC()
+test.showY()
+test.showM()
+test.mascot.showName()
+test.mascot.showAge()
+show(test.mascot.gender)
+test.mascot.showWeight()
+test.mascot.showHeight()
