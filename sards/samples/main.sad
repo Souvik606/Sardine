@@ -32,3 +32,40 @@ cat.showAge()
 show(cat.gender)
 cat.showWeight()
 cat.showHeight()
+
+model Car {
+    attr<engine, chassis>
+    attr<year, mascot>
+    attr<modelName, colour>
+
+    init(engine, modelName, year, colour, mascot) {
+        engine: "E+" + engine, year: "'" + String(year<2000?year-1900:year-2000)
+        colour: colour
+        modelName: modelName + " " + String(year) + " " + colour
+        mascot: mascot
+    }
+    method showE(){
+        show(engine)
+    }
+    method showY(){
+        show(year)
+    }
+    method showC(){
+        show(colour)
+    }
+    method showM(){
+        show(modelName)
+    }
+}
+
+test=Car("VTEC", "City", 2021, "Black", cat)
+show(test==cat)
+test.showE()
+test.showC()
+test.showY()
+test.showM()
+test.mascot.showName()
+test.mascot.showAge()
+show(test.mascot.gender)
+test.mascot.showWeight()
+test.mascot.showHeight()

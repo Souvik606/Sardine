@@ -59,67 +59,67 @@ class ModelInstance:
 
     def add(self, other):
         return None, IllegalOperationError(
-                self.pos_start, self.pos_end, 'Cannot apply \'+\' to a model')
+                self.pos_start, self.pos_end, 'Cannot apply \'+\' to a model', self.context)
 
     def subtract(self, other):
         return None, IllegalOperationError(
-                self.pos_start, self.pos_end, 'Cannot apply \'-\' to a model')
+                self.pos_start, self.pos_end, 'Cannot apply \'-\' to a model', self.context)
 
     def multiply(self, other):
         return None, IllegalOperationError(
-                self.pos_start, self.pos_end, 'Cannot apply \'*\' to a model')
+                self.pos_start, self.pos_end, 'Cannot apply \'*\' to a model', self.context)
 
     def divide(self, other):
         return None, IllegalOperationError(
-                self.pos_start, self.pos_end, 'Cannot apply \'/\' to a model')
+                self.pos_start, self.pos_end, 'Cannot apply \'/\' to a model', self.context)
     
     def modulus(self, operand):
         return None, IllegalOperationError(
-                self.pos_start, self.pos_end, 'Cannot apply \'%\' to a model')
+                self.pos_start, self.pos_end, 'Cannot apply \'%\' to a model', self.context)
 
     def floor_divide(self, operand):
         return None, IllegalOperationError(
-                self.pos_start, self.pos_end, 'Cannot apply \'//\' to a model')
+                self.pos_start, self.pos_end, 'Cannot apply \'//\' to a model', self.context)
 
     def exponent(self, operand):
         return None, IllegalOperationError(
-                self.pos_start, self.pos_end, 'Cannot apply \'**\' to a model')
+                self.pos_start, self.pos_end, 'Cannot apply \'**\' to a model', self.context)
 
     def get_comparison_eq(self, operand):
         return None, IllegalOperationError(
-                self.pos_start, self.pos_end, 'Cannot apply \'==\' to a model')
+                self.pos_start, self.pos_end, 'Cannot apply \'==\' to a model', self.context)
 
     def get_comparison_neq(self, operand):
         return None, IllegalOperationError(
-                self.pos_start, self.pos_end, 'Cannot apply \'!=\' to a model')
+                self.pos_start, self.pos_end, 'Cannot apply \'!=\' to a model', self.context)
 
     def get_comparison_lte(self, operand):
         return None, IllegalOperationError(
-                self.pos_start, self.pos_end, 'Cannot apply \'<=\' to a model')
+                self.pos_start, self.pos_end, 'Cannot apply \'<=\' to a model', self.context)
 
     def get_comparison_lt(self, operand):
         return None, IllegalOperationError(
-                self.pos_start, self.pos_end, 'Cannot apply \'<\' to a model')
+                self.pos_start, self.pos_end, 'Cannot apply \'<\' to a model', self.context)
 
     def get_comparison_gte(self, operand):
         return None, IllegalOperationError(
-                self.pos_start, self.pos_end, 'Cannot apply \'>=\' to a model')
+                self.pos_start, self.pos_end, 'Cannot apply \'>=\' to a model', self.context)
 
     def get_comparison_gt(self, operand):
         return None, IllegalOperationError(
-                self.pos_start, self.pos_end, 'Cannot apply \'>\' to a model')
+                self.pos_start, self.pos_end, 'Cannot apply \'>\' to a model', self.context)
 
     def and_by(self, operand):
         return None, IllegalOperationError(
-                self.pos_start, self.pos_end, 'Cannot apply \'and\' to a model')
+                self.pos_start, self.pos_end, 'Cannot apply \'and\' to a model', self.context)
 
     def or_by(self, operand):
         return None, IllegalOperationError(
-                self.pos_start, self.pos_end, 'Cannot apply \'or\' to a model')
+                self.pos_start, self.pos_end, 'Cannot apply \'or\' to a model', self.context)
 
     def not_by(self):
         return None, IllegalOperationError(
-                self.pos_start, self.pos_end, 'Cannot apply \'not\' to a model')
+                self.pos_start, self.pos_end, 'Cannot apply \'not\' to a model', self.context)
 
     def is_true(self):
         return Number(1), None
