@@ -58,13 +58,68 @@ class ModelInstance:
         return value, None
 
     def add(self, other):
-        return None, IllegalOperationError(self.pos_start, self.pos_end, 'Addition not supported for models', self.context)
+        return None, IllegalOperationError(
+                self.pos_start, self.pos_end, 'Cannot apply \'+\' to a model')
 
     def subtract(self, other):
-        return None, IllegalOperationError(self.pos_start, self.pos_end, 'Subtraction not supported for models', self.context)
+        return None, IllegalOperationError(
+                self.pos_start, self.pos_end, 'Cannot apply \'-\' to a model')
 
     def multiply(self, other):
-        return None, IllegalOperationError(self.pos_start, self.pos_end, 'Multiplication not supported for models', self.context)
+        return None, IllegalOperationError(
+                self.pos_start, self.pos_end, 'Cannot apply \'*\' to a model')
+
+    def divide(self, other):
+        return None, IllegalOperationError(
+                self.pos_start, self.pos_end, 'Cannot apply \'/\' to a model')
+    
+    def modulus(self, operand):
+        return None, IllegalOperationError(
+                self.pos_start, self.pos_end, 'Cannot apply \'%\' to a model')
+
+    def floor_divide(self, operand):
+        return None, IllegalOperationError(
+                self.pos_start, self.pos_end, 'Cannot apply \'//\' to a model')
+
+    def exponent(self, operand):
+        return None, IllegalOperationError(
+                self.pos_start, self.pos_end, 'Cannot apply \'**\' to a model')
+
+    def get_comparison_eq(self, operand):
+        return None, IllegalOperationError(
+                self.pos_start, self.pos_end, 'Cannot apply \'==\' to a model')
+
+    def get_comparison_neq(self, operand):
+        return None, IllegalOperationError(
+                self.pos_start, self.pos_end, 'Cannot apply \'!=\' to a model')
+
+    def get_comparison_lte(self, operand):
+        return None, IllegalOperationError(
+                self.pos_start, self.pos_end, 'Cannot apply \'<=\' to a model')
+
+    def get_comparison_lt(self, operand):
+        return None, IllegalOperationError(
+                self.pos_start, self.pos_end, 'Cannot apply \'<\' to a model')
+
+    def get_comparison_gte(self, operand):
+        return None, IllegalOperationError(
+                self.pos_start, self.pos_end, 'Cannot apply \'>=\' to a model')
+
+    def get_comparison_gt(self, operand):
+        return None, IllegalOperationError(
+                self.pos_start, self.pos_end, 'Cannot apply \'>\' to a model')
+
+    def and_by(self, operand):
+        return None, IllegalOperationError(
+                self.pos_start, self.pos_end, 'Cannot apply \'and\' to a model')
+
+    def or_by(self, operand):
+        return None, IllegalOperationError(
+                self.pos_start, self.pos_end, 'Cannot apply \'or\' to a model')
+
+    def not_by(self):
+        return None, IllegalOperationError(
+                self.pos_start, self.pos_end, 'Cannot apply \'not\' to a model')
 
     def is_true(self):
         return Number(1), None
