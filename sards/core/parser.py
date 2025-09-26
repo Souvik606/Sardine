@@ -292,32 +292,55 @@ class Parser: # pylint: disable=R0904
         """
         Grammar Rule:
 
-        KEYWORD:model IDENTIFIER LPAREN2 NEWLINE* (class-member NEWLINE*)* RPAREN2
+        KEYWORD:model IDENTIFIER (COLON IDENTIFIER (COMMA IDENTIFIER)*)?
+        LPAREN2 NEWLINE* (class-member NEWLINE*)* RPAREN2
         """
         res = ParseResult()
 
-        if not(self.current_tok.type==T_KEYWORD and self.current_tok.value=='model'):
+        if not(self.current_tok.type==T_KEYWORD and self.current_tok.value=="model"):
             return res.failure(InvalidSyntaxError(
-                self.current_tok.pos_start, self.current_tok.pos_end,
-                "Expected 'model'"
+                self.current_tok.pos_start, self.current_tok.pos_end, "Expected 'model'"
             ))
         res.register_advancement()
         self.advance()
 
         if self.current_tok.type != T_IDENTIFIER:
             return res.failure(InvalidSyntaxError(
-                self.current_tok.pos_start, self.current_tok.pos_end,
-                "Expected a model name"
+                self.current_tok.pos_start, self.current_tok.pos_end, "Expected a model name"
             ))
         model_name_tok = self.current_tok
         res.register_advancement()
         self.advance()
 
+        parent_name_toks = []
+        if self.current_tok.type == T_COLON:
+            res.register_advancement()
+            self.advance()
+
+            if self.current_tok.type != T_IDENTIFIER:
+                return res.failure(InvalidSyntaxError(
+                    self.current_tok.pos_start, self.current_tok.pos_end, "Expected parent class name"
+                ))
+            parent_name_toks.append(self.current_tok)
+            res.register_advancement()
+            self.advance()
+
+            while self.current_tok.type == T_COMMA:
+                res.register_advancement()
+                self.advance()
+                if self.current_tok.type != T_IDENTIFIER:
+                    return res.failure(InvalidSyntaxError(
+                        self.current_tok.pos_start, self.current_tok.pos_end, "Expected parent class name"
+                    ))
+                parent_name_toks.append(self.current_tok)
+                res.register_advancement()
+                self.advance()
+
         if self.current_tok.type != T_LPAREN2:
             return res.failure(InvalidSyntaxError(
-                self.current_tok.pos_start, self.current_tok.pos_end,
-                "Expected '{'"
+                self.current_tok.pos_start, self.current_tok.pos_end, "Expected '{'"
             ))
+
         res.register_advancement()
         self.advance()
 
@@ -328,8 +351,7 @@ class Parser: # pylint: disable=R0904
         body_nodes = []
         while self.current_tok.type != T_RPAREN2:
             member_node = res.register(self.class_member())
-            if res.error:
-                return res
+            if res.error: return res
             body_nodes.append(member_node)
 
             while self.current_tok.type == T_NEWLINE:
@@ -338,85 +360,83 @@ class Parser: # pylint: disable=R0904
 
         if self.current_tok.type != T_RPAREN2:
             return res.failure(InvalidSyntaxError(
-                self.current_tok.pos_start, self.current_tok.pos_end,
-                "Expected '}'"
+                self.current_tok.pos_start, self.current_tok.pos_end, "Expected '}'"
             ))
         res.register_advancement()
         self.advance()
 
-        return res.success(ModelNode(model_name_tok, body_nodes))
-
+        return res.success(ModelNode(model_name_tok, parent_name_toks, body_nodes))
 
     def class_member(self):
         """
         Grammar Rule:
 
-        attr-declaration | constructor-definition | function-definition|
+        attr-declaration | constructor-definition | method-definition
         """
         res = ParseResult()
+        tok = self.current_tok
 
-        token = self.current_tok
+        if tok.type == T_KEYWORD:
+            if tok.value in ('open', 'guarded', 'secret'):
+                next_tok = self.peek()
+                if next_tok.type==T_KEYWORD and next_tok.value=="attr":
+                    return self.attr_declaration()
+                if next_tok.type==T_KEYWORD and next_tok.value=='method':
+                    return self.method_definition()
 
-        if self.current_tok.type==T_KEYWORD and self.current_tok.value=='attr':
-            member_node = res.register(self.attr_declaration())
-            if res.error:
-                return res
-        elif self.current_tok.type == T_KEYWORD and self.current_tok.value == 'init':
-            member_node = res.register(self.constructor_definition())
-            if res.error:
-                return res
-        elif self.current_tok.type == T_KEYWORD and self.current_tok.value == 'method':
-            member_node = res.register(self.function_definition())
-            if res.error:
-                return res
-        else:
-            print(self.current_tok)
-            return res.failure(InvalidSyntaxError(
-                token.pos_start, token.pos_end,
-                "Expected 'attr', 'init', or 'method'"
-            ))
+            elif tok.value == 'attr':
+                return self.attr_declaration()
+            elif tok.value == 'init':
+                return self.constructor_definition()
+            elif tok.value == 'method':
+                return self.method_definition()
 
-        return res.success(member_node)
+        return res.failure(InvalidSyntaxError(
+            tok.pos_start, tok.pos_end,
+            "Expected 'attr', 'init', or 'method' (or an access modifier)"
+        ))
 
     def attr_declaration(self):
         """
         Grammar Rule:
 
-        KEYWORD:attr LT attr-list GT
+        (KEYWORD:open | KEYWORD:guarded | KEYWORD:secret)? KEYWORD:attr LT attr-list GT
         """
         res = ParseResult()
         pos_start = self.current_tok.pos_start.copy()
+        access_modifier_tok = None
 
-        if not (self.current_tok.type == T_KEYWORD and self.current_tok.value == 'attr'):
+        if self.current_tok.type==T_KEYWORD and self.current_tok.value in ('open', 'guarded', 'secret'):
+            access_modifier_tok = self.current_tok
+            res.register_advancement()
+            self.advance()
+
+        if not (self.current_tok.type==T_KEYWORD and self.current_tok.value=='attr'):
             return res.failure(InvalidSyntaxError(
-                self.current_tok.pos_start, self.current_tok.pos_end,
-                "Expected 'attr'"
+                self.current_tok.pos_start, self.current_tok.pos_end, "Expected 'attr'"
             ))
         res.register_advancement()
         self.advance()
 
         if self.current_tok.type != T_LT:
             return res.failure(InvalidSyntaxError(
-                self.current_tok.pos_start, self.current_tok.pos_end,
-                "Expected '<'"
+                self.current_tok.pos_start, self.current_tok.pos_end, "Expected '<'"
             ))
         res.register_advancement()
         self.advance()
 
         declarations = res.register(self.attr_list())
-        if res.error:
-            return res
+        if res.error: return res
 
         if self.current_tok.type != T_GT:
             return res.failure(InvalidSyntaxError(
-                self.current_tok.pos_start, self.current_tok.pos_end,
-                "Expected '>'"
+                self.current_tok.pos_start, self.current_tok.pos_end, "Expected '>'"
             ))
         pos_end = self.current_tok.pos_end.copy()
         res.register_advancement()
         self.advance()
 
-        return res.success(AttrNode(declarations, pos_start, pos_end))
+        return res.success(AttrNode(declarations, access_modifier_tok, pos_start, pos_end))
 
     def attr_list(self):
         """
@@ -580,6 +600,104 @@ class Parser: # pylint: disable=R0904
 
         body_node = ListNode(body_nodes, body_pos_start, pos_end)
         return res.success(InitNode(param_name_toks, body_node, pos_start, pos_end))
+
+    def method_definition(self):
+        """
+        Grammar Rule:
+
+        (KEYWORD:open | KEYWORD:guarded | KEYWORD:secret)? KEYWORD:method IDENTIFIER?
+        LPAREN (IDENTIFIER (COMMA IDENTIFIER)*)? RPAREN
+        LPAREN2 (multiline |jump-statements)* RPAREN2
+        """
+        res = ParseResult()
+        access_modifier_tok = None
+
+        if self.current_tok.type==T_KEYWORD and self.current_tok.value in ('open', 'guarded', 'secret'):
+            access_modifier_tok = self.current_tok
+            res.register_advancement()
+            self.advance()
+
+        if not (self.current_tok.type==T_KEYWORD and self.current_tok.value=='method'):
+            return res.failure(InvalidSyntaxError(
+                self.current_tok.pos_start, self.current_tok.pos_end, "Expected 'method'"
+            ))
+        res.register_advancement()
+        self.advance()
+
+        name_tok = None
+        if self.current_tok.type == T_IDENTIFIER:
+            name_tok = self.current_tok
+            res.register_advancement()
+            self.advance()
+
+        if self.current_tok.type != T_LPAREN:
+            return res.failure(InvalidSyntaxError(
+                self.current_tok.pos_start, self.current_tok.pos_end, "Expected '('"
+            ))
+        res.register_advancement()
+        self.advance()
+
+        param_name_toks = []
+        if self.current_tok.type == T_IDENTIFIER:
+            param_name_toks.append(self.current_tok)
+            res.register_advancement()
+            self.advance()
+            while self.current_tok.type == T_COMMA:
+                res.register_advancement()
+                self.advance()
+                if self.current_tok.type != T_IDENTIFIER:
+                    return res.failure(InvalidSyntaxError(
+                        self.current_tok.pos_start, self.current_tok.pos_end, "Expected identifier"
+                    ))
+                param_name_toks.append(self.current_tok)
+                res.register_advancement()
+                self.advance()
+
+        if self.current_tok.type != T_RPAREN:
+            return res.failure(InvalidSyntaxError(
+                self.current_tok.pos_start, self.current_tok.pos_end, "Expected ',' or ')'"
+            ))
+        res.register_advancement()
+        self.advance()
+
+        if self.current_tok.type != T_LPAREN2:
+            return res.failure(InvalidSyntaxError(
+                self.current_tok.pos_start, self.current_tok.pos_end, "Expected '{'"
+            ))
+        res.register_advancement()
+        self.advance()
+
+        body_nodes, pos_start = [], self.current_tok.pos_start
+        while self.current_tok.type != T_RPAREN2 and self.current_tok.type != T_EOF:
+            if self.current_tok.type == T_KEYWORD and (self.current_tok.value in ("yield", "proceed", "escape")):
+                jump_node = res.register(self.jump_statements())
+                if res.error: return res
+                body_nodes.append(jump_node)
+            else:
+                multiline_node = res.try_register(self.multiline())
+
+                if res.error: return res
+                if not multiline_node:
+                    if not (self.current_tok.type == T_KEYWORD and (
+                            self.current_tok.value in ("escape", "proceed", "yield"))) and not (
+                            self.current_tok.type == T_RPAREN2
+                    ):
+                        return res.failure(
+                            InvalidSyntaxError(self.current_tok.pos_start,
+                                               self.current_tok.pos_end,
+                                               "Expected identifier,when,whenever,method or Cycle"))
+                if multiline_node: body_nodes.extend(multiline_node.element_nodes)
+
+        body_node = ListNode(body_nodes, pos_start, self.current_tok.pos_end)
+
+        if self.current_tok.type != T_RPAREN2:
+            return res.failure(InvalidSyntaxError(
+                self.current_tok.pos_start, self.current_tok.pos_end, "Expected '}'"
+            ))
+        res.register_advancement()
+        self.advance()
+
+        return res.success(FunctionDefinitionNode(name_tok, param_name_toks, body_node, access_modifier_tok))
 
     def initializer_list(self):
         """

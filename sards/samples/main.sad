@@ -1,71 +1,59 @@
-model Animal{
-    attr<name>
-    attr<age,gender>
-    attr<weight=20,height>
+model Vehicle {
+    guarded attr<v_number>
+    secret attr<serial>
 
-    init(name,age,gender,weight) {
-        name:name,age:2*age
-        gender:gender
-        weight:weight
+    init(v_num, s) {
+        v_number: v_num
+        serial: s
     }
 
-    method showName(){
-        show(name)
+    open method start() {
+        show("Vehicle engine started.")
     }
 
-    method showAge(){
-        show(age)
-    }
-
-    method showWeight(){
-        show(weight)
-    }
-
-    method showHeight(){
-        show(height)
+    open method get_vin() {
+        show("VIN: " + v_number)
     }
 }
 
-cat=Animal("Tom",5,"M",30)
-cat.showName()
-cat.showAge()
-show(cat.gender)
-cat.showWeight()
-cat.showHeight()
+model Car: Vehicle {
+    attr<make>
 
-model Car {
-    attr<engine, chassis>
-    attr<year, mascot>
-    attr<modelName, colour>
+    init(m, v_num, s) {
+        v_number: v_num
+        serial: s
+        make: m
+    }
 
-    init(engine, modelName, year, colour, mascot) {
-        engine: "E+" + engine, year: "'" + String(year<2000?year-1900:year-2000)
-        colour: colour
-        modelName: modelName + " " + String(year) + " " + colour
-        mascot: mascot
+    open method start() {
+        show("Car engine started.")
     }
-    method showE(){
-        show(engine)
-    }
-    method showY(){
-        show(year)
-    }
-    method showC(){
-        show(colour)
-    }
-    method showM(){
-        show(modelName)
+
+    open method get_make() {
+        show("Make: " + make)
     }
 }
 
-test=Car("VTEC", "City", 2021, "Black", cat)
-show(test==cat)
-test.showE()
-test.showC()
-test.showY()
-test.showM()
-test.mascot.showName()
-test.mascot.showAge()
-show(test.mascot.gender)
-test.mascot.showWeight()
-test.mascot.showHeight()
+model SportsCar: Car {
+    secret attr<turbo>
+
+    init(m, v_num, s) {
+        v_number: v_num
+        serial: s
+        make: m
+        turbo: 15
+    }
+
+    open method check_vin() {
+        show("Protected VIN is: " + v_number)
+    }
+}
+
+my_car = SportsCar("Sardine Motors", "SARD123", "XYZ987")
+
+my_car.get_make()
+my_car.start()
+my_car.get_vin()
+my_car.check_vin()
+
+show("Public make: " + my_car.make)
