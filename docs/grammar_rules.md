@@ -28,7 +28,7 @@ Below is the complete grammar definition:
 ```grammar
 multiline: NEWLINE* (singleline)* (NEWLINE* (singleline))* NEWLINE*
 
-singleline: function-call | statements | if-expression | for-expression | while-expression | switch-statement | function-definition | exception-handling | class-definition
+singleline: call | statements | if-expression | for-expression | while-expression | switch-statement | function-definition | exception-handling | class-definition
 
 class-definition: KEYWORD:model IDENTIFIER LPAREN2 NEWLINE* (class-member NEWLINE*)* RPAREN2
 
@@ -70,11 +70,13 @@ term: unary ((MUL | DIV | MOD | FLOOR) unary)*
 
 unary: (PLUS | MINUS) unary | exponent
 
-exponent: factor (EXP unary)*
+exponent: call (EXP unary)*
 
-factor: INT | FLOAT | STRING | IDENTIFIER (LPAREN3 expression RPAREN3)* | LPAREN expression RPAREN | list-expression | dict-expression | function-call
+call: attr-access (LPAREN (expression(COMMA expression)*)? RPAREN)*
 
-function-call: IDENTIFIER LPAREN (expression(COMMA expression)*)? RPAREN
+attr-access: factor (DOT IDENTIFIER)*
+
+factor: INT | FLOAT | STRING | IDENTIFIER (LPAREN3 expression RPAREN3)* | LPAREN expression RPAREN | list-expression | dict-expression
 
 dict-expression: LPAREN2 (expression COLON expression(COMMA expression COLON expression)*)? RPAREN2
 
