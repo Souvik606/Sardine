@@ -7,7 +7,6 @@ Classes:
     Function: A class to represent user-defined functions in the AST.
     BuiltInFunction: A class to represent built-in functions in the AST.
 """
-
 from sards.ast_nodes import SymbolTable
 from sards.core.error import ArgumentError
 from sards.data_types import Number, String, List
@@ -24,7 +23,7 @@ class BaseFunction:
         context: The context in which the function is executed.
     """
 
-    def __init__(self, name):
+    def __init__(self, name,instance=None):
         """
         Initializes a BaseFunction instance.
 
@@ -32,6 +31,7 @@ class BaseFunction:
             name: The name of the function.
         """
         self.name = name or "<anonymous>"
+        self.instance=instance
         self.set_pos()
         self.set_context()
 
@@ -142,7 +142,7 @@ class Function(BaseFunction):
         auto_return: A flag indicating whether the function automatically returns the last
         evaluated expression.
     """
-    def __init__(self, name, body_node, arg_names, auto_return):
+    def __init__(self, name, body_node, arg_names, auto_return,instance=None):
         """
         Initializes a Function instance.
 
@@ -153,14 +153,10 @@ class Function(BaseFunction):
             auto_return: A flag indicating whether the function automatically returns the last
             evaluated expression.
         """
-        super().__init__(name)
+        super().__init__(name,instance)
         self.body_node = body_node
         self.arg_names = arg_names
         self.auto_return = auto_return
-
-    # In your Function class's execute method
-
-    # --- REPLACE the existing execute method in your Function class with this final version ---
 
     def execute(self, args):
         from sards.core import RunTimeResult, Interpreter, Context
@@ -168,32 +164,23 @@ class Function(BaseFunction):
         res = RunTimeResult()
         interpreter = Interpreter()
 
-        # #################### THE FINAL FIX ####################
-        if hasattr(self, 'bound_this'):
-            # This is a method call.
-            instance = self.bound_this
-            # Create a new context whose parent is the INSTANCE'S context.
+        if self.instance:
+            instance = self.instance
             exec_context = Context(self.name, instance.context, self.pos_start)
-            # The new symbol table's parent is the INSTANCE'S symbol table.
-            # This is the crucial link that was missing.
+
             exec_context.symbol_table = SymbolTable(instance.symbol_table)
             exec_context.symbol_table.set("this", instance)
         else:
-            # This is a normal function call.
             exec_context = self.generate_new_context()
-        # #######################################################
 
-        # Check and populate the arguments into the new execution context
         res.register(self.check_and_populate_args(self.arg_names, args, exec_context))
         if res.should_return():
             return res
 
-        # Visit the function's body to execute its code
         value = res.register(interpreter.visit(self.body_node, exec_context))
         if res.should_return() and res.func_return_value is None:
             return res
 
-        # Determine the final return value
         return_value = ((value if self.auto_return else None) or
                         res.func_return_value or Number(0))
 
@@ -206,7 +193,7 @@ class Function(BaseFunction):
         Returns:
             copy: The copy of the function.
         """
-        copy = Function(self.name, self.body_node, self.arg_names, self.auto_return)
+        copy = Function(self.name, self.body_node, self.arg_names, self.auto_return,self.instance)
         copy.set_context(self.context)
         copy.set_pos(self.pos_start, self.pos_end)
         return copy

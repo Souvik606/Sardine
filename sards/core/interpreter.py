@@ -517,7 +517,6 @@ class Interpreter:
             value = context.symbol_table.get(var_name)
 
         if value is None:
-            print(f"  - FAILED: '{var_name}' was not found anywhere.")
             return res.failure(
                 NameError(
                     node.pos_start,
@@ -530,7 +529,6 @@ class Interpreter:
         indexes = []
         for index_node in node.index_node:
             index_val = res.register(self.visit(index_node, context))
-            # Corrected a minor bug here to check the result properly
             if res.should_return():
                 return res
             indexes.append(index_val)
@@ -545,10 +543,6 @@ class Interpreter:
 
             value = value.copy().set_pos(node.pos_start, node.pos_end).set_context(context)
             return res.success(value)
-
-    # --- REPLACE the existing visit_VariableAssignNode in your Interpreter class with this one ---
-
-    # --- REPLACE this method in your interpreter.py file ---
 
     def visit_VariableAssignNode(self, node, context):
         res = RunTimeResult()
@@ -581,7 +575,6 @@ class Interpreter:
                 context.symbol_table.set(var_name, list_value)
                 last_result = list_value
             else:
-                # #################### THE FINAL FIX ####################
                 instance = context.symbol_table.get("this")
 
                 all_attr_names = []
@@ -593,13 +586,11 @@ class Interpreter:
                 is_attr = instance and var_name in all_attr_names
 
                 if is_attr:
-                    # This was the missing line. We need to actually set the attribute.
                     instance.symbol_table.set(var_name, value)
                 else:
                     context.symbol_table.set(var_name, value)
 
                 last_result = value
-                # #######################################################
 
         return res.success(last_result)
 

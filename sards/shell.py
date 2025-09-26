@@ -76,7 +76,6 @@ def run(filename, input_text):
     # Pass the tokens to the parser
     parser = Parser(tokens)
     syntax_tree = parser.parse()# Generate AST
-    print(syntax_tree.node)
 
     # Return the parsed AST and any errors encountered
     if syntax_tree.error:

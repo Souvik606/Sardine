@@ -39,13 +39,10 @@ class ModelInstance:
             method_node = self.model.method_nodes[name]
             
             method = Function(
-                name,
-                method_node.body_node,
+                name,method_node.body_node,
                 [tok.value for tok in method_node.arg_name_toks],
-                False
+                False,self
             ).set_context(self.context)
-
-            method.bound_this = self
             
             return method, None
 

@@ -1,6 +1,7 @@
 from sards.ast_nodes import SymbolTable
 from sards.oops_types import ModelInstance
 from sards.user_functions import Function
+from sards.data_types import Number
 
 class Model:
     """
@@ -42,6 +43,8 @@ class Model:
                     if res.should_return(): return res
               
                     instance.symbol_table.set(name_tok.value, default_value)
+                else:
+                    instance.symbol_table.set(name_tok.value,Number(0))
        
         if self.init_node:
             init_func = Function("init",
@@ -51,7 +54,7 @@ class Model:
             ).set_context(self.context)
 
             exec_context = Context("init", self.context, self.pos_start)
-            exec_context.symbol_table = SymbolTable(instance.symbol_table)
+            exec_context.symbol_table = instance.symbol_table
             exec_context.symbol_table.set("this", instance)
 
             res.register(init_func.check_and_populate_args(init_func.arg_names, args, exec_context))

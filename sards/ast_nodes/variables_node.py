@@ -47,6 +47,14 @@ class SymbolTable: # pylint: disable=R0903
         """
         del self.symbols[name]
 
+    def __repr__(self):
+        table=''
+
+        for key,val in self.symbols.items():
+            table+=f'{key}:{val} '
+
+        return table
+
 class VariableUseNode: # pylint: disable=R0903
     """
     Represents a variable usage node in the abstract syntax tree (AST).

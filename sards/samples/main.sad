@@ -3,9 +3,10 @@ model Animal{
     attr<age,gender>
     attr<weight=20,height>
 
-    init(name,age,gender) {
+    init(name,age,gender,weight) {
         name:name,age:2*age
         gender:gender
+        weight:weight
     }
 
     method showName(){
@@ -15,10 +16,19 @@ model Animal{
     method showAge(){
         show(age)
     }
+
+    method showWeight(){
+        show(weight)
+    }
+
+    method showHeight(){
+        show(height)
+    }
 }
 
-cat=Animal("Tom",5,"M")
-show(cat.name)
-show(cat.age)
+cat=Animal("Tom",5,"M",30)
+cat.showName()
+cat.showAge()
 show(cat.gender)
-show(cat.weight)
+cat.showWeight()
+cat.showHeight()
