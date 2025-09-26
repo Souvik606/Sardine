@@ -1,7 +1,7 @@
-from sards.data_types import Number
-from sards.core.error import AttributeError, IllegalOperationError
-from sards.user_functions import Function
 from sards.ast_nodes import SymbolTable
+from sards.core.error import AttributeError, IllegalOperationError
+from sards.data_types import Number
+from sards.user_functions import Function
 
 class ModelInstance:
     """
@@ -30,22 +30,61 @@ class ModelInstance:
         copy.set_context(self.context)
         return copy
 
+
     def get_attr(self, name):
         value = self.symbol_table.get(name)
         if value:
             return value, None
+        method_info = self.model.find_method(name)
+        if method_info:
+            method_node, access_modifier_tok = method_info
 
-        if name in self.model.method_nodes:
-            method_node = self.model.method_nodes[name]
-            
+            access_level = "open"
+            if access_modifier_tok:
+                access_level = access_modifier_tok
+
+            method_owner = self.model.find_method_owner(name)
+
+            if access_level == "secret":
+                if not self.context or not hasattr(self.context,
+                                                   'display_name') or self.context.display_name != method_owner.name:
+                    return None, AttributeError(self.pos_start, self.pos_end, f"Cannot access secret method '{name}'",
+                                                self.context)
+
+            if access_level == "guarded":
+                current_instance = self.context.symbol_table.get("this")
+                if not current_instance or not current_instance.model.is_descendant_of(method_owner):
+                    return None, AttributeError(self.pos_start, self.pos_end,
+                                                f"Cannot access guarded method '{name}' from context '{self.context.display_name}'",
+                                                self.context)
+
             method = Function(
-                name,method_node.body_node,
-                [tok.value for tok in method_node.arg_name_toks],
-                False,self
+                name, method_node.body_node, [tok.value for tok in method_node.arg_name_toks], False, self
             ).set_context(self.context)
             method.set_pos(method_node.pos_start, method_node.pos_end)
-
             return method, None
+
+        attr_info = self.model.find_attribute(name)
+        if attr_info:
+            attr_name, default_node, access_level = attr_info
+
+            attr_owner = self.model.find_attribute_owner(name)
+
+            if access_level == "secret":
+                if not self.context or not hasattr(self.context,
+                                                   'display_name') or self.context.display_name != attr_owner.name:
+                    return None, AttributeError(self.pos_start, self.pos_end,
+                                                f"Cannot access secret attribute '{name}'", self.context)
+
+            if access_level == "guarded":
+                current_instance = self.context.symbol_table.get("this")
+                if not current_instance or not current_instance.model.is_descendant_of(attr_owner):
+                    return None, AttributeError(self.pos_start, self.pos_end,
+                                                f"Cannot access guarded attribute '{name}' from context '{self.context.display_name}'",
+                                                self.context)
+
+            return None, NameError(self.pos_start, self.pos_end, f"Attribute '{name}' was not initialized.",
+                                   self.context)
 
         return None, AttributeError(
             self.pos_start, self.pos_end,

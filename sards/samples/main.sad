@@ -52,8 +52,9 @@ model SportsCar: Car {
 my_car = SportsCar("Sardine Motors", "SARD123", "XYZ987")
 
 my_car.get_make()
+show("My serial: "+my_car.serial)
 my_car.start()
 my_car.get_vin()
 my_car.check_vin()
 
-show("Public make: " + my_car.make)
+show("Public make: "+ my_car.make)
