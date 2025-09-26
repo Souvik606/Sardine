@@ -2,39 +2,30 @@
 Module: Position and Error Tracking
 
 This module provides utility classes for tracking the position of characters in an input text
-and handling errors encountered during tokenization or parsing.
-
-Classes:
-- Position: Maintains the current position in the input text, including index, line, and column.
-- Error: Serves as a base class for error handling, storing details about errors that occur.
-- IllegalCharError: A specific error subclass for handling illegal character occurrences.
-- InvalidSyntaxError: A specific error subclass for handling invalid syntax occurrences.
-- RunTimeError: Handles runtime errors encountered during execution.
+and handling errors encountered during tokenization, parsing, or runtime execution.
 """
 
+# ------------------------------
+# POSITION CLASS
+# ------------------------------
 
 class Position:
     """
     Tracks the current position in the input text, including index, line, and column.
-
-    Attributes:
-    - index (int): The current character index in the input text.
-    - line (int): The current line number in the input text.
-    - col (int): The current column number in the input text.
-    - file_name (str): The name of the file being processed.
-    - file_text (str): The full content of the file being processed.
+    Useful for error reporting, so the interpreter can say exactly
+    where (file, line, column) a problem occurred.
     """
 
     def __init__(self, index, line, col, file_name, file_text):
         """
-        Initializes a Position instance.
+        Initialize a Position object.
 
         Parameters:
-        - index (int): The character index in the input text.
-        - line (int): The line number in the input text.
-        - col (int): The column number in the input text.
-        - file_name (str): The name of the file being processed.
-        - file_text (str): The full content of the file.
+        - index (int): The absolute character index in the input string.
+        - line (int): The current line number (0-based).
+        - col (int): The current column number (0-based).
+        - file_name (str): File being processed (for error messages).
+        - file_text (str): The full text of the file (for context in errors).
         """
         self.index = index
         self.line = line
@@ -44,54 +35,53 @@ class Position:
 
     def advance(self, current_char=None):
         """
-        Moves the position forward by one character.
-
-        If the character is a newline ('\n'), it increments the line number
-        and resets the column number. Otherwise, it simply increments the column number.
-
-        Parameters:
-        - current_char (str, optional): The character currently being processed.
+        Move the position forward by one character.
+        - Always increments `index` and `col`.
+        - If the character is a newline (`\n`) or statement terminator (`;`),
+          resets column to 0 and increments line.
 
         Returns:
-        - Position: The updated position object.
+        - self (Position): Updated position object.
         """
         self.index += 1
         self.col += 1
+
         if current_char == '\n' or current_char == ';':
             self.line += 1
             self.col = 0
+
         return self
 
     def copy(self):
         """
-        Creates and returns a copy of the current position.
+        Create and return a copy of this Position.
+        Useful because errors need to freeze a snapshot of where they happened.
 
         Returns:
-        - Position: A new instance of Position with the same values.
+        - Position: new object with same values.
         """
         return Position(self.index, self.line, self.col, self.file_name, self.file_text)
 
 
-class Error: # pylint: disable=too-few-public-methods
-    """
-    Represents a general error encountered during tokenization or parsing.
+# ------------------------------
+# BASE ERROR CLASS
+# ------------------------------
 
-    Attributes:
-    - pos_start (Position): The starting position of the error.
-    - pos_end (Position): The ending position of the error.
-    - error_name (str): The name/type of the error.
-    - details (str): Additional details about the error.
+class BaseError:
+    """
+    Base class for all errors (both compile-time and runtime).
+    Stores where the error occurred and what it was.
     """
 
     def __init__(self, pos_start, pos_end, error_name, details):
         """
-        Initializes an Error instance.
+        Initialize a BaseError.
 
         Parameters:
-        - pos_start (Position): The starting position of the error.
-        - pos_end (Position): The ending position of the error.
-        - error_name (str): A description of the error type.
-        - details (str): Additional information about the error.
+        - pos_start (Position): Start of error.
+        - pos_end (Position): End of error.
+        - error_name (str): Short name of error type (e.g. "SyntaxError").
+        - details (str): Human-readable description of what went wrong.
         """
         self.pos_start = pos_start
         self.pos_end = pos_end
@@ -100,128 +90,77 @@ class Error: # pylint: disable=too-few-public-methods
 
     def to_string(self):
         """
-        Formats and returns the error message.
+        Create a formatted error message with file, line, and details.
 
         Returns:
-        - str: A formatted error message containing the error name, details,
-               and file location information.
+        - str: Example -> "Invalid Syntax: unexpected token
+                          File test.lang, line 3"
         """
         return (
             f"{self.error_name}: {self.details}\n"
             f"File {self.pos_start.file_name}, line {self.pos_start.line + 1}"
         )
 
-class IllegalCharError(Error): # pylint: disable=too-few-public-methods
-    """
-    Handles errors caused by illegal characters in the input text.
 
-    Inherits from:
-    - Error
-    """
+# ------------------------------
+# COMPILE-TIME ERRORS
+# ------------------------------
 
+class IllegalCharError(BaseError):
+    """
+    Error for encountering a character not in the language alphabet.
+    Example: "$" if not allowed.
+    """
     def __init__(self, pos_start, pos_end, details=''):
-        """
-        Initializes an IllegalCharError instance.
+        super().__init__(pos_start, pos_end, "Illegal Character Error", details)
 
-        Parameters:
-        - pos_start (Position): The starting position of the illegal character.
-        - pos_end (Position): The ending position of the illegal character.
-        - details (str, optional): Additional information about the error. Defaults
-            to an empty string.
-        """
-        super().__init__(pos_start, pos_end, 'Illegal Character', details)
 
-class IllegalOperationError(Error): # pylint: disable=too-few-public-methods
+class InvalidSyntaxError(BaseError):
     """
-    Handles errors caused by illegal operations.
-
-    Inherits from:
-    - Error
+    Error for invalid grammar or sequence of tokens.
+    Example: `1 + * 2`
     """
-
     def __init__(self, pos_start, pos_end, details=''):
-        """
-        Initializes an IllegalOperationError instance.
+        super().__init__(pos_start, pos_end, "Invalid Syntax Error", details)
 
-        Parameters:
-        - pos_start (Position): The starting position of the illegal operation.
-        - pos_end (Position): The ending position of the illegal operation.
-        - details (str, optional): Additional information about the error. Defaults
-            to an empty string.
-        """
-        super().__init__(pos_start, pos_end, 'Illegal Operation', details)
-        
-class ExpectedCharError(Error): # pylint: disable=too-few-public-methods
+
+class ExpectedCharError(BaseError):
     """
-    Handles errors caused by absence of expected characters in the input text.
-
-    Inherits from:
-    - Error
+    Error when a particular character was expected but not found.
+    Example: missing closing parenthesis `(` without `)`.
     """
-
-    def __init__(self,pos_start,pos_end,details):
-        super().__init__(pos_start,pos_end,'Expected Character',details)
-
-class InvalidSyntaxError(Error): # pylint: disable=too-few-public-methods
-    """
-    Handles errors caused by invalid syntax in the input text.
-
-    Inherits from:
-    - Error
-    """
-
     def __init__(self, pos_start, pos_end, details=''):
-        """
-        Initializes an InvalidSyntaxError instance.
+        super().__init__(pos_start, pos_end, "Expected Character", details)
 
-        Parameters:
-        - pos_start (Position): The starting position of the syntax error.
-        - pos_end (Position): The ending position of the syntax error.
-        - details (str, optional): Additional information about the error.
-                                    Defaults to an empty string.
-        """
-        super().__init__(pos_start, pos_end, 'Invalid Syntax', details)
+# ------------------------------
+# RUNTIME ERRORS
+# ------------------------------
 
-
-class RunTimeError(Error):
+class RunTimeError(BaseError):
     """
-    Represents an error encountered during the execution phase.
-
-    Attributes:
-    - context (Context): The execution context where the error occurred.
-
-    Inherits from:
-    - Error
+    Base class for all runtime errors.
+    Stores execution context so traceback can be generated.
     """
 
     def __init__(self, pos_start, pos_end, details, context):
         """
-        Initializes a RunTimeError instance.
+        Initialize a RunTimeError.
 
         Parameters:
-        - pos_start (Position): The starting position of the runtime error.
-        - pos_end (Position): The ending position of the runtime error.
-        - details (str): A description of the runtime error.
-        - context (Context): The execution context where the error occurred.
+        - pos_start (Position): Where runtime error started.
+        - pos_end (Position): Where runtime error ended.
+        - details (str): Error explanation.
+        - context (Context): Current execution context (call stack info).
         """
-        super().__init__(pos_start, pos_end, 'Run Time Error', details)
+        super().__init__(pos_start, pos_end, "RunTimeError", details)
         self.context = context
-
-    def to_string(self):
-        """
-        Returns a formatted traceback of the runtime error.
-
-        Returns:
-        - str: A string representing the traceback of the error.
-        """
-        return self.generate_traceback()
 
     def generate_traceback(self):
         """
-        Generates a traceback for the runtime error, showing where it occurred in the program.
+        Walk back through contexts to produce Python-like traceback.
 
         Returns:
-        - str: A formatted string containing the error traceback.
+        - str: Traceback text showing file, line, and function call chain.
         """
         result = ''
         position = self.pos_start
@@ -229,12 +168,119 @@ class RunTimeError(Error):
 
         while context:
             result = (
-                f"{self.error_name}: {self.details}\n"
                 f"File {position.file_name}, line {position.line + 1}, "
                 f"in {context.display_name}\n"
-            )
-
+            ) + result
+            # step into parent context
             position = context.parent_entry_pos
             context = context.parent
 
-        return 'Traceback (most recent call last):\n' + result
+        return (
+            "Traceback (most recent call last):\n" +
+            result +
+            f"{self.error_name}: {self.details}"
+        )
+
+    def to_string(self):
+        """
+        Override default error string.
+        Returns the full traceback instead of a one-line message.
+        """
+        return self.generate_traceback()
+
+
+# ------------------------------
+# SPECIFIC RUNTIME ERRORS
+# ------------------------------
+
+class IllegalOperationError(RunTimeError):
+    """
+    Error for invalid operations (e.g. adding string to number if not allowed).
+    """
+    def __init__(self, pos_start, pos_end, details, context):
+        super().__init__(pos_start, pos_end, details, context)
+        self.error_name = "IllegalOperationError"
+
+
+class DivisionByZeroError(RunTimeError):
+    """
+    Error for division by zero (runtime math exception).
+    """
+    def __init__(self, pos_start, pos_end, details,context):
+        super().__init__(pos_start, pos_end, "Division by zero", context)
+        self.error_name = "DivisionByZeroError"
+
+
+class IndexOutOfBoundsError(RunTimeError):
+    """
+    Error for invalid list/array indexing.
+    Example: arr[10] when len(arr) == 3.
+    """
+    def __init__(self, pos_start, pos_end, details, context):
+        super().__init__(pos_start, pos_end, details, context)
+        self.error_name = "IndexOutOfBoundsError"
+        
+
+class NameError(RunTimeError):
+    """
+    Error for using an undefined variable/function name.
+    Example: print(x) when x is not defined.
+    """
+    def __init__(self, pos_start, pos_end, details, context):
+        super().__init__(pos_start, pos_end, details, context)
+        self.error_name = "NameError"
+
+
+class ArgumentError(RunTimeError):
+    """
+    Error for function call argument mismatches.
+    Example: myFunc(1, 2, 3) when definition is myFunc(a, b).
+    """
+    def __init__(self, pos_start, pos_end, details, context):
+        super().__init__(pos_start, pos_end, details, context)
+        self.error_name = "ArgumentError"
+
+class NotImplementedError(RunTimeError):
+    """
+    Error for function call argument mismatches.
+    Example: myFunc(1, 2, 3) when definition is myFunc(a, b).
+    """
+    def __init__(self, pos_start, pos_end, details, context):
+        super().__init__(pos_start, pos_end, details, context)
+        self.error_name = "NotImplementedError"
+
+class InvalidErrorTypeError(RunTimeError):
+    """
+    Error raised when a 'trap' block specifies an invalid or unsupported error type.
+    Example: trap UnknownError e { ... }
+    """
+    def __init__(self, pos_start, pos_end, details, context):
+        super().__init__(pos_start, pos_end, details, context)
+        self.error_name = "InvalidErrorTypeError"
+
+class DictKeyError(RunTimeError):
+    """
+    Error raised when a 'trap' block specifies an invalid or unsupported error type.
+    Example: trap UnknownError e { ... }
+    """
+    def __init__(self, pos_start, pos_end, details, context):
+        super().__init__(pos_start, pos_end, details, context)
+        self.error_name = "DictKeyError"
+
+class TypeError(RunTimeError):
+    """
+    Error for performing an operation on an inappropriate type.
+    Example: calling an attribute that is not a method, like my_obj.age()
+    """
+    def __init__(self, pos_start, pos_end, details, context):
+        super().__init__(pos_start, pos_end, details, context)
+        self.error_name = "TypeError"
+
+class AttributeError(RunTimeError):
+    """
+    Error for accessing a non-existent attribute or method on an object.
+    Example: my_obj.fake_property
+    """
+    def __init__(self, pos_start, pos_end, details, context):
+        super().__init__(pos_start, pos_end, details, context)
+        self.error_name = "AttributeError"

@@ -35,6 +35,9 @@ class FunctionDefinitionNode: # pylint: disable=R0903
 
         self.pos_end = self.body_node.pos_end
 
+    def __repr__(self):
+        return f'{self.var_name_tok}:{self.arg_name_toks}:{self.body_node}'
+
 
 class FunctionCallNode: # pylint: disable=R0903
     """
@@ -56,3 +59,6 @@ class FunctionCallNode: # pylint: disable=R0903
             self.pos_end = self.arg_nodes[-1].pos_end
         else:
             self.pos_end = self.call_node.pos_end
+
+    def __repr__(self):
+        return f'{self.call_node}:{self.arg_nodes}'

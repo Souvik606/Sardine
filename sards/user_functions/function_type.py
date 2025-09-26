@@ -7,9 +7,8 @@ Classes:
     Function: A class to represent user-defined functions in the AST.
     BuiltInFunction: A class to represent built-in functions in the AST.
 """
-
 from sards.ast_nodes import SymbolTable
-from sards.core import RunTimeResult, RunTimeError, Interpreter
+from sards.core.error import ArgumentError
 from sards.data_types import Number, String, List
 
 
@@ -23,7 +22,8 @@ class BaseFunction:
         pos_end: The ending position of the function in the source code.
         context: The context in which the function is executed.
     """
-    def __init__(self, name):
+
+    def __init__(self, name,instance=None):
         """
         Initializes a BaseFunction instance.
 
@@ -31,6 +31,7 @@ class BaseFunction:
             name: The name of the function.
         """
         self.name = name or "<anonymous>"
+        self.instance=instance
         self.set_pos()
         self.set_context()
 
@@ -80,17 +81,18 @@ class BaseFunction:
         Returns:
             res: The result of the argument check.
         """
+        from sards.core import RunTimeResult
         res = RunTimeResult()
 
         if len(args) > len(arg_names):
             return res.failure(
-                RunTimeError(self.pos_start, self.pos_end,
+                ArgumentError(self.pos_start, self.pos_end,
                     f"{len(args) - len(arg_names)} too many args passed into '{self.name}'",
                     self.context))
 
         if len(args) < len(arg_names):
             return res.failure(
-                RunTimeError(self.pos_start, self.pos_end,
+                ArgumentError(self.pos_start, self.pos_end,
                     f"{len(arg_names) - len(args)} too few args passed into '{self.name}'",
                     self.context))
         return res.success(None)
@@ -121,6 +123,7 @@ class BaseFunction:
         Returns:
             res: The result of the argument check and population.
         """
+        from sards.core import RunTimeResult
         res = RunTimeResult()
         res.register(self.check_args(arg_names, args))
         if res.should_return():
@@ -139,7 +142,7 @@ class Function(BaseFunction):
         auto_return: A flag indicating whether the function automatically returns the last
         evaluated expression.
     """
-    def __init__(self, name, body_node, arg_names, auto_return):
+    def __init__(self, name, body_node, arg_names, auto_return,instance=None):
         """
         Initializes a Function instance.
 
@@ -150,24 +153,25 @@ class Function(BaseFunction):
             auto_return: A flag indicating whether the function automatically returns the last
             evaluated expression.
         """
-        super().__init__(name)
+        super().__init__(name,instance)
         self.body_node = body_node
         self.arg_names = arg_names
         self.auto_return = auto_return
 
     def execute(self, args):
-        """
-        Executes the function with the given arguments.
+        from sards.core import RunTimeResult, Interpreter, Context
 
-        Args:
-            args: A list of arguments.
-
-        Returns:
-            res: The result of the function execution.
-        """
         res = RunTimeResult()
         interpreter = Interpreter()
-        exec_context = self.generate_new_context()
+
+        if self.instance:
+            instance = self.instance
+            exec_context = Context(self.name, instance.context, self.pos_start)
+
+            exec_context.symbol_table = SymbolTable(instance.symbol_table)
+            exec_context.symbol_table.set("this", instance)
+        else:
+            exec_context = self.generate_new_context()
 
         res.register(self.check_and_populate_args(self.arg_names, args, exec_context))
         if res.should_return():
@@ -179,6 +183,7 @@ class Function(BaseFunction):
 
         return_value = ((value if self.auto_return else None) or
                         res.func_return_value or Number(0))
+
         return res.success(return_value)
 
     def copy(self):
@@ -188,7 +193,7 @@ class Function(BaseFunction):
         Returns:
             copy: The copy of the function.
         """
-        copy = Function(self.name, self.body_node, self.arg_names, self.auto_return)
+        copy = Function(self.name, self.body_node, self.arg_names, self.auto_return,self.instance)
         copy.set_context(self.context)
         copy.set_pos(self.pos_start, self.pos_end)
         return copy
@@ -226,6 +231,8 @@ class BuiltInFunction(BaseFunction):
         Returns:
             res: The result of the function execution.
         """
+        from sards.core import RunTimeResult
+
         res = RunTimeResult()
         exec_context = self.generate_new_context()
 
@@ -285,6 +292,7 @@ class BuiltInFunction(BaseFunction):
         Returns:
             res: The result of the function execution.
         """
+        from sards.core import RunTimeResult
         print(str(exec_context.symbol_table.get('value')))
         return RunTimeResult().success(Number(0))
 
@@ -300,6 +308,7 @@ class BuiltInFunction(BaseFunction):
         Returns:
             res: The result of the function execution.
         """
+        from sards.core import RunTimeResult
         text = input()
         return RunTimeResult().success(String(text))
 
@@ -315,6 +324,7 @@ class BuiltInFunction(BaseFunction):
         Returns:
             res: The result of the function execution.
         """
+        from sards.core import RunTimeResult
         try:
             number = int(exec_context.symbol_table.get('value').value)
         except ValueError as exc:
@@ -334,6 +344,7 @@ class BuiltInFunction(BaseFunction):
         Returns:
             res: The result of the function execution.
         """
+        from sards.core import RunTimeResult
         try:
             string = str(exec_context.symbol_table.get('value').value)
         except ValueError as exc:
@@ -353,6 +364,7 @@ class BuiltInFunction(BaseFunction):
         Returns:
             res: The result of the function execution.
         """
+        from sards.core import RunTimeResult
         data = exec_context.symbol_table.get('value')
         if isinstance(data, Number):
             print("type <Number>")

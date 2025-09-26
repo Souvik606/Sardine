@@ -17,6 +17,7 @@ T_FLOAT = 'FLOAT'  # Floating-point number token
 T_STRING = 'STRING'
 T_IDENTIFIER = 'IDENTIFIER'  # Identifier token
 T_KEYWORD = 'KEYWORD'
+T_ERROR='ERROR'
 T_PLUS = 'PLUS'  # Addition operator (+)
 T_PLUSEQUAL = 'PLUSEQUAL' # Augmented addition operator (+=)
 T_MINUS = 'MINUS'  # Subtraction operator (-)
@@ -46,6 +47,7 @@ T_RPAREN2 = 'RPAREN2'
 T_LPAREN3 = 'LPAREN3'
 T_RPAREN3 = 'RPAREN3'
 T_COLON = 'COLON'
+T_DOT="DOT"
 T_COMMA = 'COMMA'
 T_NEWLINE = 'NEWLINE'
 T_EOF = 'EOF'  # End of File
@@ -54,4 +56,8 @@ T_QUESTION = 'QUESTION'
 # Keywords list
 
 KEYWORDS = ['define', 'and', 'or', 'not', 'when', 'orwhen', 'otherwise', 'Cycle', 'whenever',
-            'method', 'yield', 'escape', 'proceed', 'menu', 'choice', 'fallback']
+            'method', 'yield', 'escape', 'proceed', 'menu', 'choice', 'fallback','risk','trap','clean',
+            'model','attr','init']
+
+ERROR_TYPES=['RunTimeError','IllegalOperationError','DivisionByZeroError','IndexOutOfBoundsError',
+             'NameError','ArgumentError','InvalidErrorTypeError']

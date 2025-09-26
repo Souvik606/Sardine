@@ -1,9 +1,71 @@
-a=[[1,2,3],[4,5,6],[7,8,9]]
+model Animal{
+    attr<name>
+    attr<age,gender>
+    attr<weight=20,height>
 
-Cycle i=0:2{
-    Cycle j=0:2{
-       a[i][j]=a[i][j]*2
+    init(name,age,gender,weight) {
+        name:name,age:2*age
+        gender:gender
+        weight:weight
+    }
+
+    method showName(){
+        show(name)
+    }
+
+    method showAge(){
+        show(age)
+    }
+
+    method showWeight(){
+        show(weight)
+    }
+
+    method showHeight(){
+        show(height)
     }
 }
 
-show(a)
+cat=Animal("Tom",5,"M",30)
+cat.showName()
+cat.showAge()
+show(cat.gender)
+cat.showWeight()
+cat.showHeight()
+
+model Car {
+    attr<engine, chassis>
+    attr<year, mascot>
+    attr<modelName, colour>
+
+    init(engine, modelName, year, colour, mascot) {
+        engine: "E+" + engine, year: "'" + String(year<2000?year-1900:year-2000)
+        colour: colour
+        modelName: modelName + " " + String(year) + " " + colour
+        mascot: mascot
+    }
+    method showE(){
+        show(engine)
+    }
+    method showY(){
+        show(year)
+    }
+    method showC(){
+        show(colour)
+    }
+    method showM(){
+        show(modelName)
+    }
+}
+
+test=Car("VTEC", "City", 2021, "Black", cat)
+show(test==cat)
+test.showE()
+test.showC()
+test.showY()
+test.showM()
+test.mascot.showName()
+test.mascot.showAge()
+show(test.mascot.gender)
+test.mascot.showWeight()
+test.mascot.showHeight()

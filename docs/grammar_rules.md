@@ -26,25 +26,23 @@ This grammar defines a language that supports:
 Below is the complete grammar definition:
 
 ```grammar
-multiline: NEWLINE* (singleline)* (NEWLINE* (singleline))* NEWLINE*
+multiline: NEWLINE* (singleline) (NEWLINE* (singleline))* NEWLINE*
 
-singleline: function-call | statements | if-expression | for-expression | while-expression | switch-statement | function-definition
+singleline: expression |statements|if-expression | for-expression | while-expression |switch-statement| function-definition
 
-yield-statement: KEYWORD:yield expression
-
-jump-statements: KEYWORD:proceed | KEYWORD:escape
+jump-statements:KEYWORD:yield expression|KEYWORD:proceed | KEYWORD:escape
 
 statements: IDENTIFIER (LPAREN3 expression RPAREN3)* (COMMA IDENTIFIER (LPAREN3 expression RPAREN3)*)* (EQUAL | PLUSEQUAL | MINUSEQUAL | MULEQUAL | DIVEQUAL | MODEQUAL | FLOOREQUAL) expression (COMMA expression)*
 
-switch-statement: KEYWORD:menu ternary-expression LPAREN2 NEWLINE* (case-statement* NEWLINE*)* default-statement? NEWLINE* (case-statement* NEWLINE*)* RPAREN2
+switch-statement: KEYWORD:menu ternary-expression LPAREN2 NEWLINE* (case-statement* NEWLINE*)* default-statement? NEWLINE* (case_statement* NEWLINE*)* RPAREN2
 
-case-statement: KEYWORD:choice ternary-expression LPAREN2 ((expression | statements) RPAREN2) | (NEWLINE multiline RPAREN2)
+case-statement: KEYWORD:choice ternary-expression LPAREN2 ((expression|statements) RPAREN2)| (NEWLINE multiline RPAREN2)
 
-default-statement: KEYWORD:fallback LPAREN2 ((expression | statements) RPAREN2) | (NEWLINE multiline RPAREN2)
+default-statement: KEYWORD:fallback LPAREN2 ((expression|statements) RPAREN2)| (NEWLINE multiline RPAREN2)
 
-expression: ternary-expression
+expression: jump_statements | ternary-expression 
 
-ternary-expression: (logical-expression | statements) (QUESTION ternary-expression COLON ternary-expression)*
+ternary-expression: (logical-expression|statements) (QUESTION ternary-expression COLON ternary-expression)*
 
 logical-expression: comp-expression ((KEYWORD:AND | KEYWORD:OR) comp-expression)*
 
@@ -58,23 +56,23 @@ unary: (PLUS | MINUS) unary | exponent
 
 exponent: factor (EXP unary)*
 
-factor: INT | FLOAT | STRING | IDENTIFIER (LPAREN3 expression RPAREN3)* | LPAREN expression RPAREN | list-expression | function-call
+factor: INT | FLOAT | STRING | IDENTIFIER (ARROW expression)* | LPAREN expression RPAREN |index| list-expression| function-call
 
 function-call: IDENTIFIER LPAREN (expression(COMMA expression)*)? RPAREN
 
 list-expression: LPAREN3 (expression(COMMA expression)*)? RPAREN3
 
-while-expression: KEYWORD:whenever expression LPAREN2 (multiline | jump-statements)* RPAREN2
+while-expression: KEYWORD:whenever expression LPAREN2 ((expression|statements) RPAREN2)| (NEWLINE multiline RPAREN2)
 
-for-expression: KEYWORD:Cycle IDENTIFIER EQUAL expression COLON expression (COLON expression)? LPAREN2 (multiline | jump-statements)* RPAREN2
+for-expression: KEYWORD:Cycle IDENTIFIER EQUAL expression COLON expression (COLON:expression)?LPAREN2 ((expression|statements)RPAREN2)| (NEWLINE multiline RPAREN2)
 
-function-definition: KEYWORD:method IDENTIFIER? LPAREN (IDENTIFIER (COMMA IDENTIFIER)*)? RPAREN LPAREN2 (multiline |jump-statements | yield-statement)* RPAREN2
+function-definition: KEYWORD:method IDENTIFIER?LPAREN (IDENTIFIER (COMMA IDENTIFIER)*)? RPAREN LPAREN2 ((expression|statements)RPAREN2)| (NEWLINE multiline RPAREN2)
 
-if-expression: KEYWORD:when expression LPAREN2 (multiline | jump-statements)* RPAREN2 NEWLINE* (elif-expression | else-expression)
+if-expression: KEYWORD:when expression LPAREN2 ((expression|statements) RPAREN2 (elif-expression|else-expression)?) | (NEWLINE multiline RPAREN2 NEWLINE*(elif-expression|else-expression))
 
-elif-expression: KEYWORD:orwhen expression LPAREN2 (multiline | jump-statements)* RPAREN2 NEWLINE* (elif-expression |else-expression)
+elif-expression: KEYWORD:orwhen expression LPAREN2 ((expression|statements) RPAREN2 (elif-expression|else-expression)?) | (NEWLINE multiline RPAREN2 NEWLINE*(elif-expression|else-expression))
 
-else-expression: KEYWORD:otherwise LPAREN2 (multiline | jump-statements)* RPAREN2
+else-expression: KEYWORD:otherwise LPAREN2 (((expression|statements)RPAREN2)|NEWLINE multiline RPAREN2)
 ```
 
 ## Operator Precedence
@@ -83,7 +81,7 @@ The grammar enforces standard operator precedence:
 
 1. **Parentheses (`()`):**  
    Expressions within parentheses are evaluated first.
-2. **Exponentiation (`**`):\*\*  
+2. **Exponentiation (`**`):**  
    Evaluated before multiplication and division, with right-to-left associativity.
 3. **Unary Operators (`+`, `-`):**  
    Applied directly to the following factor.
