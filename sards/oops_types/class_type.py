@@ -53,6 +53,8 @@ class Model:
                 False
             ).set_context(self.context)
 
+            init_func.set_pos(self.init_node.pos_start, self.init_node.pos_end)
+
             exec_context = Context("init", self.context, self.pos_start)
             exec_context.symbol_table = instance.symbol_table
             exec_context.symbol_table.set("this", instance)

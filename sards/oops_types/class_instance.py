@@ -43,7 +43,8 @@ class ModelInstance:
                 [tok.value for tok in method_node.arg_name_toks],
                 False,self
             ).set_context(self.context)
-            
+            method.set_pos(method_node.pos_start, method_node.pos_end)
+
             return method, None
 
         return None, AttributeError(
