@@ -112,6 +112,12 @@ class Lexer:
         if self.current_char == '/':
             self.advance()
             token_type = T_FLOOR
+            if self.current_char == '=':
+                self.advance()
+                token_type = T_FLOOREQUAL
+        elif self.current_char == '=':
+            self.advance()
+            token_type = T_DIVIDEEQUAL
 
         return Token(token_type, pos_start=pos_start, pos_end=self.pos)
 
@@ -123,6 +129,23 @@ class Lexer:
         if self.current_char == '*':
             self.advance()
             token_type = T_EXP
+            if self.current_char == '=':
+                self.advance()
+                token_type = T_EXPEQUAL
+        elif self.current_char == '=':
+            self.advance()
+            token_type = T_MULEQUAL
+
+        return Token(token_type, pos_start=pos_start, pos_end=self.pos)
+
+    def make_plus(self):
+        pos_start = self.pos.copy()
+        self.advance()
+        token_type = T_PLUS
+
+        if self.current_char == "=":
+            self.advance()
+            token_type = T_PLUSEQUAL
 
         return Token(token_type, pos_start=pos_start, pos_end=self.pos)
 
@@ -134,8 +157,22 @@ class Lexer:
         if self.current_char==">":
             self.advance()
             token_type=T_ARROW
+        elif self.current_char=="=":
+            self.advance()
+            token_type=T_MINUSEQUAL
 
         return Token(token_type,pos_start=pos_start,pos_end=self.pos)
+    
+    def make_mod(self):
+        pos_start = self.pos.copy()
+        self.advance()
+        token_type = T_MODULUS
+
+        if self.current_char == '=':
+            self.advance()
+            token_type = T_MODULUSEQUAL
+
+        return Token(token_type, pos_start=pos_start, pos_end=self.pos)
 
     def make_not_equals(self):
         pos_start = self.pos.copy()
@@ -239,8 +276,7 @@ class Lexer:
             elif self.current_char == '"':
                 tokens.append(self.make_string())
             elif self.current_char == '+':
-                self.advance()
-                tokens.append(Token(T_PLUS, pos_start=self.pos))
+                tokens.append(self.make_plus())
             elif self.current_char == '-':
                 tokens.append(self.make_sub())
             elif self.current_char == '*':
@@ -248,8 +284,7 @@ class Lexer:
             elif self.current_char == '/':
                 tokens.append(self.make_floor())
             elif self.current_char == '%':
-                tokens.append(Token(T_MODULUS, pos_start=self.pos))
-                self.advance()
+                tokens.append(self.make_mod())
             elif self.current_char == '=':
                 tokens.append(self.make_equals())
             elif self.current_char == '!':
@@ -299,3 +334,4 @@ class Lexer:
 
         tokens.append(Token(T_EOF, pos_start=self.pos))
         return tokens, None
+

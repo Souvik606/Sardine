@@ -19,12 +19,19 @@ T_IDENTIFIER = 'IDENTIFIER'  # Identifier token
 T_KEYWORD = 'KEYWORD'
 T_ERROR='ERROR'
 T_PLUS = 'PLUS'  # Addition operator (+)
+T_PLUSEQUAL = 'PLUSEQUAL' # Augmented addition operator (+=)
 T_MINUS = 'MINUS'  # Subtraction operator (-)
+T_MINUSEQUAL = 'MINUSEQUAL' # Augmented subtraction operator (-=)
 T_MUL = 'MUL'  # Multiplication operator (*)
+T_MULEQUAL = 'MULEQUAL' # Augmented multiplication operator (*=)
 T_DIVIDE = 'DIV'  # Division operator (/)
-T_MODULUS = 'MOD'
-T_FLOOR = 'FLOOR'
+T_DIVIDEEQUAL = 'DIVEQUAL' # Augmented division operator (/=)
+T_MODULUS = 'MOD' # Modulus operator (%)
+T_MODULUSEQUAL = 'MODEQUAL' # Augmented modulus operator (%=)
+T_FLOOR = 'FLOOR' # Floor division operator (//)
+T_FLOOREQUAL = 'FLOOREQUAL' # Augmented floor division operator (//=)
 T_EXP = 'EXP'  # Exponentiation operator (**)
+T_EXPEQUAL = 'EXPEQUAL' 
 T_EQ = 'EQUAL'
 T_NEQ = 'NOTEQUAL'
 T_EE = 'DOUBLEEQUAL'

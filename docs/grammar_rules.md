@@ -32,7 +32,7 @@ singleline: expression |statements|if-expression | for-expression | while-expres
 
 jump-statements:KEYWORD:yield expression|KEYWORD:proceed | KEYWORD:escape
 
-statements: IDENTIFIER (ARROW expression)* EQUAL expression
+statements: IDENTIFIER (LPAREN3 expression RPAREN3)* (COMMA IDENTIFIER (LPAREN3 expression RPAREN3)*)* (EQUAL | PLUSEQUAL | MINUSEQUAL | MULEQUAL | DIVEQUAL | MODEQUAL | FLOOREQUAL) expression (COMMA expression)*
 
 switch-statement: KEYWORD:menu ternary-expression LPAREN2 NEWLINE* (case-statement* NEWLINE*)* default-statement? NEWLINE* (case_statement* NEWLINE*)* RPAREN2
 
@@ -50,7 +50,7 @@ comp-expression: KEYWORD:NOT comp-expression | arith-expression ((EE | NEQ | LT 
 
 arith-expression: term ((PLUS | MINUS) term)*
 
-term: unary ((MUL | DIV | MODULUS | FLOOR_DIV) unary)*
+term: unary ((MUL | DIV | MOD | FLOOR) unary)*
 
 unary: (PLUS | MINUS) unary | exponent
 
