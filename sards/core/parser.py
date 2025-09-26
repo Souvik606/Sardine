@@ -697,7 +697,7 @@ class Parser: # pylint: disable=R0904
         res.register_advancement()
         self.advance()
 
-        return res.success(FunctionDefinitionNode(name_tok, param_name_toks, body_node, access_modifier_tok))
+        return res.success(FunctionDefinitionNode(name_tok, param_name_toks, body_node, False,access_modifier_tok))
 
     def initializer_list(self):
         """

@@ -16,7 +16,6 @@ from .constants import (T_PLUS, T_MINUS, T_MUL, T_DIVIDE, T_MODULUS, T_FLOOR, T_
 from .error import NameError, NotImplementedError, InvalidErrorTypeError, RunTimeError, IllegalOperationError, \
     IndexOutOfBoundsError, ArgumentError, DivisionByZeroError
 from sards.ast_nodes import SymbolTable
-from sards.oops_types import Model
 
 ERROR_CLASS_MAP = {
     "RunTimeError": RunTimeError,
@@ -40,7 +39,7 @@ class Context: # pylint: disable=R0903
     - parent_entry_pos (optional): The position in the parent where this context was entered.
     """
 
-    def __init__(self, display_name, parent=None, parent_entry_pos=None):
+    def __init__(self, display_name, parent=None, parent_entry_pos=None,owner_class=None):
         """
         Initializes a new execution context.
 
@@ -53,6 +52,7 @@ class Context: # pylint: disable=R0903
         self.parent = parent
         self.parent_entry_pos = parent_entry_pos
         self.symbol_table = None
+        self.owner_class=owner_class
 
 
 class RunTimeResult:
@@ -152,12 +152,30 @@ class Interpreter:
         """
         return RunTimeResult().failure(NotImplementedError(node.pos_end,node.pos_end,f'No visit_{type(node).__name__} method defined',context))
 
-
     def visit_ModelNode(self, node, context):
         from sards.ast_nodes import FunctionDefinitionNode, InitNode, AttrNode
+        from sards.oops_types import Model
 
         res = RunTimeResult()
         model_name = node.name_tok.value
+
+        parent_models = []
+        if node.parent_name_toks:
+            for parent_tok in node.parent_name_toks:
+                parent_name = parent_tok.value
+                parent = context.symbol_table.get(parent_name)
+                if not parent:
+                    return res.failure(NameError(
+                        parent_tok.pos_start, parent_tok.pos_end,
+                        f"Parent class '{parent_name}' is not defined", context
+                    ))
+                if not isinstance(parent, Model):
+                    return res.failure(TypeError(
+                        parent_tok.pos_start, parent_tok.pos_end,
+                        f"'{parent_name}' is not a class and cannot be inherited from", context
+                    ))
+
+                parent_models.append(parent)
 
         method_nodes = {}
         init_node = None
@@ -165,15 +183,22 @@ class Interpreter:
 
         for member in node.body_nodes:
             if isinstance(member, FunctionDefinitionNode):
-                method_nodes[member.var_name_tok.value] = member
+                access_level = "open"
+                if member.access_modifier_tok:
+                    access_level = member.access_modifier_tok.value
 
+                method_nodes[member.var_name_tok.value] = (member, access_level)
             elif isinstance(member, InitNode):
                 init_node = member
-
             elif isinstance(member, AttrNode):
-                attr_nodes.append(member)
+                access_level = "open"
+                if member.access_modifier_tok:
+                    access_level = member.access_modifier_tok.value
 
-        model = Model(model_name, attr_nodes, init_node, method_nodes)
+                for name_tok, default_node in member.declarations:
+                    attr_nodes.append((name_tok.value, default_node, access_level))
+
+        model = Model(model_name, attr_nodes, init_node, method_nodes, parent_models)
 
         model.set_context(context)
         model.set_pos(node.pos_start, node.pos_end)
@@ -190,7 +215,7 @@ class Interpreter:
 
         attr_name = node.attr_name_tok.value
 
-        value, error = object_val.get_attr(attr_name)
+        value, error = object_val.get_attr(attr_name,context)
 
         if error:
             return res.failure(error)
@@ -508,13 +533,14 @@ class Interpreter:
         var_name = node.var_name_tok.value
         value = None
 
-        instance = context.symbol_table.get("this")
-
-        if instance:
-            value = instance.symbol_table.get(var_name)
+        value = context.symbol_table.get(var_name)
 
         if value is None:
-            value = context.symbol_table.get(var_name)
+            instance = context.symbol_table.get("this")
+            if instance:
+                value, error = instance.get_attr(var_name,context)
+                if error:
+                    return res.failure(error)
 
         if value is None:
             return res.failure(

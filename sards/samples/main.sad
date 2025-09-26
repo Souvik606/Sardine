@@ -1,59 +1,74 @@
-model Vehicle {
-    guarded attr<v_number>
-    secret attr<serial>
+model Creature {
+    secret attr<dna_id>
+    guarded attr<is_alive>
 
-    init(v_num, s) {
-        v_number: v_num
-        serial: s
+    init(id) {
+        dna_id: id
+        is_alive: 1
     }
 
-    open method start() {
-        show("Vehicle engine started.")
+    guarded method metabolize() {
+        show("Creature is metabolizing.")
     }
 
-    open method get_vin() {
-        show("VIN: " + v_number)
-    }
-}
-
-model Car: Vehicle {
-    attr<make>
-
-    init(m, v_num, s) {
-        v_number: v_num
-        serial: s
-        make: m
-    }
-
-    open method start() {
-        show("Car engine started.")
-    }
-
-    open method get_make() {
-        show("Make: " + make)
+    open method check_status() {
+        when is_alive {
+            show("It's alive!")
+        }
     }
 }
 
-model SportsCar: Car {
-    secret attr<turbo>
+model Mammal: Creature {
+    open attr<temperature>
+    secret attr<heart_rate>
 
-    init(m, v_num, s) {
-        v_number: v_num
-        serial: s
-        make: m
-        turbo: 15
+    init(id, temp, rate) {
+        dna_id: id
+        is_alive: 1
+        temperature: temp
+        heart_rate: rate
     }
 
-    open method check_vin() {
-        show("Protected VIN is: " + v_number)
+    open method breathe() {
+        show("Mammal is breathing.")
+        metabolize()
+    }
+
+    open method check_status() {
+        show("Checking mammal status...")
+        when is_alive {
+            show("This mammal is alive.")
+        }
     }
 }
 
-my_car = SportsCar("Sardine Motors", "SARD123", "XYZ987")
+model Lion: Mammal {
+    attr<pride_name>
 
-my_car.get_make()
-my_car.start()
-my_car.get_vin()
-my_car.check_vin()
+    init(id, temp, rate, pride) {
+        dna_id: id
+        is_alive: 1
+        temperature: temp
+        heart_rate: rate
+        pride_name: pride
+    }
 
-show("Public make: " + my_car.make)
+    secret method hunt() {
+        show("Lion is secretly hunting.")
+    }
+
+    open method roar() {
+        show("The lion from " + pride_name + " roars!")
+        hunt()
+    }
+}
+
+simba = Lion("L-42", 38, 80, "Pride Rock")
+simba.check_status()
+
+simba.breathe()
+
+simba.roar()
+
+show("Pride: " + simba.pride_name)
+show("Temp: " + String(simba.temperature))
