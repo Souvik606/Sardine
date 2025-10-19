@@ -1,71 +1,74 @@
-model Animal{
-    attr<name>
-    attr<age,gender>
-    attr<weight=20,height>
+model Creature {
+    secret attr<dna_id>
+    guarded attr<is_alive>
 
-    init(name,age,gender,weight) {
-        name:name,age:2*age
-        gender:gender
-        weight:weight
+    init(id) {
+        dna_id: id
+        is_alive: 1
     }
 
-    method showName(){
-        show(name)
+    guarded method metabolize() {
+        show("Creature is metabolizing.")
     }
 
-    method showAge(){
-        show(age)
-    }
-
-    method showWeight(){
-        show(weight)
-    }
-
-    method showHeight(){
-        show(height)
+    open method check_status() {
+        when is_alive {
+            show("It's alive!")
+        }
     }
 }
 
-cat=Animal("Tom",5,"M",30)
-cat.showName()
-cat.showAge()
-show(cat.gender)
-cat.showWeight()
-cat.showHeight()
+model Mammal: Creature {
+    open attr<temperature>
+    secret attr<heart_rate>
 
-model Car {
-    attr<engine, chassis>
-    attr<year, mascot>
-    attr<modelName, colour>
+    init(id, temp, rate) {
+        dna_id: id
+        is_alive: 1
+        temperature: temp
+        heart_rate: rate
+    }
 
-    init(engine, modelName, year, colour, mascot) {
-        engine: "E+" + engine, year: "'" + String(year<2000?year-1900:year-2000)
-        colour: colour
-        modelName: modelName + " " + String(year) + " " + colour
-        mascot: mascot
+    open method breathe() {
+        show("Mammal is breathing.")
+        metabolize()
     }
-    method showE(){
-        show(engine)
-    }
-    method showY(){
-        show(year)
-    }
-    method showC(){
-        show(colour)
-    }
-    method showM(){
-        show(modelName)
+
+    open method check_status() {
+        show("Checking mammal status...")
+        when is_alive {
+            show("This mammal is alive.")
+        }
     }
 }
 
-test=Car("VTEC", "City", 2021, "Black", cat)
-show(test==cat)
-test.showE()
-test.showC()
-test.showY()
-test.showM()
-test.mascot.showName()
-test.mascot.showAge()
-show(test.mascot.gender)
-test.mascot.showWeight()
-test.mascot.showHeight()
+model Lion: Mammal {
+    attr<pride_name>
+
+    init(id, temp, rate, pride) {
+        dna_id: id
+        is_alive: 1
+        temperature: temp
+        heart_rate: rate
+        pride_name: pride
+    }
+
+    secret method hunt() {
+        show("Lion is secretly hunting.")
+    }
+
+    open method roar() {
+        show("The lion from " + pride_name + " roars!")
+        hunt()
+    }
+}
+
+simba = Lion("L-42", 38, 80, "Pride Rock")
+simba.check_status()
+
+simba.breathe()
+
+simba.roar()
+
+show("Pride: " + simba.pride_name)
+show("Temp: " + String(simba.temperature))

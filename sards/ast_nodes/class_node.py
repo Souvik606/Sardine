@@ -1,44 +1,37 @@
-class ModelNode:  # pylint: disable=R0903
+class ModelNode:
     """
     Represents a 'model' (class) definition in the AST.
-
-    Attributes:
-        name_tok: The token for the model's name.
-        body_nodes: A list of nodes inside the model (AttrNode, InitNode, FunctionDefinitionNode).
-        pos_start: The starting position of the model definition.
-        pos_end: The ending position of the model definition.
     """
-    def __init__(self, name_tok, body_nodes):
+
+    def __init__(self, name_tok, parent_name_toks, body_nodes):
         self.name_tok = name_tok
+        self.parent_name_toks = parent_name_toks
         self.body_nodes = body_nodes
 
         self.pos_start = self.name_tok.pos_start
         self.pos_end = (
             self.body_nodes[-1].pos_end if self.body_nodes
-            else self.name_tok.pos_end
+            else (self.parent_name_toks[-1].pos_end if self.parent_name_toks
+                  else self.name_tok.pos_end)
         )
 
     def __repr__(self):
-        return f"(Model: {self.name_tok.value}, Body: {self.body_nodes})"
+        return f"(Model: {self.name_tok.value}, Parents: {self.parent_name_toks}, Body: {self.body_nodes})"
 
 
-class AttrNode:  # pylint: disable=R0903
+class AttrNode:
     """
     Represents an 'attr' declaration in the AST.
-
-    Attributes:
-        declarations: A list of tuples, where each tuple contains
-                      (identifier_token, optional_default_value_node).
-        pos_start: The starting position of the 'attr' keyword.
-        pos_end: The ending position of the closing '>'.
     """
-    def __init__(self, declarations, pos_start, pos_end):
+
+    def __init__(self, declarations, access_modifier_tok, pos_start, pos_end):
         self.declarations = declarations
+        self.access_modifier_tok = access_modifier_tok
         self.pos_start = pos_start
         self.pos_end = pos_end
 
     def __repr__(self):
-        return f"(Attributes: {self.declarations})"
+        return f"(Attributes: {self.declarations}, Access: {self.access_modifier_tok})"
 
 
 class InitNode:  # pylint: disable=R0903

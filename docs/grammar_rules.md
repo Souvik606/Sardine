@@ -30,17 +30,19 @@ multiline: NEWLINE* (singleline)* (NEWLINE* (singleline))* NEWLINE*
 
 singleline: call | statements | if-expression | for-expression | while-expression | switch-statement | function-definition | exception-handling | class-definition
 
-class-definition: KEYWORD:model IDENTIFIER LPAREN2 NEWLINE* (class-member NEWLINE*)* RPAREN2
+class-definition: KEYWORD:model IDENTIFIER (COLON IDENTIFIER (COMMA IDENTIFIER)*)? LPAREN2 NEWLINE* (class-member NEWLINE*)* RPAREN2
 
-class-member: attr-declaration | constructor-definition | function-definition
+class-member: attr-declaration | constructor-definition | method-definition
 
-attr-declaration: KEYWORD:attr LT attr-list GT
+attr-declaration: (KEYWORD:open | KEYWORD:guarded | KEYWORD:secret)? KEYWORD:attr LT attr-list GT
 
 attr-list: attr-item (COMMA attr-item)*
 
 attr-item: IDENTIFIER (EQUAL expression)?
 
 constructor-definition: KEYWORD:init LPAREN (IDENTIFIER (COMMA IDENTIFIER)*)? RPAREN LPAREN2 NEWLINE* (initializer-list)? (multiline | jump-statements)* NEWLINE* RPAREN2
+
+method-definition: (KEYWORD:open | KEYWORD:guarded | KEYWORD:secret)? KEYWORD:method IDENTIFIER? LPAREN (IDENTIFIER (COMMA IDENTIFIER)*)? RPAREN LPAREN2 (multiline |jump-statements)* RPAREN2
 
 initializer-list: initializer-item ((COMMA NEWLINE* | NEWLINE+) initializer-item)*
 
@@ -72,7 +74,7 @@ unary: (PLUS | MINUS) unary | exponent
 
 exponent: call (EXP unary)*
 
-call: attr-access (LPAREN (expression(COMMA expression)*)? RPAREN)*
+call:attr-access (LPAREN (expression(COMMA expression)*)? RPAREN)*
 
 attr-access: factor (DOT IDENTIFIER)*
 
@@ -82,7 +84,7 @@ dict-expression: LPAREN2 (expression COLON expression(COMMA expression COLON exp
 
 list-expression: LPAREN3 (expression(COMMA expression)*)? RPAREN3
 
-exception-handling: try-expression NEWLINE* ( trap-block NEWLINE* (trap-block)* NEWLINE* clean-block? | clean-block)
+exception-handling: try-expression NEWLINE* ( catch-expression NEWLINE* (catch-expression)* NEWLINE* finally-expression? | finally-expression)
 
 try-expression: KEYWORD:risk LPAREN2 (multiline | jump-statements)* RPAREN2
 
@@ -94,11 +96,11 @@ while-expression: KEYWORD:whenever expression LPAREN2 (multiline | jump-statemen
 
 for-expression: KEYWORD:Cycle IDENTIFIER EQUAL expression COLON expression (COLON expression)? LPAREN2 (multiline | jump-statements)* RPAREN2
 
-function-definition: KEYWORD:method IDENTIFIER? LPAREN (IDENTIFIER (COMMA IDENTIFIER)*)? RPAREN LPAREN2 (multiline |jump-statements | yield-statement)* RPAREN2
+function-definition: KEYWORD:method IDENTIFIER? LPAREN (IDENTIFIER (COMMA IDENTIFIER)*)? RPAREN LPAREN2 (multiline |jump-statements)* RPAREN2
 
-if-expression: KEYWORD:when expression LPAREN2 (multiline | jump-statements)* RPAREN2 NEWLINE* (elif-expression | else-expression)
+if-expression: KEYWORD:when expression LPAREN2 (multiline | jump-statements)* RPAREN2 NEWLINE* (elif-expression | else-expression)?
 
-elif-expression: KEYWORD:orwhen expression LPAREN2 (multiline | jump-statements)* RPAREN2 NEWLINE* (elif-expression |else-expression)
+elif-expression: KEYWORD:orwhen expression LPAREN2 (multiline | jump-statements)* RPAREN2 NEWLINE* (elif-expression |else-expression)?
 
 else-expression: KEYWORD:otherwise LPAREN2 (multiline | jump-statements)* RPAREN2
 ```

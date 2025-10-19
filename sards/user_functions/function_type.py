@@ -166,7 +166,9 @@ class Function(BaseFunction):
 
         if self.instance:
             instance = self.instance
-            exec_context = Context(self.name, instance.context, self.pos_start)
+            method_owner = instance.model.find_method_owner(self.name)
+
+            exec_context = Context(f"method {self.name}", instance.context, self.pos_start, owner_class=method_owner)
 
             exec_context.symbol_table = SymbolTable(instance.symbol_table)
             exec_context.symbol_table.set("this", instance)

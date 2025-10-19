@@ -7,26 +7,21 @@ Classes:
     FunctionCallNode: A class to represent a function call node in the AST.
 """
 
-class FunctionDefinitionNode: # pylint: disable=R0903
+class FunctionDefinitionNode:
     """
-    Represents a function definition node in the abstract syntax tree (AST).
+    Represents a function OR method definition in the AST.
+    """
 
-    Attributes:
-        var_name_tok: The token representing the function name.
-        arg_name_toks: A list of tokens representing the argument names.
-        body_node: The node representing the body of the function.
-        auto_return: A flag indicating whether the function automatically returns
-                     the last evaluated expression.
-        pos_start: The starting position of the function definition in the source code.
-        pos_end: The ending position of the function definition in the source code.
-    """
-    def __init__(self, var_name_tok, arg_name_toks, body_node, auto_return):
+    def __init__(self, var_name_tok, arg_name_toks, body_node, auto_return, access_modifier_tok=None):
         self.var_name_tok = var_name_tok
         self.arg_name_toks = arg_name_toks
         self.body_node = body_node
         self.auto_return = auto_return
+        self.access_modifier_tok = access_modifier_tok
 
-        if self.var_name_tok:
+        if self.access_modifier_tok:
+            self.pos_start = self.access_modifier_tok.pos_start
+        elif self.var_name_tok:
             self.pos_start = self.var_name_tok.pos_start
         elif len(self.arg_name_toks) > 0:
             self.pos_start = self.arg_name_toks[0].pos_start
@@ -36,8 +31,8 @@ class FunctionDefinitionNode: # pylint: disable=R0903
         self.pos_end = self.body_node.pos_end
 
     def __repr__(self):
-        return f'{self.var_name_tok}:{self.arg_name_toks}:{self.body_node}'
-
+        return (f'{self.access_modifier_tok}:{self.var_name_tok}:'
+                f'{self.arg_name_toks}:{self.body_node}')
 
 class FunctionCallNode: # pylint: disable=R0903
     """
