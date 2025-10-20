@@ -40,9 +40,9 @@ attr-list: attr-item (COMMA attr-item)*
 
 attr-item: IDENTIFIER (EQUAL expression)?
 
-constructor-definition: KEYWORD:init LPAREN (IDENTIFIER (COMMA IDENTIFIER)*)? RPAREN LPAREN2 NEWLINE* (initializer-list)? (multiline | jump-statements)* NEWLINE* RPAREN2
+method-definition: (KEYWORD:open | KEYWORD:guarded | KEYWORD:secret)? KEYWORD:method IDENTIFIER? LPAREN (param-list)? RPAREN LPAREN2 (multiline |jump-statements)* RPAREN2
 
-method-definition: (KEYWORD:open | KEYWORD:guarded | KEYWORD:secret)? KEYWORD:method IDENTIFIER? LPAREN (IDENTIFIER (COMMA IDENTIFIER)*)? RPAREN LPAREN2 (multiline |jump-statements)* RPAREN2
+constructor-definition: KEYWORD:init LPAREN (param-list)? RPAREN LPAREN2 NEWLINE* (initializer-list)? (multiline | jump-statements)* NEWLINE* RPAREN2
 
 initializer-list: initializer-item ((COMMA NEWLINE* | NEWLINE+) initializer-item)*
 
@@ -57,6 +57,10 @@ switch-statement: KEYWORD:menu ternary-expression LPAREN2 NEWLINE* (case-stateme
 case-statement: KEYWORD:choice ternary-expression LPAREN2 ((expression | statements) RPAREN2) | (NEWLINE multiline RPAREN2)
 
 default-statement: KEYWORD:fallback LPAREN2 ((expression | statements) RPAREN2) | (NEWLINE multiline RPAREN2)
+
+param-list: param-item (COMMA param-item)*
+
+param-item: IDENTIFIER (EQUAL expression)?
 
 expression: ternary-expression
 
@@ -74,7 +78,15 @@ unary: (PLUS | MINUS) unary | exponent
 
 exponent: call (EXP unary)*
 
-call:attr-access (LPAREN (expression(COMMA expression)*)? RPAREN)*
+argument-list: positional-list (COMMA keyword-list)? | keyword-list
+
+positional-list: expression (COMMA expression)*
+
+keyword-list: keyword-item (COMMA keyword-item)*
+
+keyword-item: IDENTIFIER EQUAL expression
+
+call: attr-access (LPAREN (argument-list)? RPAREN)*
 
 attr-access: factor (DOT IDENTIFIER)*
 
@@ -96,7 +108,7 @@ while-expression: KEYWORD:whenever expression LPAREN2 (multiline | jump-statemen
 
 for-expression: KEYWORD:Cycle IDENTIFIER EQUAL expression COLON expression (COLON expression)? LPAREN2 (multiline | jump-statements)* RPAREN2
 
-function-definition: KEYWORD:method IDENTIFIER? LPAREN (IDENTIFIER (COMMA IDENTIFIER)*)? RPAREN LPAREN2 (multiline |jump-statements)* RPAREN2
+function-definition: KEYWORD:method IDENTIFIER? LPAREN (param-list)? RPAREN LPAREN2 (multiline |jump-statements)* RPAREN2
 
 if-expression: KEYWORD:when expression LPAREN2 (multiline | jump-statements)* RPAREN2 NEWLINE* (elif-expression | else-expression)?
 

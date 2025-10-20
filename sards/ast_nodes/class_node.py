@@ -37,22 +37,30 @@ class AttrNode:
 class InitNode:  # pylint: disable=R0903
     """
     Represents an 'init' (constructor) definition in the AST.
+    Now supports default parameter values.
 
     Attributes:
-        param_name_toks: A list of tokens for the parameter names.
+        param_nodes: A list of tuples: [(name_tok, default_value_node), ...]
+                     default_value_node is None if no default.
         body_node: The node representing the body of the constructor.
         pos_start: The starting position of the 'init' keyword.
         pos_end: The ending position of the constructor body.
     """
-    def __init__(self, param_name_toks, body_node, pos_start, pos_end):
-        self.param_name_toks = param_name_toks
+    def __init__(self, param_nodes, body_node, pos_start, pos_end):
+        self.param_nodes = param_nodes
         self.body_node = body_node
         self.pos_start = pos_start
         self.pos_end = pos_end
 
     def __repr__(self):
-        params = [p.value for p in self.param_name_toks]
-        return f"(Init: ({params}), Body: {self.body_node})"
+        # Updated __repr__ to show parameters and their defaults
+        param_reprs = []
+        for name_tok, default_value in self.param_nodes:
+            if default_value:
+                param_reprs.append(f"({name_tok.value}={default_value})")
+            else:
+                param_reprs.append(name_tok.value)
+        return f"(Init: ({', '.join(param_reprs)}), Body: {self.body_node})"
 
 
 class AttrAccessNode:  # pylint: disable=R0903

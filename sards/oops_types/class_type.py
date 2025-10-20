@@ -73,8 +73,8 @@ class Model:
         self.context = context
         return self
 
-    def execute(self, args):
-        from sards.core import Context, RunTimeResult, Interpreter
+    def execute(self, pos_args, kw_args):
+        from sards.core import Context, RunTimeResult, Interpreter, ArgumentError
 
         res = RunTimeResult()
         interpreter = Interpreter()
@@ -100,8 +100,10 @@ class Model:
 
         if self.init_node:
             init_func = Function(
-                "init", self.init_node.body_node,
-                [tok.value for tok in self.init_node.param_name_toks], False
+                "init",
+                self.init_node.body_node,
+                self.init_node.param_nodes,
+                False
             ).set_context(self.context)
             init_func.set_pos(self.init_node.pos_start, self.init_node.pos_end)
 
@@ -109,11 +111,23 @@ class Model:
             exec_context.symbol_table = instance.symbol_table
             exec_context.symbol_table.set("this", instance)
 
-            res.register(init_func.check_and_populate_args(init_func.arg_names, args, exec_context))
+            res.register(init_func.check_and_populate_args(
+                init_func.param_nodes,
+                pos_args,
+                kw_args,
+                exec_context
+            ))
             if res.should_return(): return res
 
             res.register(interpreter.visit(init_func.body_node, exec_context))
             if res.should_return(): return res
+
+        elif pos_args or kw_args:
+            return res.failure(ArgumentError(
+                self.pos_start, self.pos_end,
+                f"'{self.name}' does not have an 'init' method and takes no arguments for instantiation",
+                self.context
+            ))
 
         return res.success(instance)
 

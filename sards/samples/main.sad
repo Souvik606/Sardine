@@ -1,74 +1,28 @@
-model Creature {
-    secret attr<dna_id>
-    guarded attr<is_alive>
+model ServerConfig {
+    attr<user, host, port, debug_mode>
 
-    init(id) {
-        dna_id: id
-        is_alive: 1
+    init(user, host = "127.0.0.1", port = 8080, debug_mode = False) {
+        user: user
+        host: host
+        port: port
+        debug_mode: debug_mode
     }
 
-    guarded method metabolize() {
-        show("Creature is metabolizing.")
-    }
-
-    open method check_status() {
-        when is_alive {
-            show("It's alive!")
-        }
+    method display_config(prefix = "Config:") {
+        show(prefix, "User=" + user, "Host=" + host, "Port=" + String(port), sep=" | ", end="\n\n")
     }
 }
 
-model Mammal: Creature {
-    open attr<temperature>
-    secret attr<heart_rate>
+show("--- Creating configurations ---", end="\n\n")
 
-    init(id, temp, rate) {
-        dna_id: id
-        is_alive: 1
-        temperature: temp
-        heart_rate: rate
-    }
+show("1. Default Config (using defaults for host, port, debug)")
+default_config = ServerConfig("admin")
+default_config.display_config()
 
-    open method breathe() {
-        show("Mammal is breathing.")
-        metabolize()
-    }
+show("2. Custom Port (overriding 'port' positionally)")
+custom_port_config = ServerConfig("guest", "192.168.1.1", 9000)
+custom_port_config.display_config()
 
-    open method check_status() {
-        show("Checking mammal status...")
-        when is_alive {
-            show("This mammal is alive.")
-        }
-    }
-}
-
-model Lion: Mammal {
-    attr<pride_name>
-
-    init(id, temp, rate, pride) {
-        dna_id: id
-        is_alive: 1
-        temperature: temp
-        heart_rate: rate
-        pride_name: pride
-    }
-
-    secret method hunt() {
-        show("Lion is secretly hunting.")
-    }
-
-    open method roar() {
-        show("The lion from " + pride_name + " roars!")
-        hunt()
-    }
-}
-
-simba = Lion("L-42", 38, 80, "Pride Rock")
-simba.check_status()
-
-simba.breathe()
-
-simba.roar()
-
-show("Pride: " + simba.pride_name)
-show("Temp: " + String(simba.temperature))
+show("3. Debug Mode (overriding 'debug_mode' and 'user' by keyword)")
+debug_config = ServerConfig(user = "root", debug_mode = True)
+debug_config.display_config()
