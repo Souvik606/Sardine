@@ -1,74 +1,20 @@
-model Creature {
-    secret attr<dna_id>
-    guarded attr<is_alive>
-
-    init(id) {
-        dna_id: id
-        is_alive: 1
+model Greeter {
+    attr<greeting>
+    init(greeting = "Hello") {
+        greeting:greeting
     }
 
-    guarded method metabolize() {
-        show("Creature is metabolizing.")
-    }
-
-    open method check_status() {
-        when is_alive {
-            show("It's alive!")
-        }
+    method greet(name, punctuation = "!") {
+        show(greeting+punctuation)
     }
 }
 
-model Mammal: Creature {
-    open attr<temperature>
-    secret attr<heart_rate>
+default_greeter = Greeter()
 
-    init(id, temp, rate) {
-        dna_id: id
-        is_alive: 1
-        temperature: temp
-        heart_rate: rate
-    }
+default_greeter.greet("World")
 
-    open method breathe() {
-        show("Mammal is breathing.")
-        metabolize()
-    }
+custom_greeter = Greeter(greeting = "Howdy")
 
-    open method check_status() {
-        show("Checking mammal status...")
-        when is_alive {
-            show("This mammal is alive.")
-        }
-    }
-}
+custom_greeter.greet("Sardine", punctuation = ".")
 
-model Lion: Mammal {
-    attr<pride_name>
-
-    init(id, temp, rate, pride) {
-        dna_id: id
-        is_alive: 1
-        temperature: temp
-        heart_rate: rate
-        pride_name: pride
-    }
-
-    secret method hunt() {
-        show("Lion is secretly hunting.")
-    }
-
-    open method roar() {
-        show("The lion from " + pride_name + " roars!")
-        hunt()
-    }
-}
-
-simba = Lion("L-42", 38, 80, "Pride Rock")
-simba.check_status()
-
-simba.breathe()
-
-simba.roar()
-
-show("Pride: " + simba.pride_name)
-show("Temp: " + String(simba.temperature))
+custom_greeter.greet(name = "Tester", punctuation = "!!")

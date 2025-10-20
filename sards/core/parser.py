@@ -496,7 +496,7 @@ class Parser: # pylint: disable=R0904
         """
         Grammar Rule:
 
-        KEYWORD:init LPAREN (IDENTIFIER (COMMA IDENTIFIER)*)? RPAREN LPAREN2 NEWLINE*
+        KEYWORD:init LPAREN (param-list)? RPAREN LPAREN2 NEWLINE*
         (initializer-list)? (multiline | jump-statements)* NEWLINE* RPAREN2
         """
         res = ParseResult()
@@ -518,22 +518,9 @@ class Parser: # pylint: disable=R0904
         res.register_advancement()
         self.advance()
 
-        param_name_toks = []
-        if self.current_tok.type == T_IDENTIFIER:
-            param_name_toks.append(self.current_tok)
-            res.register_advancement()
-            self.advance()
-            while self.current_tok.type == T_COMMA:
-                res.register_advancement()
-                self.advance()
-                if self.current_tok.type != T_IDENTIFIER:
-                    return res.failure(InvalidSyntaxError(
-                        self.current_tok.pos_start, self.current_tok.pos_end,
-                        "Expected identifier"
-                    ))
-                param_name_toks.append(self.current_tok)
-                res.register_advancement()
-                self.advance()
+        param_nodes = res.register(self.param_list())
+        if res.error:
+            return res
 
         if self.current_tok.type != T_RPAREN:
             return res.failure(InvalidSyntaxError(
@@ -599,14 +586,14 @@ class Parser: # pylint: disable=R0904
         self.advance()
 
         body_node = ListNode(body_nodes, body_pos_start, pos_end)
-        return res.success(InitNode(param_name_toks, body_node, pos_start, pos_end))
+        return res.success(InitNode(param_nodes, body_node, pos_start, pos_end))
 
     def method_definition(self):
         """
         Grammar Rule:
 
         (KEYWORD:open | KEYWORD:guarded | KEYWORD:secret)? KEYWORD:method IDENTIFIER?
-        LPAREN (IDENTIFIER (COMMA IDENTIFIER)*)? RPAREN
+        LPAREN (param-list)? RPAREN
         LPAREN2 (multiline |jump-statements)* RPAREN2
         """
         res = ParseResult()
@@ -637,21 +624,9 @@ class Parser: # pylint: disable=R0904
         res.register_advancement()
         self.advance()
 
-        param_name_toks = []
-        if self.current_tok.type == T_IDENTIFIER:
-            param_name_toks.append(self.current_tok)
-            res.register_advancement()
-            self.advance()
-            while self.current_tok.type == T_COMMA:
-                res.register_advancement()
-                self.advance()
-                if self.current_tok.type != T_IDENTIFIER:
-                    return res.failure(InvalidSyntaxError(
-                        self.current_tok.pos_start, self.current_tok.pos_end, "Expected identifier"
-                    ))
-                param_name_toks.append(self.current_tok)
-                res.register_advancement()
-                self.advance()
+        param_nodes = res.register(self.param_list())
+        if res.error:
+            return res
 
         if self.current_tok.type != T_RPAREN:
             return res.failure(InvalidSyntaxError(
@@ -697,7 +672,7 @@ class Parser: # pylint: disable=R0904
         res.register_advancement()
         self.advance()
 
-        return res.success(FunctionDefinitionNode(name_tok, param_name_toks, body_node, False,access_modifier_tok))
+        return res.success(FunctionDefinitionNode(name_tok, param_nodes, body_node, False, access_modifier_tok))
 
     def initializer_list(self):
         """
@@ -1113,17 +1088,67 @@ class Parser: # pylint: disable=R0904
 
         return res.success(FinallyNode(body_node))
 
+    def param_item(self):
+        """
+        Grammar Rule: IDENTIFIER (EQUAL expression)?
+        """
+        res = ParseResult()
+
+        if self.current_tok.type != T_IDENTIFIER:
+            return res.failure(InvalidSyntaxError(
+                self.current_tok.pos_start, self.current_tok.pos_end,
+                "Expected parameter name (identifier)"
+            ))
+
+        param_name_tok = self.current_tok
+        res.register_advancement()
+        self.advance()
+
+        default_value = None
+        if self.current_tok.type == T_EQ:
+            res.register_advancement()
+            self.advance()
+            default_value = res.register(self.expression())
+            if res.error: return res
+
+        return res.success((param_name_tok, default_value))
+
+    def param_list(self):
+        """
+        Grammar Rule: (param-item (COMMA param-item)*)?
+        """
+        res = ParseResult()
+        params = []
+
+        if self.current_tok.type == T_RPAREN:
+            # Handles empty parameter list
+            return res.success(params)
+
+        # Parse the first parameter
+        item = res.register(self.param_item())
+        if res.error: return res
+        params.append(item)
+
+        # Parse subsequent parameters
+        while self.current_tok.type == T_COMMA:
+            res.register_advancement()
+            self.advance()
+
+            item = res.register(self.param_item())
+            if res.error: return res
+            params.append(item)
+
+        return res.success(params)
+
     def function_definition(self):
         """
         Grammar Rule:
-
         function-definition:
-            KEYWORD:method IDENTIFIER? LPAREN (IDENTIFIER (COMMA IDENTIFIER)*)? RPAREN
+            KEYWORD:method IDENTIFIER? LPAREN (param-list)? RPAREN
             LPAREN2 (multiline | jump-statements)* RPAREN2
         """
         res = ParseResult()
 
-        # 'method'
         if not (self.current_tok.type == T_KEYWORD and self.current_tok.value == 'method'):
             return res.failure(
                 InvalidSyntaxError(self.current_tok.pos_start,
@@ -1132,63 +1157,34 @@ class Parser: # pylint: disable=R0904
         res.register_advancement()
         self.advance()
 
-        # optional identifier (function name)
+        var_name_tok = None
         if self.current_tok.type == T_IDENTIFIER:
             var_name_tok = self.current_tok
             res.register_advancement()
             self.advance()
-            if self.current_tok.type != T_LPAREN:
-                return res.failure(
-                    InvalidSyntaxError(self.current_tok.pos_start,
-                                       self.current_tok.pos_end,
-                                       "Expected '('"))
-        else:
-            var_name_tok = None
-            if self.current_tok.type != T_LPAREN:
-                return res.failure(
-                    InvalidSyntaxError(self.current_tok.pos_start,
-                                       self.current_tok.pos_end,
-                                       "Expected '('"))
+
+        if self.current_tok.type != T_LPAREN:
+            return res.failure(
+                InvalidSyntaxError(self.current_tok.pos_start,
+                                   self.current_tok.pos_end,
+                                   "Expected '('"))
 
         res.register_advancement()
         self.advance()
 
-        # arguments
-        arg_name_toks = []
-        if self.current_tok.type == T_IDENTIFIER:
-            arg_name_toks.append(self.current_tok)
-            res.register_advancement()
-            self.advance()
+        arg_nodes = res.register(self.param_list())
+        if res.error:
+            return res
 
-            while self.current_tok and self.current_tok.type == T_COMMA:
-                res.register_advancement()
-                self.advance()
-
-                if self.current_tok.type != T_IDENTIFIER:
-                    return res.failure(
-                        InvalidSyntaxError(self.current_tok.pos_start,
-                                           self.current_tok.pos_end,
-                                           "Expected identifier"))
-
-                arg_name_toks.append(self.current_tok)
-                res.register_advancement()
-                self.advance()
-
-            if self.current_tok.type != T_RPAREN:
-                return res.failure(
-                    InvalidSyntaxError(self.current_tok.pos_start,
-                                       self.current_tok.pos_end,
-                                       "Expected ',' or ')'"))
-        else:
-            if self.current_tok.type != T_RPAREN:
-                return res.failure(
-                    InvalidSyntaxError(self.current_tok.pos_start, self.current_tok.pos_end,
-                                       "Expected identifier or ')'"))
+        if self.current_tok.type != T_RPAREN:
+            return res.failure(
+                InvalidSyntaxError(self.current_tok.pos_start,
+                                   self.current_tok.pos_end,
+                                   "Expected ',' or ')'"))
 
         res.register_advancement()
         self.advance()
 
-        # '{'
         if self.current_tok.type != T_LPAREN2:
             return res.failure(InvalidSyntaxError(self.current_tok.pos_start,
                                                   self.current_tok.pos_end,
@@ -1196,16 +1192,14 @@ class Parser: # pylint: disable=R0904
         res.register_advancement()
         self.advance()
 
-        # body
         body_nodes, pos_start = [], self.current_tok.pos_start
         while self.current_tok.type != T_RPAREN2 and self.current_tok.type != T_EOF:
-            if self.current_tok.type == T_KEYWORD and (self.current_tok.value in ("yield","proceed","escape")):
+            if self.current_tok.type == T_KEYWORD and (self.current_tok.value in ("yield", "proceed", "escape")):
                 jump_node = res.register(self.jump_statements())
                 if res.error: return res
                 body_nodes.append(jump_node)
             else:
                 multiline_node = res.try_register(self.multiline())
-
                 if res.error: return res
                 if not multiline_node:
                     if not (self.current_tok.type == T_KEYWORD and (
@@ -1220,7 +1214,6 @@ class Parser: # pylint: disable=R0904
 
         body_node = ListNode(body_nodes, pos_start, self.current_tok.pos_end)
 
-        # '}'
         if self.current_tok.type != T_RPAREN2:
             return res.failure(
                 InvalidSyntaxError(self.current_tok.pos_start,
@@ -1229,7 +1222,7 @@ class Parser: # pylint: disable=R0904
         res.register_advancement()
         self.advance()
 
-        return res.success(FunctionDefinitionNode(var_name_tok, arg_name_toks, body_node, False))
+        return res.success(FunctionDefinitionNode(var_name_tok, arg_nodes, body_node, False))
 
     def switch_statement(self):
         """
@@ -1908,11 +1901,110 @@ class Parser: # pylint: disable=R0904
                                    "Expected 'define',int,float,identifier,'+','-' or '('"))
         return res.success(node)
 
+    def keyword_item(self):
+        """
+        Grammar Rule: IDENTIFIER EQUAL expression
+        """
+        res = ParseResult()
+
+        if not (self.current_tok.type == T_IDENTIFIER and self.peek() and self.peek().type == T_EQ):
+            return res.failure(InvalidSyntaxError(
+                self.current_tok.pos_start, self.current_tok.pos_end,
+                "Expected keyword argument (identifier=value)"
+            ))
+
+        name_tok = self.current_tok
+        res.register_advancement()
+        self.advance()
+
+        res.register_advancement()
+        self.advance()
+
+        value_node = res.register(self.expression())
+        if res.error: return res
+
+        return res.success((name_tok, value_node))
+
+    def keyword_list(self):
+        """
+        Grammar Rule: keyword-item (COMMA keyword-item)*
+        """
+        res = ParseResult()
+        keywords = []
+
+        item = res.register(self.keyword_item())
+        if res.error: return res
+        keywords.append(item)
+
+        while self.current_tok.type == T_COMMA:
+            res.register_advancement()
+            self.advance()
+
+            item = res.register(self.keyword_item())
+            if res.error: return res
+            keywords.append(item)
+
+        return res.success(keywords)
+
+    def positional_list(self):
+        """
+        Grammar Rule: expression (COMMA expression)*
+        """
+        res = ParseResult()
+        positional_args = []
+
+        expr = res.register(self.expression())
+        if res.error: return res
+        positional_args.append(expr)
+
+        while self.current_tok.type == T_COMMA:
+            res.register_advancement()
+            self.advance()
+
+            if self.current_tok.type == T_IDENTIFIER and self.peek() and self.peek().type == T_EQ:
+                self.reverse()
+                break
+
+            expr = res.register(self.expression())
+            if res.error: return res
+            positional_args.append(expr)
+
+        return res.success(positional_args)
+
+    def argument_list(self):
+        """
+        Grammar Rule: positional-list (COMMA keyword-list)? | keyword-list
+        """
+        res = ParseResult()
+        positional_args = []
+        keyword_args = []
+
+        if self.current_tok.type == T_IDENTIFIER and self.peek() and self.peek().type == T_EQ:
+            keyword_args = res.register(self.keyword_list())
+            if res.error: return res
+
+        elif self.current_tok.type != T_RPAREN:
+            positional_args = res.register(self.positional_list())
+            if res.error: return res
+
+            if self.current_tok.type == T_COMMA:
+                res.register_advancement()
+                self.advance()
+
+                if not (self.current_tok.type == T_IDENTIFIER and self.peek() and self.peek().type == T_EQ):
+                    return res.failure(InvalidSyntaxError(
+                        self.current_tok.pos_start, self.current_tok.pos_end,
+                        "Positional argument cannot follow keyword argument"
+                    ))
+
+                keyword_args = res.register(self.keyword_list())
+                if res.error: return res
+
+        return res.success((positional_args, keyword_args))
+
     def call(self):
         """
-        Grammar Rule:
-
-        attr-access (LPAREN (expression(COMMA expression)*)? RPAREN)*
+        Grammar Rule: attr-access (LPAREN (argument-list)? RPAREN)*
         """
         res = ParseResult()
         atom = res.register(self.attr_access())
@@ -1922,32 +2014,23 @@ class Parser: # pylint: disable=R0904
         while self.current_tok.type == T_LPAREN:
             res.register_advancement()
             self.advance()
-            arg_nodes = []
+            positional_args, keyword_args = [], []
 
-            if self.current_tok.type == T_RPAREN:
-                res.register_advancement()
-                self.advance()
-            else:
-                arg_nodes.append(res.register(self.expression()))
+            if self.current_tok.type != T_RPAREN:
+                args = res.register(self.argument_list())
                 if res.error:
                     return res
+                positional_args, keyword_args = args
 
-                while self.current_tok.type == T_COMMA:
-                    res.register_advancement()
-                    self.advance()
-                    arg_nodes.append(res.register(self.expression()))
-                    if res.error:
-                        return res
+            if self.current_tok.type != T_RPAREN:
+                return res.failure(InvalidSyntaxError(
+                    self.current_tok.pos_start, self.current_tok.pos_end,
+                    "Expected ')'"
+                ))
+            res.register_advancement()
+            self.advance()
 
-                if self.current_tok.type != T_RPAREN:
-                    return res.failure(InvalidSyntaxError(
-                        self.current_tok.pos_start, self.current_tok.pos_end,
-                        "Expected ',' or ')'"
-                    ))
-                res.register_advancement()
-                self.advance()
-
-            atom = FunctionCallNode(atom, arg_nodes)
+            atom = FunctionCallNode(atom, positional_args, keyword_args)
 
         return res.success(atom)
 
