@@ -754,7 +754,7 @@ class Parser: # pylint: disable=R0904
         """
         Grammar Rule:
 
-        LPAREN3 (expression(COMMA expression)*)? RPAREN RPAREN3
+        list-expression: LPAREN3 NEWLINE* (expression(NEWLINE* COMMA NEWLINE* expression)*)? RPAREN3
         """
         res = ParseResult()
         element_nodes = []
@@ -769,6 +769,10 @@ class Parser: # pylint: disable=R0904
         res.register_advancement()
         self.advance()
 
+        while self.current_tok.type==T_NEWLINE:
+            res.register_advancement()
+            self.advance()
+
         if self.current_tok.type == T_RPAREN3:
             res.register_advancement()
             self.advance()
@@ -776,13 +780,26 @@ class Parser: # pylint: disable=R0904
             element_nodes.append(res.register(self.expression()))
             if res.error:
                 return res
+
+            while self.current_tok.type == T_NEWLINE:
+                res.register_advancement()
+                self.advance()
+
             while self.current_tok and self.current_tok.type == T_COMMA:
                 res.register_advancement()
                 self.advance()
 
+                while self.current_tok.type == T_NEWLINE:
+                    res.register_advancement()
+                    self.advance()
+
                 element_nodes.append(res.register(self.expression()))
                 if res.error:
                     return res
+
+                while self.current_tok.type == T_NEWLINE:
+                    res.register_advancement()
+                    self.advance()
 
             if self.current_tok.type != T_RPAREN3:
                 return res.failure(
@@ -798,68 +815,100 @@ class Parser: # pylint: disable=R0904
     def dict_expression(self):
         """
         Grammar Rule:
-
-        LPAREN2 (expression COLON expression(COMMA expression COLON expression)*)? RPAREN2
+        dict-expression:
+            LPAREN2 NEWLINE* (dict-entry (NEWLINE* COMMA NEWLINE* dict-entry)*)?
+            NEWLINE* RPAREN2
         """
         res = ParseResult()
         keyval_nodes = []
         pos_start = self.current_tok.pos_start.copy()
+
         if self.current_tok.type != T_LPAREN2:
             return res.failure(
                 InvalidSyntaxError(self.current_tok.pos_start,
                                    self.current_tok.pos_end,
                                    "Expected '{'"))
-        res.register_advancement() 
+        res.register_advancement()
         self.advance()
 
-        if self.current_tok.type == T_RPAREN2:
+        while self.current_tok.type == T_NEWLINE:
             res.register_advancement()
             self.advance()
-        else:
-            key_node = res.register(self.expression())
-            if res.error:
-                return res
-            if self.current_tok.type != T_COLON:
-                return res.failure(
-                    InvalidSyntaxError(self.current_tok.pos_start,
-                                       self.current_tok.pos_end,
-                                       "Expected ':'"))
-            res.register_advancement()
-            self.advance()
-            value_node = res.register(self.expression())
-            if res.error:
-                return res
-            keyval_nodes.append((key_node, value_node))
 
-            while self.current_tok and self.current_tok.type == T_COMMA:
+        if self.current_tok.type != T_RPAREN2:
+            entry = res.register(self.dict_entry())
+            if res.error:
+                return res
+            keyval_nodes.append(entry)
+
+            while self.current_tok.type == T_NEWLINE:
                 res.register_advancement()
                 self.advance()
 
-                key_node = res.register(self.expression())
-                if res.error:
-                    return res
-                if self.current_tok.type != T_COLON:
-                    return res.failure(
-                        InvalidSyntaxError(self.current_tok.pos_start,
-                                           self.current_tok.pos_end,
-                                           "Expected ':'"))
+            while self.current_tok.type == T_COMMA:
                 res.register_advancement()
                 self.advance()
-                value_node = res.register(self.expression())
+
+                while self.current_tok.type == T_NEWLINE:
+                    res.register_advancement()
+                    self.advance()
+
+                if self.current_tok.type == T_RPAREN2:
+                    break
+
+                entry = res.register(self.dict_entry())
                 if res.error:
                     return res
-                keyval_nodes.append((key_node, value_node))
+                keyval_nodes.append(entry)
 
-            if self.current_tok.type != T_RPAREN2:
-                return res.failure(
-                    InvalidSyntaxError(self.current_tok.pos_start,
-                                       self.current_tok.pos_end,
-                                       "Expected ',' or '}'"))
+                while self.current_tok.type == T_NEWLINE:
+                    res.register_advancement()
+                    self.advance()
 
+        if self.current_tok.type != T_RPAREN2:
+            return res.failure(
+                InvalidSyntaxError(self.current_tok.pos_start,
+                                   self.current_tok.pos_end,
+                                   "Expected ',' or '}'"))
+
+        res.register_advancement()
+        self.advance()
+
+        return res.success(
+            DictNode(keyval_nodes, pos_start, self.current_tok.pos_end.copy()))
+
+    def dict_entry(self):
+        """
+        Grammar Rule:
+        dict-entry: expression NEWLINE* COLON NEWLINE* expression
+        """
+        res = ParseResult()
+
+        key_node = res.register(self.expression())
+        if res.error:
+            return res
+
+        while self.current_tok.type == T_NEWLINE:
             res.register_advancement()
             self.advance()
 
-        return res.success(DictNode(keyval_nodes, pos_start, self.current_tok.pos_end.copy()))
+        if self.current_tok.type != T_COLON:
+            return res.failure(
+                InvalidSyntaxError(self.current_tok.pos_start,
+                                   self.current_tok.pos_end,
+                                   "Expected ':'"))
+        res.register_advancement()
+        self.advance()
+
+        while self.current_tok.type == T_NEWLINE:
+            res.register_advancement()
+            self.advance()
+
+        value_node = res.register(self.expression())
+        if res.error:
+            return res
+
+        return res.success((key_node, value_node))
 
     def exception_handling(self):
         """
@@ -1144,7 +1193,7 @@ class Parser: # pylint: disable=R0904
         """
         Grammar Rule:
         function-definition:
-            KEYWORD:method IDENTIFIER? LPAREN (param-list)? RPAREN
+            KEYWORD:method IDENTIFIER LPAREN (param-list)? RPAREN
             LPAREN2 (multiline | jump-statements)* RPAREN2
         """
         res = ParseResult()
@@ -1157,11 +1206,15 @@ class Parser: # pylint: disable=R0904
         res.register_advancement()
         self.advance()
 
-        var_name_tok = None
-        if self.current_tok.type == T_IDENTIFIER:
-            var_name_tok = self.current_tok
-            res.register_advancement()
-            self.advance()
+        if self.current_tok.type != T_IDENTIFIER:
+            return res.failure(InvalidSyntaxError(
+                self.current_tok.pos_start, self.current_tok.pos_end,
+                "Expected identifier for function name"
+            ))
+
+        var_name_tok = self.current_tok
+        res.register_advancement()
+        self.advance()
 
         if self.current_tok.type != T_LPAREN:
             return res.failure(
@@ -1223,6 +1276,84 @@ class Parser: # pylint: disable=R0904
         self.advance()
 
         return res.success(FunctionDefinitionNode(var_name_tok, arg_nodes, body_node, False))
+
+    def anonymous_func_expr(self):
+        """
+        Grammar Rule:
+            anonymous-func-expr:
+            KEYWORD:method IDENTIFIER LPAREN (param-list)? RPAREN
+            LPAREN2 (multiline | jump-statements)* RPAREN2
+        """
+        res = ParseResult()
+
+        if not (self.current_tok.type == T_KEYWORD and self.current_tok.value == 'method'):
+            return res.failure(
+                InvalidSyntaxError(self.current_tok.pos_start,
+                                   self.current_tok.pos_end,
+                                   "Expected 'method'"))
+        res.register_advancement()
+        self.advance()
+
+        if self.current_tok.type != T_LPAREN:
+            return res.failure(
+                InvalidSyntaxError(self.current_tok.pos_start,
+                                   self.current_tok.pos_end,
+                                   "Expected '('"))
+
+        res.register_advancement()
+        self.advance()
+
+        arg_nodes = res.register(self.param_list())
+        if res.error:
+            return res
+
+        if self.current_tok.type != T_RPAREN:
+            return res.failure(
+                InvalidSyntaxError(self.current_tok.pos_start,
+                                   self.current_tok.pos_end,
+                                   "Expected ',' or ')'"))
+
+        res.register_advancement()
+        self.advance()
+
+        if self.current_tok.type != T_LPAREN2:
+            return res.failure(InvalidSyntaxError(self.current_tok.pos_start,
+                                                  self.current_tok.pos_end,
+                                                  "Expected '{'"))
+        res.register_advancement()
+        self.advance()
+
+        body_nodes, pos_start = [], self.current_tok.pos_start
+        while self.current_tok.type != T_RPAREN2 and self.current_tok.type != T_EOF:
+            if self.current_tok.type == T_KEYWORD and (self.current_tok.value in ("yield", "proceed", "escape")):
+                jump_node = res.register(self.jump_statements())
+                if res.error: return res
+                body_nodes.append(jump_node)
+            else:
+                multiline_node = res.try_register(self.multiline())
+                if res.error: return res
+                if not multiline_node:
+                    if not (self.current_tok.type == T_KEYWORD and (
+                            self.current_tok.value in ("escape", "proceed", "yield"))) and not (
+                            self.current_tok.type == T_RPAREN2
+                    ):
+                        return res.failure(
+                            InvalidSyntaxError(self.current_tok.pos_start,
+                                               self.current_tok.pos_end,
+                                               "Expected identifier,when,whenever,method or Cycle"))
+                if multiline_node: body_nodes.extend(multiline_node.element_nodes)
+
+        body_node = ListNode(body_nodes, pos_start, self.current_tok.pos_end)
+
+        if self.current_tok.type != T_RPAREN2:
+            return res.failure(
+                InvalidSyntaxError(self.current_tok.pos_start,
+                                   self.current_tok.pos_end,
+                                   "Expected '}'"))
+        res.register_advancement()
+        self.advance()
+
+        return res.success(FunctionDefinitionNode(None, arg_nodes, body_node, False))
 
     def switch_statement(self):
         """
@@ -2069,7 +2200,7 @@ class Parser: # pylint: disable=R0904
         Grammar Rule:
 
         factor: INT | FLOAT | STRING | IDENTIFIER (LPAREN3 expression RPAREN3)* |
-        LPAREN expression RPAREN | list-expression | dict-expression
+        LPAREN expression RPAREN | list-expression | dict-expression| anonymous_func_expr
         """
         res = ParseResult()
         token = self.current_tok
@@ -2135,10 +2266,17 @@ class Parser: # pylint: disable=R0904
                 return res
             return res.success(dict_expression)
 
+        if token.type==T_KEYWORD and token.value=='method':
+            anonymous_expr=res.register(self.anonymous_func_expr())
+            if res.error:
+                return res
+            return res.success(anonymous_expr)
+
         return res.failure(
             InvalidSyntaxError(token.pos_start,
                                token.pos_end,
                                "Expected int, float,identifier,'+','-'or '('"))
+
 
     def term(self):
         """Parses terms, handling multiplication and division operations.

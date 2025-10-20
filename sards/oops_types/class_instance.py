@@ -78,7 +78,7 @@ class ModelInstance:
             method = Function(
                 name,
                 method_node.body_node,
-                method_node.arg_nodes,
+                method_node.param_nodes,
                 False,
                 self
             ).set_context(self.context)

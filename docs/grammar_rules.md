@@ -90,11 +90,13 @@ call: attr-access (LPAREN (argument-list)? RPAREN)*
 
 attr-access: factor (DOT IDENTIFIER)*
 
-factor: INT | FLOAT | STRING | IDENTIFIER (LPAREN3 expression RPAREN3)* | LPAREN expression RPAREN | list-expression | dict-expression
+factor: INT | FLOAT | STRING | IDENTIFIER (LPAREN3 expression RPAREN3)* | LPAREN expression RPAREN | list-expression | dict-expression | anonymous-func-expr
 
-dict-expression: LPAREN2 (expression COLON expression(COMMA expression COLON expression)*)? RPAREN2
+dict-expression: LPAREN2 NEWLINE* (dict-entry (NEWLINE* COMMA NEWLINE* dict-entry)*)? NEWLINE* RPAREN2
 
-list-expression: LPAREN3 (expression(COMMA expression)*)? RPAREN3
+dict-entry: expression NEWLINE* COLON NEWLINE* expression
+
+list-expression: LPAREN3 NEWLINE* (expression(NEWLINE* COMMA NEWLINE* expression)*)? RPAREN3
 
 exception-handling: try-expression NEWLINE* ( catch-expression NEWLINE* (catch-expression)* NEWLINE* finally-expression? | finally-expression)
 
@@ -108,7 +110,9 @@ while-expression: KEYWORD:whenever expression LPAREN2 (multiline | jump-statemen
 
 for-expression: KEYWORD:Cycle IDENTIFIER EQUAL expression COLON expression (COLON expression)? LPAREN2 (multiline | jump-statements)* RPAREN2
 
-function-definition: KEYWORD:method IDENTIFIER? LPAREN (param-list)? RPAREN LPAREN2 (multiline |jump-statements)* RPAREN2
+function-definition: KEYWORD:method IDENTIFIER LPAREN (param-list)? RPAREN LPAREN2 (multiline |jump-statements)* RPAREN2
+
+anonymous-func-expr: KEYWORD:method LPAREN (param-list)? RPAREN LPAREN2 (multiline |jump-statements)* RPAREN2
 
 if-expression: KEYWORD:when expression LPAREN2 (multiline | jump-statements)* RPAREN2 NEWLINE* (elif-expression | else-expression)?
 

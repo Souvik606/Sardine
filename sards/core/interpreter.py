@@ -359,7 +359,6 @@ class Interpreter:
 
     def visit_FunctionCallNode(self, node, context):
         res = RunTimeResult()
-        # UPDATED: Initialize separate lists for positional and keyword args
         pos_args = []
         kw_args = {}
 
@@ -375,21 +374,18 @@ class Interpreter:
                 context
             ))
 
-        # UPDATED: Process positional arguments
-        for arg_node in node.positional_arg_nodes:
+        for arg_node in node.positional_param_nodes:
             pos_args.append(res.register(self.visit(arg_node, context)))
             if res.should_return():
                 return res
 
-        # UPDATED: Process keyword arguments
-        for name_tok, value_node in node.keyword_arg_nodes:
+        for name_tok, value_node in node.keyword_param_nodes:
             arg_name = name_tok.value
             arg_value = res.register(self.visit(value_node, context))
             if res.should_return():
                 return res
             kw_args[arg_name] = arg_value
 
-        # UPDATED: Pass both positional and keyword args to execute
         return_value = res.register(call_value.execute(pos_args, kw_args))
         if res.should_return():
             return res

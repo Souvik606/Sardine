@@ -281,6 +281,7 @@ class BuiltInFunction(BaseFunction):
         Executes the 'show' built-in function with 'sep' and 'end' parameters.
         """
         from sards.core import RunTimeResult
+        from sards.data_types import String, Number, List
 
         res = RunTimeResult()
         separator = " "
@@ -302,7 +303,15 @@ class BuiltInFunction(BaseFunction):
                     ArgumentError(self.pos_start, self.pos_end, f"Unexpected keyword argument '{name}' for show",
                                   self.context))
 
-        output = separator.join([str(arg.value) for arg in pos_args])
+        def stringify(node):
+            if isinstance(node, List):
+                elements = ", ".join(stringify(el) for el in node.elements)
+                return f"[{elements}]"
+            if isinstance(node, String):
+                return f'"{node.value}"'
+            return str(node.value)
+
+        output = separator.join([stringify(arg) for arg in pos_args])
         print(output, end=end_char)
 
         return res.success(Number(0))
