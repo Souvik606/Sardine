@@ -347,8 +347,8 @@ class Interpreter:
 
         func_name = node.var_name_tok.value if node.var_name_tok else None
         body_node = node.body_node
-        arg_names = [arg_name.value for arg_name in node.arg_name_toks]
-        func_value = (Function(func_name, body_node, arg_names, node.auto_return)
+        param_nodes = node.param_nodes
+        func_value = (Function(func_name, body_node, param_nodes, node.auto_return)
                       .set_context(context)
                       .set_pos(node.pos_start, node.pos_end))
 
@@ -359,7 +359,9 @@ class Interpreter:
 
     def visit_FunctionCallNode(self, node, context):
         res = RunTimeResult()
-        args = []
+        # UPDATED: Initialize separate lists for positional and keyword args
+        pos_args = []
+        kw_args = {}
 
         call_value = res.register(self.visit(node.call_node, context))
         if res.should_return():
@@ -367,18 +369,28 @@ class Interpreter:
         call_value = call_value.copy().set_pos(node.pos_start, node.pos_end)
 
         if not hasattr(call_value, 'execute'):
-            return res.failure(TypeError(
+            return res.failure(IllegalOperationError(
                 node.pos_start, node.pos_end,
                 f"'{type(call_value).__name__}' object is not callable",
                 context
             ))
 
-        for arg_node in node.arg_nodes:
-            args.append(res.register(self.visit(arg_node, context)))
+        # UPDATED: Process positional arguments
+        for arg_node in node.positional_arg_nodes:
+            pos_args.append(res.register(self.visit(arg_node, context)))
             if res.should_return():
                 return res
 
-        return_value = res.register(call_value.execute(args))
+        # UPDATED: Process keyword arguments
+        for name_tok, value_node in node.keyword_arg_nodes:
+            arg_name = name_tok.value
+            arg_value = res.register(self.visit(value_node, context))
+            if res.should_return():
+                return res
+            kw_args[arg_name] = arg_value
+
+        # UPDATED: Pass both positional and keyword args to execute
+        return_value = res.register(call_value.execute(pos_args, kw_args))
         if res.should_return():
             return res
 

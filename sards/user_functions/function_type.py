@@ -11,7 +11,6 @@ from sards.ast_nodes import SymbolTable
 from sards.core.error import ArgumentError
 from sards.data_types import Number, String, List
 
-
 class BaseFunction:
     """
     A base class for functions in the abstract syntax tree (AST).
@@ -23,7 +22,7 @@ class BaseFunction:
         context: The context in which the function is executed.
     """
 
-    def __init__(self, name,instance=None):
+    def __init__(self, name, instance=None):
         """
         Initializes a BaseFunction instance.
 
@@ -31,7 +30,7 @@ class BaseFunction:
             name: The name of the function.
         """
         self.name = name or "<anonymous>"
-        self.instance=instance
+        self.instance = instance
         self.set_pos()
         self.set_context()
 
@@ -70,65 +69,69 @@ class BaseFunction:
         new_context.symbol_table = SymbolTable(new_context.parent.symbol_table)
         return new_context
 
-    def check_args(self, arg_names, args):
+    def check_and_populate_args(self, param_nodes, pos_args, kw_args, exec_context):
         """
-        Checks the arguments passed to the function.
+        Checks and populates arguments, now handling positional, keyword, and default arguments.
 
         Args:
-            arg_names: A list of argument names.
-            args: A list of arguments.
-
-        Returns:
-            res: The result of the argument check.
+            param_nodes: The list of (name_tok, default_value_node) tuples from the function definition.
+            pos_args: The list of positional arguments from the call.
+            kw_args: A dictionary of {name: value_node} for keyword arguments from the call.
+            exec_context: The context to populate with the final arguments.
         """
-        from sards.core import RunTimeResult
+        from sards.core import RunTimeResult, Interpreter
+
         res = RunTimeResult()
+        interpreter = Interpreter()
+        param_names = [p_name.value for p_name, _ in param_nodes]
+        final_args = {}
 
-        if len(args) > len(arg_names):
-            return res.failure(
-                ArgumentError(self.pos_start, self.pos_end,
-                    f"{len(args) - len(arg_names)} too many args passed into '{self.name}'",
-                    self.context))
+        if self.instance:
+            exec_context.symbol_table.set("this", self.instance)
 
-        if len(args) < len(arg_names):
-            return res.failure(
-                ArgumentError(self.pos_start, self.pos_end,
-                    f"{len(arg_names) - len(args)} too few args passed into '{self.name}'",
-                    self.context))
-        return res.success(None)
+        if len(pos_args) > len(param_names):
+            return res.failure(ArgumentError(
+                self.pos_start, self.pos_end,
+                f"{len(pos_args) - len(param_names)} too many arguments passed into '{self.name}'",
+                exec_context
+            ))
 
-    def populate_args(self, arg_names, args, context):
-        """
-        Populates the arguments in the function's context.
+        for i, arg_value in enumerate(pos_args):
+            final_args[param_names[i]] = arg_value
 
-        Args:
-            arg_names: A list of argument names.
-            args: A list of arguments.
-            context: The context to populate.
-        """
-        for i, arg_value in enumerate(args):
-            arg_name = arg_names[i]
-            arg_value.set_context(context)
-            context.symbol_table.set(arg_name, arg_value)
+        for name, value_node in kw_args.items():
+            if name not in param_names:
+                return res.failure(ArgumentError(
+                    self.pos_start, self.pos_end,
+                    f"Unexpected keyword argument '{name}' passed to '{self.name}'",
+                    exec_context
+                ))
+            if name in final_args:
+                return res.failure(ArgumentError(
+                    self.pos_start, self.pos_end,
+                    f"Multiple values for argument '{name}' passed to '{self.name}'",
+                    exec_context
+                ))
+            final_args[name] = value_node
 
-    def check_and_populate_args(self, arg_names, args, context):
-        """
-        Checks and populates the arguments in the function's context.
+        for p_name, p_default_value_node in param_nodes:
+            param_name = p_name.value
+            if param_name not in final_args:
+                if p_default_value_node:
+                    default_value = res.register(interpreter.visit(p_default_value_node, exec_context))
+                    if res.should_return(): return res
+                    final_args[param_name] = default_value
+                else:
+                    return res.failure(ArgumentError(
+                        self.pos_start, self.pos_end,
+                        f"Missing required argument '{param_name}' for function '{self.name}'",
+                        exec_context
+                    ))
 
-        Args:
-            arg_names: A list of argument names.
-            args: A list of arguments.
-            context: The context to populate.
+        for name, value in final_args.items():
+            value.set_context(exec_context)
+            exec_context.symbol_table.set(name, value)
 
-        Returns:
-            res: The result of the argument check and population.
-        """
-        from sards.core import RunTimeResult
-        res = RunTimeResult()
-        res.register(self.check_args(arg_names, args))
-        if res.should_return():
-            return res
-        self.populate_args(arg_names, args, context)
         return res.success(None)
 
 
@@ -138,27 +141,28 @@ class Function(BaseFunction):
 
     Attributes:
         body_node: The node representing the body of the function.
-        arg_names: A list of argument names.
+        param_nodes: A list of tuples: [(name_tok, default_value_node), ...].
         auto_return: A flag indicating whether the function automatically returns the last
         evaluated expression.
     """
-    def __init__(self, name, body_node, arg_names, auto_return,instance=None):
+
+    def __init__(self, name, body_node, param_nodes, auto_return, instance=None):
         """
         Initializes a Function instance.
 
         Args:
             name: The name of the function.
             body_node: The node representing the body of the function.
-            arg_names: A list of argument names.
+            param_nodes: A list of tuples: [(name_tok, default_value_node), ...].
             auto_return: A flag indicating whether the function automatically returns the last
             evaluated expression.
         """
-        super().__init__(name,instance)
+        super().__init__(name, instance)
         self.body_node = body_node
-        self.arg_names = arg_names
+        self.param_nodes = param_nodes
         self.auto_return = auto_return
 
-    def execute(self, args):
+    def execute(self, pos_args, kw_args):
         from sards.core import RunTimeResult, Interpreter, Context
 
         res = RunTimeResult()
@@ -167,15 +171,12 @@ class Function(BaseFunction):
         if self.instance:
             instance = self.instance
             method_owner = instance.model.find_method_owner(self.name)
-
             exec_context = Context(f"method {self.name}", instance.context, self.pos_start, owner_class=method_owner)
-
             exec_context.symbol_table = SymbolTable(instance.symbol_table)
-            exec_context.symbol_table.set("this", instance)
         else:
             exec_context = self.generate_new_context()
 
-        res.register(self.check_and_populate_args(self.arg_names, args, exec_context))
+        res.register(self.check_and_populate_args(self.param_nodes, pos_args, kw_args, exec_context))
         if res.should_return():
             return res
 
@@ -195,7 +196,7 @@ class Function(BaseFunction):
         Returns:
             copy: The copy of the function.
         """
-        copy = Function(self.name, self.body_node, self.arg_names, self.auto_return,self.instance)
+        copy = Function(self.name, self.body_node, self.param_nodes, self.auto_return, self.instance)
         copy.set_context(self.context)
         copy.set_pos(self.pos_start, self.pos_end)
         return copy
@@ -214,6 +215,7 @@ class BuiltInFunction(BaseFunction):
     """
     Represents a built-in function in the abstract syntax tree (AST).
     """
+
     def __init__(self, name):
         """
         Initializes a BuiltInFunction instance.
@@ -223,12 +225,13 @@ class BuiltInFunction(BaseFunction):
         """
         super().__init__(name)
 
-    def execute(self, args):
+    def execute(self, pos_args, kw_args):
         """
         Executes the built-in function with the given arguments.
 
         Args:
-            args: A list of arguments.
+            pos_args: A list of positional arguments.
+            kw_args: A dictionary of keyword arguments.
 
         Returns:
             res: The result of the function execution.
@@ -241,25 +244,14 @@ class BuiltInFunction(BaseFunction):
         method_name = f'execute_{self.name}'
         method = getattr(self, method_name, self.no_visit_method)
 
-        res.register(self.check_and_populate_args(method.arg_names, args, exec_context))
-        if res.should_return():
-            return res
-
-        return_value = res.register(method(exec_context))
+        return_value = res.register(method(pos_args, kw_args, exec_context))
         if res.should_return():
             return res
         return res.success(return_value)
 
-    def no_visit_method(self):
+    def no_visit_method(self, pos_args, kw_args, exec_context):
         """
         Raises an exception if the execute method is not defined.
-
-        Args:
-            node: The node to visit.
-            context: The context of the function.
-
-        Raises:
-            Exception: If the execute method is not defined.
         """
         raise NotImplementedError(f'No execute_{self.name} method defined')
 
@@ -284,103 +276,111 @@ class BuiltInFunction(BaseFunction):
         """
         return f"<built-in function {self.name}>"
 
-    def execute_show(self, exec_context):
+    def execute_show(self, pos_args, kw_args, exec_context):
         """
-        Executes the 'show' built-in function.
-
-        Args:
-            exec_context: The execution context.
-
-        Returns:
-            res: The result of the function execution.
+        Executes the 'show' built-in function with 'sep' and 'end' parameters.
         """
         from sards.core import RunTimeResult
-        print(str(exec_context.symbol_table.get('value')))
-        return RunTimeResult().success(Number(0))
 
-    execute_show.arg_names = ['value']
+        res = RunTimeResult()
+        separator = " "
+        end_char = "\n"
 
-    def execute_listen(self,exec_context):
+        for name, value in kw_args.items():
+            if name == 'sep':
+                if not isinstance(value, String):
+                    return res.failure(
+                        ArgumentError(self.pos_start, self.pos_end, "'sep' must be a string", self.context))
+                separator = value.value
+            elif name == 'end':
+                if not isinstance(value, String):
+                    return res.failure(
+                        ArgumentError(self.pos_start, self.pos_end, "'end' must be a string", self.context))
+                end_char = value.value
+            else:
+                return res.failure(
+                    ArgumentError(self.pos_start, self.pos_end, f"Unexpected keyword argument '{name}' for show",
+                                  self.context))
+
+        output = separator.join([str(arg.value) for arg in pos_args])
+        print(output, end=end_char)
+
+        return res.success(Number(0))
+
+    def execute_listen(self, pos_args, kw_args, exec_context):
         """
         Executes the 'listen' built-in function.
-
-        Args:
-            exec_context: The execution context.
-
-        Returns:
-            res: The result of the function execution.
         """
         from sards.core import RunTimeResult
+        res = RunTimeResult()
+        if len(pos_args) > 0 or len(kw_args) > 0:
+            return res.failure(ArgumentError(self.pos_start, self.pos_end, "listen() takes no arguments", self.context))
+
         text = input()
-        return RunTimeResult().success(String(text))
+        return res.success(String(text))
 
-    execute_listen.arg_names = []
-
-    def execute_Integer(self, exec_context): #pylint: disable=C0103
+    def execute_Integer(self, pos_args, kw_args, exec_context):  # pylint: disable=C0103
         """
         Executes the 'Integer' built-in function.
-
-        Args:
-            exec_context: The execution context.
-
-        Returns:
-            res: The result of the function execution.
         """
         from sards.core import RunTimeResult
+        res = RunTimeResult()
+        if len(pos_args) != 1 or len(kw_args) > 0:
+            return res.failure(
+                ArgumentError(self.pos_start, self.pos_end, "Integer() takes exactly one argument", self.context))
+
         try:
-            number = int(exec_context.symbol_table.get('value').value)
-        except ValueError as exc:
-            raise ValueError("Value Error: Cant convert to integer") from exc
+            number = int(pos_args[0].value)
+        except (ValueError, TypeError) as exc:
+            return res.failure(
+                ArgumentError(self.pos_start, self.pos_end, "Argument must be a value convertible to an integer",
+                              self.context))
 
-        return RunTimeResult().success(Number(number))
+        return res.success(Number(number))
 
-    execute_Integer.arg_names = ['value']
-
-    def execute_String(self, exec_context): #pylint: disable=C0103
+    def execute_String(self, pos_args, kw_args, exec_context):  # pylint: disable=C0103
         """
         Executes the 'String' built-in function.
-
-        Args:
-            exec_context: The execution context.
-
-        Returns:
-            res: The result of the function execution.
         """
         from sards.core import RunTimeResult
+        res = RunTimeResult()
+        if len(pos_args) != 1 or len(kw_args) > 0:
+            return res.failure(
+                ArgumentError(self.pos_start, self.pos_end, "String() takes exactly one argument", self.context))
+
         try:
-            string = str(exec_context.symbol_table.get('value').value)
-        except ValueError as exc:
-            raise ValueError("Value Error: Cant convert to string") from exc
+            string = str(pos_args[0].value)
+        except (ValueError, TypeError) as exc:
+            return res.failure(
+                ArgumentError(self.pos_start, self.pos_end, "Argument must be a value convertible to a string",
+                              self.context))
 
-        return RunTimeResult().success(String(string))
+        return res.success(String(string))
 
-    execute_String.arg_names = ['value']
-
-    def execute_type(self, exec_context):
+    def execute_type(self, pos_args, kw_args, exec_context):
         """
         Executes the 'type' built-in function.
-
-        Args:
-            exec_context: The execution context.
-
-        Returns:
-            res: The result of the function execution.
         """
         from sards.core import RunTimeResult
-        data = exec_context.symbol_table.get('value')
+        res = RunTimeResult()
+        if len(pos_args) != 1 or len(kw_args) > 0:
+            return res.failure(
+                ArgumentError(self.pos_start, self.pos_end, "type() takes exactly one argument", self.context))
+
+        data = pos_args[0]
         if isinstance(data, Number):
-            print("type <Number>")
+            print("<type Number>")
         elif isinstance(data, String):
-            print("type <String>")
+            print("<type String>")
         elif isinstance(data, List):
-            print("type <List>")
-        return RunTimeResult().success(Number(0))
+            print("<type List>")
+        else:
+            print(f"<type {type(data).__name__}>")
 
-    execute_type.arg_names = ['value']
-
+        return res.success(Number(0))
 
 BuiltInFunction.show = BuiltInFunction('show')
 BuiltInFunction.listen = BuiltInFunction('listen')
 BuiltInFunction.Integer = BuiltInFunction('Integer')
 BuiltInFunction.String = BuiltInFunction('String')
-BuiltInFunction.type = BuiltInFunction('type')
+BuiltInFunction.typeof = BuiltInFunction('typeof')

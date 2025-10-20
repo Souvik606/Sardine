@@ -78,7 +78,7 @@ class ModelInstance:
             method = Function(
                 name,
                 method_node.body_node,
-                [tok.value for tok in method_node.arg_name_toks],
+                method_node.arg_nodes,
                 False,
                 self
             ).set_context(self.context)
