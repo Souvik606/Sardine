@@ -471,8 +471,145 @@ class Interpreter:
         return res.success(
             Number(0) if node.return_null else (List(elements)
                                                 .set_context(context)
-                                                .set_pos(node.pos_start,
-                                                                                           node.pos_end)))
+                                                .set_pos(node.pos_start,node.pos_end)))
+
+    def visit_ForEachLoopNode(self, node, context):
+        res = RunTimeResult()
+        var_name_tokens = node.var_name_tokens
+        num_vars = len(var_name_tokens)
+
+        collection = res.register(self.visit(node.collection_node, context))
+        if res.should_return():
+            return res
+
+        if isinstance(collection, Dict):
+            if num_vars == 1:
+                var_name = var_name_tokens[0].value
+                for key, value in collection.elements.items():
+                    pair = List([key.copy(), value.copy()])
+                    pair.set_context(context).set_pos(node.pos_start, node.pos_end)
+                    context.symbol_table.set(var_name, pair)
+
+                    value = res.register(self.visit(node.body_node, context))
+                    if (res.should_return() and
+                            not res.loop_continue and
+                            not res.loop_or_switch_break):
+                        return res
+                    if res.loop_continue:
+                        continue
+                    if res.loop_or_switch_break:
+                        break
+
+            elif num_vars == 2:
+                key_var_name = var_name_tokens[0].value
+                val_var_name = var_name_tokens[1].value
+                for key, value in collection.elements.items():
+                    context.symbol_table.set(key_var_name, key.copy())
+                    context.symbol_table.set(val_var_name, value.copy())
+
+                    value = res.register(self.visit(node.body_node, context))
+                    if (res.should_return() and
+                            not res.loop_continue and
+                            not res.loop_or_switch_break):
+                        return res
+                    if res.loop_continue:
+                        continue
+                    if res.loop_or_switch_break:
+                        break
+            else:
+                return res.failure(
+                    ArgumentError(
+                        node.pos_start, node.pos_end,
+                        f"Dictionary trace expects 1 or 2 variables, but got {num_vars}",
+                        context
+                    )
+                )
+
+        elif isinstance(collection, List):
+            if num_vars == 1:
+                var_name = var_name_tokens[0].value
+                for element in collection.elements:
+                    context.symbol_table.set(var_name, element.copy())
+
+                    value = res.register(self.visit(node.body_node, context))
+                    if (res.should_return() and
+                            not res.loop_continue and
+                            not res.loop_or_switch_break):
+                        return res
+                    if res.loop_continue:
+                        continue
+                    if res.loop_or_switch_break:
+                        break
+            else:
+                for element in collection.elements:
+                    if not isinstance(element, List):
+                        return res.failure(
+                            IllegalOperationError(
+                                element.pos_start, element.pos_end,
+                                f"Cannot unpack non-list item into {num_vars} variables",
+                                context
+                            )
+                        )
+
+                    if len(element.elements) != num_vars:
+                        return res.failure(
+                            ValueError(
+                                element.pos_start, element.pos_end,
+                                f"Expected {num_vars} values to unpack, but got {len(element.elements)}",
+                                context
+                            )
+                        )
+
+                    for i in range(num_vars):
+                        var_name = var_name_tokens[i].value
+                        sub_element = element.elements[i]
+                        context.symbol_table.set(var_name, sub_element.copy())
+
+                    value = res.register(self.visit(node.body_node, context))
+                    if (res.should_return() and
+                            not res.loop_continue and
+                            not res.loop_or_switch_break):
+                        return res
+                    if res.loop_continue:
+                        continue
+                    if res.loop_or_switch_break:
+                        break
+
+        elif isinstance(collection, String):
+            if num_vars == 1:
+                var_name = var_name_tokens[0].value
+                for char in collection.value:
+                    char_str = String(char).set_context(context).set_pos(node.pos_start, node.pos_end)
+                    context.symbol_table.set(var_name, char_str)
+
+                    value = res.register(self.visit(node.body_node, context))
+                    if (res.should_return() and
+                            not res.loop_continue and
+                            not res.loop_or_switch_break):
+                        return res
+                    if res.loop_continue:
+                        continue
+                    if res.loop_or_switch_break:
+                        break
+            else:
+                return res.failure(
+                    ArgumentError(
+                        node.pos_start, node.pos_end,
+                        f"Cannot unpack a string into {num_vars} variables",
+                        context
+                    )
+                )
+
+        else:
+            return res.failure(
+                IllegalOperationError(
+                    collection.pos_start, collection.pos_end,
+                    f"'{type(collection).__name__}' object is not iterable",
+                    context
+                )
+            )
+
+        return res.success(Number(0))
 
     def visit_SwitchNode(self, node, context):
         res = RunTimeResult()

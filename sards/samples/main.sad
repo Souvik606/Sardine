@@ -1,13 +1,56 @@
-operations = [
-    1:method(a, b) {
-        yield a + b
-    },
-    2:method(a, b) { yield a - b },
-    3:method(a, b) { yield a * b },
-    4:method(a, b) { yield a // b }
-]
-
-Cycle i=1:4 {
-    result = operations[i](20, 5)
-    show(result)
+show("--- Basic List Iteration ---")
+numbers = [10, 20, 30]
+trace item <- numbers {
+    show("Item:", item)
 }
+
+show("--- Basic String Iteration ---")
+greeting = "Hello"
+trace char <- greeting {
+    show("Character:", char)
+}
+
+show("--- Dictionary Iteration (Key-Value) ---")
+user = { "name": "Alex", "id": 101 }
+trace key, value <- user {
+    show(key, "is", value)
+}
+
+show("--- Dictionary Iteration (Single Variable) ---")
+user_data = { "city": "SFO", "zip": 94107 }
+trace pair <- user_data {
+    show("Entry:", pair)
+}
+
+show("--- List Unpacking ---")
+points = [ [1, 5], [2, 8], [3, 4] ]
+trace x, y <- points {
+    show("Point:", x, y)
+}
+
+show("--- Loop with 'escape' ---")
+numbers = [1, 2, 3, 99, 5]
+trace num <- numbers {
+    when num == 99 {
+        escape
+    }
+    show(num)
+}
+show("Loop escaped.")
+
+show("--- Loop with 'proceed' ---")
+data = [10, 25, 5, 30]
+trace item <- data {
+    when item < 20 {
+        proceed
+    }
+    show("Processing high value:", item)
+}
+
+show("--- Empty List Iteration ---")
+empty_list = []
+show("Before loop")
+trace item <- empty_list {
+    show("This should not appear")
+}
+show("After loop")

@@ -28,7 +28,7 @@ Below is the complete grammar definition:
 ```grammar
 multiline: NEWLINE* (singleline)* (NEWLINE* (singleline))* NEWLINE*
 
-singleline: call | statements | if-expression | for-expression | while-expression | switch-statement | function-definition | exception-handling | class-definition
+singleline: call | statements | if-expression | for-expression | while-expression | switch-statement | function-definition | exception-handling | class-definition | foreach-expression
 
 class-definition: KEYWORD:model IDENTIFIER (COLON IDENTIFIER (COMMA IDENTIFIER)*)? LPAREN2 NEWLINE* (class-member NEWLINE*)* RPAREN2
 
@@ -109,6 +109,8 @@ finally-expression: KEYWORD:clean LPAREN2 (multiline | jump-statements)* RPAREN2
 while-expression: KEYWORD:whenever expression LPAREN2 (multiline | jump-statements)* RPAREN2
 
 for-expression: KEYWORD:Cycle IDENTIFIER EQUAL expression COLON expression (COLON expression)? LPAREN2 (multiline | jump-statements)* RPAREN2
+
+foreach-expression:KEYWORD:trace IDENTIFIER (COMMA IDENTIFIER)* LARROW expression NEWLINE* LPAREN2 (multiline | jump-statements)* RPAREN2
 
 function-definition: KEYWORD:method IDENTIFIER LPAREN (param-list)? RPAREN LPAREN2 (multiline |jump-statements)* RPAREN2
 

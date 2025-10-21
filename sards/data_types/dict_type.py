@@ -19,7 +19,7 @@ class Dict:
         self.pos_start = None
         self.elements = {}
         for key, value in elements:
-            self.elements[key.value] = value
+            self.elements[key] = value
             
         self.set_pos()
         self.set_context()
@@ -35,7 +35,7 @@ class Dict:
         return self
     
     def copy(self):
-        elements = [(Number(k) if isinstance(k, (int, float)) else String(k), v) 
+        elements = [(k, v)
                    for k, v in self.elements.items()]
         copy = Dict(elements)
         copy.set_pos(self.pos_start, self.pos_end)

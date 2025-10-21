@@ -154,10 +154,7 @@ class Lexer:
         self.advance()
         token_type=T_MINUS
 
-        if self.current_char==">":
-            self.advance()
-            token_type=T_ARROW
-        elif self.current_char=="=":
+        if self.current_char=="=":
             self.advance()
             token_type=T_MINUSEQUAL
 
@@ -193,6 +190,9 @@ class Lexer:
         if self.current_char == '=':
             self.advance()
             token_type = T_LTE
+        elif self.current_char=='-':
+            self.advance()
+            token_type=T_LARROW
 
         return Token(token_type, pos_start=pos_start, pos_end=self.pos)
 

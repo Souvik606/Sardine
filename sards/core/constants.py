@@ -39,7 +39,7 @@ T_LT = 'LESSTHAN'
 T_GT = 'GREATERTHAN'
 T_LTE = 'LESSERTHANEQUAL'
 T_GTE = 'GREATERTHANEQUAL'
-T_ARROW="ARROW"
+T_LARROW="LARROW"
 T_LPAREN = 'LPAREN'  # Left parenthesis (
 T_RPAREN = 'RPAREN'  # Right parenthesis )
 T_LPAREN2 = 'LPAREN2'
@@ -57,7 +57,7 @@ T_QUESTION = 'QUESTION'
 
 KEYWORDS = ['define', 'and', 'or', 'not', 'when', 'orwhen', 'otherwise', 'Cycle', 'whenever',
             'method', 'yield', 'escape', 'proceed', 'menu', 'choice', 'fallback','risk','trap','clean',
-            'model','attr','init','open','secret','guarded']
+            'model','attr','init','open','secret','guarded','trace']
 
 ERROR_TYPES=['RunTimeError','IllegalOperationError','DivisionByZeroError','IndexOutOfBoundsError',
              'NameError','ArgumentError','InvalidErrorTypeError']
