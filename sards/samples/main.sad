@@ -1,56 +1,24 @@
-show("--- Basic List Iteration ---")
-numbers = [10, 20, 30]
-trace item <- numbers {
-    show("Item:", item)
+show("--- Test: Function Unpacking ---")
+
+method get_point() {
+    yield 10, 20, 30
 }
 
-show("--- Basic String Iteration ---")
-greeting = "Hello"
-trace char <- greeting {
-    show("Character:", char)
-}
+x, y, z = get_point()
 
-show("--- Dictionary Iteration (Key-Value) ---")
-user = { "name": "Alex", "id": 101 }
-trace key, value <- user {
-    show(key, "is", value)
-}
+show("x should be 10:", x)
+show("y should be 20:", y)
+show("z should be 30:", z)
 
-show("--- Dictionary Iteration (Single Variable) ---")
-user_data = { "city": "SFO", "zip": 94107 }
-trace pair <- user_data {
-    show("Entry:", pair)
-}
+show("--- Test: Direct List Unpacking ---")
 
-show("--- List Unpacking ---")
-points = [ [1, 5], [2, 8], [3, 4] ]
-trace x, y <- points {
-    show("Point:", x, y)
-}
+a, b = [100, 200]
+show("a should be 100:", a)
+show("b should be 200:", b)
 
-show("--- Loop with 'escape' ---")
-numbers = [1, 2, 3, 99, 5]
-trace num <- numbers {
-    when num == 99 {
-        escape
-    }
-    show(num)
-}
-show("Loop escaped.")
+show("--- Test: String Unpacking ---")
 
-show("--- Loop with 'proceed' ---")
-data = [10, 25, 5, 30]
-trace item <- data {
-    when item < 20 {
-        proceed
-    }
-    show("Processing high value:", item)
-}
-
-show("--- Empty List Iteration ---")
-empty_list = []
-show("Before loop")
-trace item <- empty_list {
-    show("This should not appear")
-}
-show("After loop")
+c1, c2, c3 = "ABC"
+show("c1 should be A:", c1)
+show("c2 should be B:", c2)
+show("c3 should be C:", c3)

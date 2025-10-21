@@ -267,6 +267,11 @@ class DictKeyError(RunTimeError):
         super().__init__(pos_start, pos_end, details, context)
         self.error_name = "DictKeyError"
 
+class ValueError(RunTimeError):
+    def __init__(self, pos_start, pos_end, details, context):
+        super().__init__(pos_start, pos_end, details, context)
+        self.error_name = "ValueError"
+
 class TypeError(RunTimeError):
     """
     Error for performing an operation on an inappropriate type.

@@ -10,12 +10,12 @@ Classes:
 - Interpreter: Evaluates AST nodes and executes operations.
 """
 
+from sards.ast_nodes import SymbolTable
+from sards.core import NameError, NotImplementedError, InvalidErrorTypeError, RunTimeError, IllegalOperationError, \
+    IndexOutOfBoundsError, ArgumentError, DivisionByZeroError,ValueError
 from sards.data_types import Number, String, List, Dict
 from .constants import (T_PLUS, T_MINUS, T_MUL, T_DIVIDE, T_MODULUS, T_FLOOR, T_EXP, T_EE,
-                        T_NEQ, T_GT, T_GTE, T_LT, T_LTE, T_KEYWORD, ERROR_TYPES)
-from .error import NameError, NotImplementedError, InvalidErrorTypeError, RunTimeError, IllegalOperationError, \
-    IndexOutOfBoundsError, ArgumentError, DivisionByZeroError
-from sards.ast_nodes import SymbolTable
+                        T_NEQ, T_GT, T_GTE, T_LT, T_LTE, T_KEYWORD)
 
 ERROR_CLASS_MAP = {
     "RunTimeError": RunTimeError,
@@ -716,38 +716,52 @@ class Interpreter:
             return res.success(value)
 
     def visit_VariableAssignNode(self, node, context):
-        res = RunTimeResult()
+        res =RunTimeResult()
         last_result = None
 
-        for var_tok, value_node, indexes in zip(node.var_name_toks, node.value_nodes, node.index_nodes):
-            var_name = var_tok.value
-            indexes_vals = []
+        var_toks = node.var_name_toks
+        value_nodes = node.value_nodes
+        index_nodes = node.index_nodes
+        num_vars = len(var_toks)
+        num_vals = len(value_nodes)
 
-            if indexes:
-                for index in indexes:
-                    index_val = res.register(self.visit(index, context))
-                    if res.should_return():
-                        return res
-                    indexes_vals.append(index_val)
+        if num_vars > 1 and num_vals == 1:
+            if any(indexes for indexes in index_nodes):
+                return res.failure(RunTimeError(
+                    node.pos_start, node.pos_end,
+                    "Cannot unpack into indexed variables",
+                    context
+                ))
 
-            value = res.register(self.visit(value_node, context))
+            collection = res.register(self.visit(value_nodes[0], context))
             if res.should_return():
                 return res
 
-            if indexes_vals:
-                list_value = context.symbol_table.get(var_name)
-                if list_value is None:
-                    return res.failure(
-                        NameError(var_tok.pos_start, value_node.pos_end, f"'{var_name}' is not defined", context)
-                    )
-                list_value, error = list_value.assignIndex(indexes_vals, value)
-                if error:
-                    return res.failure(error)
-                context.symbol_table.set(var_name, list_value)
-                last_result = list_value
+            elements = []
+            if isinstance(collection, List):
+                elements = collection.elements
+            elif isinstance(collection, String):
+                elements = [String(char).set_context(context).set_pos(collection.pos_start, collection.pos_end)
+                            for char in collection.value]
             else:
-                instance = context.symbol_table.get("this")
+                return res.failure(IllegalOperationError(
+                    value_nodes[0].pos_start, value_nodes[0].pos_end,
+                    f"Cannot unpack non-iterable type '{type(collection).__name__}'",
+                    context
+                ))
 
+            if len(elements) != num_vars:
+                return res.failure(RunTimeError(
+                    value_nodes[0].pos_start, value_nodes[0].pos_end,
+                    f"ValueError: Expected {num_vars} values, but got {len(elements)}",
+                    context
+                ))
+
+            for i in range(num_vars):
+                var_name = var_toks[i].value
+                value = elements[i]
+
+                instance = context.symbol_table.get("this")
                 all_attr_names = []
                 if instance and hasattr(instance.model, 'attr_nodes'):
                     for attr_node in instance.model.attr_nodes:
@@ -763,7 +777,61 @@ class Interpreter:
 
                 last_result = value
 
-        return res.success(last_result)
+            return res.success(last_result)
+
+        else:
+            if num_vars != num_vals:
+                return res.failure(RunTimeError(
+                    node.pos_start, node.pos_end,
+                    f"Interpreter Error: Mismatched assignment count ({num_vars} vars, {num_vals} vals)",
+                    context
+                ))
+
+            for var_tok, value_node, indexes in zip(node.var_name_toks, node.value_nodes, node.index_nodes):
+                var_name = var_tok.value
+                indexes_vals = []
+
+                if indexes:
+                    for index in indexes:
+                        index_val = res.register(self.visit(index, context))
+                        if res.should_return():
+                            return res
+                        indexes_vals.append(index_val)
+
+                value = res.register(self.visit(value_node, context))
+                if res.should_return():
+                    return res
+
+                if indexes_vals:
+                    list_value = context.symbol_table.get(var_name)
+                    if list_value is None:
+                        return res.failure(
+                            NameError(var_tok.pos_start, value_node.pos_end, f"'{var_name}' is not defined", context)
+                        )
+                    list_value, error = list_value.assignIndex(indexes_vals, value)
+                    if error:
+                        return res.failure(error)
+                    context.symbol_table.set(var_name, list_value)
+                    last_result = list_value
+                else:
+                    instance = context.symbol_table.get("this")
+
+                    all_attr_names = []
+                    if instance and hasattr(instance.model, 'attr_nodes'):
+                        for attr_node in instance.model.attr_nodes:
+                            for decl in attr_node.declarations:
+                                all_attr_names.append(decl[0].value)
+
+                    is_attr = instance and var_name in all_attr_names
+
+                    if is_attr:
+                        instance.symbol_table.set(var_name, value)
+                    else:
+                        context.symbol_table.set(var_name, value)
+
+                    last_result = value
+
+            return res.success(last_result)
 
     def visit_NumberNode(self, node, context):
         return RunTimeResult().success(
@@ -772,15 +840,25 @@ class Interpreter:
 
     def visit_ReturnNode(self, node, context):
         res = RunTimeResult()
+        return_values = []
 
-        if node.node_to_return:
-            value = res.register(self.visit(node.node_to_return, context))
+        if not node.nodes_to_return:
+            return res.success_return(Number(0))
+
+        for node_to_return in node.nodes_to_return:
+            value = res.register(self.visit(node_to_return, context))
             if res.should_return():
                 return res
-        else:
-            value = Number(0)
+            return_values.append(value)
 
-        return res.success_return(value)
+        if len(return_values) == 1:
+            return res.success_return(return_values[0])
+
+        return res.success_return(
+            List(return_values)
+            .set_context(context)
+            .set_pos(node.pos_start, node.pos_end)
+        )
 
     def visit_ContinueNode(self, node, context):
         return RunTimeResult().success_continue()

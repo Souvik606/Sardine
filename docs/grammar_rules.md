@@ -48,7 +48,7 @@ initializer-list: initializer-item ((COMMA NEWLINE* | NEWLINE+) initializer-item
 
 initializer-item: IDENTIFIER COLON expression
 
-jump-statements: KEYWORD:proceed | KEYWORD:escape |KEYWORD:yield expression
+jump-statements: KEYWORD:proceed | KEYWORD:escape | KEYWORD:yield (expression NEWLINE* (COMMA NEWLINE* expression NEWLINE*)*)?
 
 statements: IDENTIFIER (LPAREN3 expression RPAREN3)* (COMMA IDENTIFIER (LPAREN3 expression RPAREN3)*)* (EQUAL | PLUSEQUAL | MINUSEQUAL | MULEQUAL | DIVEQUAL | MODEQUAL | FLOOREQUAL) expression (COMMA expression)*
 

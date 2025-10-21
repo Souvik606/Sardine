@@ -2509,48 +2509,82 @@ class Parser: # pylint: disable=R0904
                         operator=operator,
                         right_node=val1
                     ))
-            else:
-                return res.failure(
-                    InvalidSyntaxError(
-                        var_name_toks[0].pos_start,
-                        value_nodes[-1].pos_end,
-                        f"Mismatched assignment count: {len(var_name_toks)} variables, {len(value_nodes)} values"
-                    )
-            )
 
         return res.success(VariableAssignNode(var_name_toks, value_nodes, index_nodes))
 
     def jump_statements(self):
+        """
+        Grammar Rule:
+        jump-statements: KEYWORD:proceed | KEYWORD:escape |
+        KEYWORD:yield (expression NEWLINE* (COMMA NEWLINE* expression NEWLINE*)*)?
+
+        """
         res = ParseResult()
 
-        if not (self.current_tok.type == T_KEYWORD and (self.current_tok.value in ("proceed","escape","yield"))):
+        if not (self.current_tok.type == T_KEYWORD and (self.current_tok.value in ("proceed", "escape", "yield"))):
             return res.failure(InvalidSyntaxError(self.current_tok.pos_start,
                                                   self.current_tok.pos_end,
                                                   "Expected 'proceed' or 'escape' or 'yield' "))
 
         if self.current_tok.type == T_KEYWORD and self.current_tok.value == 'proceed':
+            pos_start = self.current_tok.pos_start.copy()
             res.register_advancement()
             self.advance()
-            return res.success(ContinueNode(self.current_tok.pos_start.copy(),
-                                            self.current_tok.pos_start.copy()))
+            pos_end = self.current_tok.pos_start.copy()
+            return res.success(ContinueNode(pos_start, pos_end))
 
         if self.current_tok.type == T_KEYWORD and self.current_tok.value == 'escape':
+            pos_start = self.current_tok.pos_start.copy()
             res.register_advancement()
             self.advance()
-            return res.success(BreakNode(self.current_tok.pos_start.copy(),
-                                         self.current_tok.pos_start.copy()))
+            pos_end = self.current_tok.pos_start.copy()
+            return res.success(BreakNode(pos_start, pos_end))
 
         if self.current_tok.type == T_KEYWORD and self.current_tok.value == 'yield':
+            pos_start = self.current_tok.pos_start.copy()
             res.register_advancement()
             self.advance()
 
+            nodes_to_return = []
+            pos_end = self.current_tok.pos_start.copy()
+
             expression = res.try_register(self.expression())
-            if not expression:
+
+            if expression:
+                nodes_to_return.append(expression)
+                pos_end = expression.pos_end.copy()
+
+                while self.current_tok.type == T_NEWLINE:
+                    res.register_advancement()
+                    self.advance()
+
+                while self.current_tok.type == T_COMMA:
+                    res.register_advancement()
+                    self.advance()
+
+                    while self.current_tok.type == T_NEWLINE:
+                        res.register_advancement()
+                        self.advance()
+
+                    expression = res.register(self.expression())
+                    if res.error:
+                        return res.failure(InvalidSyntaxError(
+                            self.current_tok.pos_start, self.current_tok.pos_end,
+                            "Expected expression after ',' in 'yield' statement"
+                        ))
+                    nodes_to_return.append(expression)
+                    pos_end = expression.pos_end.copy()
+
+                    while self.current_tok.type == T_NEWLINE:
+                        res.register_advancement()
+                        self.advance()
+
+            else:
                 self.reverse(res.to_reverse_count)
+                pos_end = pos_start
 
             return res.success(
-                ReturnNode(expression, self.current_tok.pos_start.copy(),
-                           self.current_tok.pos_start.copy()))
+                ReturnNode(nodes_to_return, pos_start, pos_end))
 
     def expression(self):
         """
