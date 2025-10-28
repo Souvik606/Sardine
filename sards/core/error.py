@@ -165,10 +165,12 @@ class RunTimeError(BaseError):
         result = ''
         position = self.pos_start
         context = self.context
+        import os
 
         while context:
+            relative_path = os.path.relpath(position.file_name, start='.\\').replace('\\', '/')
             result = (
-                f"File {position.file_name}, line {position.line + 1}, "
+                f"File {relative_path}, line {position.line + 1}, "
                 f"in {context.display_name}\n"
             ) + result
             # step into parent context
