@@ -281,7 +281,7 @@ class BuiltInFunction(BaseFunction):
         Executes the 'show' built-in function with 'sep' and 'end' parameters.
         """
         from sards.core import RunTimeResult
-        from sards.data_types import String, Number, List
+        from sards.data_types import String, Number, List, Dict
 
         res = RunTimeResult()
         separator = " "
@@ -307,8 +307,11 @@ class BuiltInFunction(BaseFunction):
             if isinstance(node, List):
                 elements = ", ".join(stringify(el) for el in node.elements)
                 return f"[{elements}]"
+            if isinstance(node, Dict):
+                pairs = ", ".join(f"{stringify(k)}: {stringify(v)}" for k, v in node.elements.items())
+                return f"{{{pairs}}}"
             if isinstance(node, String):
-                return f'"{node.value}"'
+                return f'{node.value}'
             return str(node.value)
 
         output = separator.join([stringify(arg) for arg in pos_args])
