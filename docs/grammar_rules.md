@@ -74,7 +74,7 @@ bitwise-xor: bitwise-and (BITXOR bitwise-and)*
 
 bitwise-and: comp-expression (BITAND comp-expression)*
 
-comp-expression: KEYWORD:NOT comp-expression | bitwise-expression ((EE | NEQ | LT | GT | LTE | GTE) bitwise-expression)*
+comp-expression: KEYWORD:NOT comp-expression | arith-expression ((EE | NEQ | LT | GT | LTE | GTE) arith-expression)*
 
 arith-expression: term ((PLUS | MINUS) term)*
 
