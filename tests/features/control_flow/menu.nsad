@@ -1,0 +1,44 @@
+show("--- Test: Menu Statement ---")
+
+day = "Tuesday"
+
+menu day {
+    choice "Monday" {
+        show("It's Monday.")
+        escape
+    }
+    choice "Tuesday" {
+        show("It's Tuesday.")
+    }
+    choice "Wednesday" {
+        show("It's Wednesday.")
+        escape
+    }
+    fallback {
+        show("It's some other day.")
+    }
+}
+
+val = 2
+menu val {
+    choice 1 {
+        show("Value is 1.")
+    }
+    choice 2 {
+        show("Value is 2.")
+        escape
+    }
+    fallback {
+        show("Value is something else.")
+    }
+}
+
+other_val = 100
+menu other_val {
+    choice 1 {
+        show("Value is 1.")
+    }
+    fallback {
+        show("Value is something else.")
+    }
+}

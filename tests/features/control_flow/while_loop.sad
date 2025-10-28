@@ -1,0 +1,7 @@
+show("--- Test: Whenever Loop ---")
+
+i = 0
+whenever i < 5 {
+    show("i:", i)
+    i = i + 1
+}
