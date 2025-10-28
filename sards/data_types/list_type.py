@@ -82,6 +82,22 @@ class List:
     def modulus(self, operand):
         return None, IllegalOperationError(
                 self.pos_start, self.pos_end, 'Cannot apply \'%\' to a List')
+    
+    def bitwise_and(self, operand):
+        return None, IllegalOperationError(
+                self.pos_start, self.pos_end, 'Cannot apply \'&\' to a List')
+    
+    def bitwise_xor(self, operand): 
+        return None, IllegalOperationError(
+                self.pos_start, self.pos_end, 'Cannot apply \'^\' to a List')
+    
+    def bitwise_or(self, operand):
+        return None, IllegalOperationError(
+                self.pos_start, self.pos_end, 'Cannot apply \'|\' to a List')
+    
+    def bitwise_not(self):
+        return None, IllegalOperationError(
+                self.pos_start, self.pos_end, 'Cannot apply \'~\' to a List')
 
     def floor_divide(self, operand):
         return None, IllegalOperationError(

@@ -31,7 +31,14 @@ T_MODULUSEQUAL = 'MODEQUAL' # Augmented modulus operator (%=)
 T_FLOOR = 'FLOOR' # Floor division operator (//)
 T_FLOOREQUAL = 'FLOOREQUAL' # Augmented floor division operator (//=)
 T_EXP = 'EXP'  # Exponentiation operator (**)
-T_EXPEQUAL = 'EXPEQUAL' 
+T_EXPEQUAL = 'EXPEQUAL' #Augmented exponentiation operator (**=)
+T_BITAND = 'BITAND'  # Bitwise AND operator (&)
+T_BITANDEQUAL = 'BITANDEQUAL' # Augmented bitwise AND operator (&=)
+T_BITXOR = 'BITXOR'  # Bitwise XOR operator (^)
+T_BITXOREQUAL = 'BITXOREQUAL' # Augmented bitwise XOR operator (^=)
+T_BITOR = 'BITOR'  # Bitwise OR operator (|)
+T_BITOREQUAL = 'BITOREQUAL' # Augmented bitwise OR operator (|=)
+T_BITNOT = 'BITNOT'  # Bitwise NOT operator (~)
 T_EQ = 'EQUAL'
 T_NEQ = 'NOTEQUAL'
 T_EE = 'DOUBLEEQUAL'

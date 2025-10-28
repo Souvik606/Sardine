@@ -206,6 +206,39 @@ class Lexer:
             token_type = T_GTE
 
         return Token(token_type, pos_start=pos_start, pos_end=self.pos)
+    
+    def make_bitand(self):
+        pos_start = self.pos.copy()
+        self.advance()
+        token_type = T_BITAND
+
+        if self.current_char == '=':
+            self.advance()
+            token_type = T_BITANDEQUAL
+
+        return Token(token_type, pos_start=pos_start, pos_end=self.pos)
+    
+    def make_bitxor(self):
+        pos_start = self.pos.copy()
+        self.advance()
+        token_type = T_BITXOR
+
+        if self.current_char == '=':
+            self.advance()
+            token_type = T_BITXOREQUAL
+
+        return Token(token_type, pos_start=pos_start, pos_end=self.pos)
+    
+    def make_bitor(self):
+        pos_start = self.pos.copy()
+        self.advance()
+        token_type = T_BITOR
+
+        if self.current_char == '=':
+            self.advance()
+            token_type = T_BITOREQUAL
+
+        return Token(token_type, pos_start=pos_start, pos_end=self.pos)
 
     def make_string(self):
         string = ''
@@ -292,10 +325,19 @@ class Lexer:
                 if error:
                     return [], error
                 tokens.append(tok)
+            elif self.current_char == '&':
+                tokens.append(self.make_bitand())
+            elif self.current_char == '^':
+                tokens.append(self.make_bitxor())
+            elif self.current_char == '|':
+                tokens.append(self.make_bitor())
             elif self.current_char == '>':
                 tokens.append(self.make_greater())
             elif self.current_char == '<':
                 tokens.append(self.make_lesser())
+            elif self.current_char == '~':
+                tokens.append(Token(T_BITNOT, pos_start=self.pos))
+                self.advance()
             elif self.current_char == '(':
                 tokens.append(Token(T_LPAREN, pos_start=self.pos))
                 self.advance()

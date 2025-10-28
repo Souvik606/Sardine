@@ -148,6 +148,27 @@ class Number:
             return Number(self.value % operand.value).set_context(self.context), None
         else: return None, IllegalOperationError(
                     operand.pos_start, operand.pos_end, 'Expected a Number type',self.context)
+        
+    def bitwise_and(self, operand):
+        if isinstance(operand, Number):
+            return Number(self.value & operand.value).set_context(self.context), None
+        else: return None, IllegalOperationError(
+                    operand.pos_start, operand.pos_end, 'Expected a Number type', self.context)
+        
+    def bitwise_xor(self, operand):
+        if isinstance(operand, Number):
+            return Number(self.value ^ operand.value).set_context(self.context), None
+        else: return None, IllegalOperationError(
+                    operand.pos_start, operand.pos_end, 'Expected a Number type', self.context)
+        
+    def bitwise_or(self, operand):
+        if isinstance(operand, Number):
+            return Number(self.value | operand.value).set_context(self.context), None
+        else: return None, IllegalOperationError(
+                    operand.pos_start, operand.pos_end, 'Expected a Number type', self.context)
+        
+    def bitwise_not(self):
+        return Number(~self.value).set_context(self.context), None
 
     def floor_divide(self, operand):
         if isinstance(operand, Number):

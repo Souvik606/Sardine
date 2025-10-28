@@ -50,7 +50,7 @@ initializer-item: IDENTIFIER COLON expression
 
 jump-statements: KEYWORD:proceed | KEYWORD:escape |KEYWORD:yield expression
 
-statements: IDENTIFIER (LPAREN3 expression RPAREN3)* (COMMA IDENTIFIER (LPAREN3 expression RPAREN3)*)* (EQUAL | PLUSEQUAL | MINUSEQUAL | MULEQUAL | DIVEQUAL | MODEQUAL | FLOOREQUAL) expression (COMMA expression)*
+statements: IDENTIFIER (LPAREN3 expression RPAREN3)* (COMMA IDENTIFIER (LPAREN3 expression RPAREN3)*)* (EQUAL | PLUSEQUAL | MINUSEQUAL | MULEQUAL | DIVEQUAL | MODEQUAL | FLOOREQUAL | BITOREQUAL | BITXOREQUAL | BITANDEQUAL) expression (COMMA expression)*
 
 switch-statement: KEYWORD:menu ternary-expression LPAREN2 NEWLINE* (case-statement* NEWLINE*)* default-statement? NEWLINE* (case-statement* NEWLINE*)* RPAREN2
 
@@ -66,15 +66,21 @@ expression: ternary-expression
 
 ternary-expression: (logical-expression | statements) (QUESTION ternary-expression COLON ternary-expression)*
 
-logical-expression: comp-expression ((KEYWORD:AND | KEYWORD:OR) comp-expression)*
+logical-expression: bitwise-expression ((KEYWORD:AND | KEYWORD:OR) bitwise-expression)*
 
-comp-expression: KEYWORD:NOT comp-expression | arith-expression ((EE | NEQ | LT | GT | LTE | GTE) arith-expression)*
+bitwise-expression: bitwise-xor (BITOR bitwise-xor)*
+
+bitwise-xor: bitwise-and (BITXOR bitwise-and)*
+
+bitwise-and: comp-expression (BITAND comp-expression)*
+
+comp-expression: KEYWORD:NOT comp-expression | bitwise-expression ((EE | NEQ | LT | GT | LTE | GTE) bitwise-expression)*
 
 arith-expression: term ((PLUS | MINUS) term)*
 
 term: unary ((MUL | DIV | MOD | FLOOR) unary)*
 
-unary: (PLUS | MINUS) unary | exponent
+unary: (PLUS | MINUS | BITNOT) unary | exponent
 
 exponent: call (EXP unary)*
 
@@ -131,6 +137,9 @@ The grammar enforces standard operator precedence:
    Processed in the `term` rule.
 5. **Addition and Subtraction (`+`, `-`):**  
    Evaluated in the `arith-expression` rule, with left-to-right associativity.
+6. **Bitwise AND** (`&`)
+7. **Bitwise XOR** (`^`)
+8. **Bitwise OR** (`|`)
 
 **Examples:**
 
