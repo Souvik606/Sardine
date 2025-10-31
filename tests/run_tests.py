@@ -15,10 +15,16 @@ def run_tests():
             if file.endswith('.sad'):
                 test_path = os.path.join(root, file)
                 output_path = test_path.replace('.sad', '.out')
+                input_path = test_path.replace('.sad', '.in')
 
                 if not os.path.exists(output_path):
                     print(f"SKIPPING: No .out file for {test_path}")
                     continue
+                
+                input_data = None
+                if os.path.exists(input_path):
+                    with open(input_path, 'r') as f:
+                        input_data = f.read()
 
                 try:
                     # Run the .sad file using the interpreter
@@ -26,12 +32,13 @@ def run_tests():
                         [sys.executable, sards_executable, test_path],
                         capture_output=True,
                         text=True,
-                        check=True
+                        check=True,
+                        input=input_data
                     )
-                    actual_output = result.stdout.strip()
+                    actual_output = result.stdout.strip().replace('\\r\\n', '\\n')
 
                     with open(output_path, 'r') as f:
-                        expected_output = f.read().strip()
+                        expected_output = f.read().strip().replace('\\r\\n', '\\n')
 
                     if actual_output == expected_output:
                         print(f"PASS: {test_path}")
@@ -45,7 +52,7 @@ def run_tests():
                         failed_count += 1
                 except subprocess.CalledProcessError as e:
                     print(f"ERROR: {test_path} failed to run.")
-                    print(e.stderr)
+                    print(e.stderr.strip().replace('\\r\\n', '\\n'))
                     failed_count += 1
                 except FileNotFoundError:
                     print(f"ERROR: Could not find {sards_executable}. Make sure it's in the right path.")
