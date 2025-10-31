@@ -50,13 +50,13 @@ class List:
                 return None, IndexOutOfBoundsError(operand.pos_start, operand.pos_end,
                                           'Index out of bounds', self.context)
         else: return None, IllegalOperationError(
-                    operand.pos_start, operand.pos_end, 'Index must be of an integer Number type')
+                    operand.pos_start, operand.pos_end, 'Index must be of an integer Number type', self.context)
 
     def multiply(self, operand):
         if isinstance(operand, Number) and not isinstance(operand.value, float):
             if operand.value < 0:
                 return None, IllegalOperationError(
-                    operand.pos_start, operand.pos_end, 'List repetition cannot be negative')
+                    operand.pos_start, operand.pos_end, 'List repetition cannot be negative', self.context)
             temp_list=list(self.elements)
 
             for i in range(operand.value-1):
@@ -65,7 +65,7 @@ class List:
             return self, None
         else:
             return None, IllegalOperationError(
-                operand.pos_start, operand.pos_end, 'Expected an integer Number type')
+                operand.pos_start, operand.pos_end, 'Expected an integer Number type', self.context)
 
     def divide(self, operand):
         new_list = self.copy()
@@ -81,15 +81,15 @@ class List:
 
     def modulus(self, operand):
         return None, IllegalOperationError(
-                self.pos_start, self.pos_end, 'Cannot apply \'%\' to a List')
+                self.pos_start, self.pos_end, 'Cannot apply \'%\' to a List', self.context)
 
     def floor_divide(self, operand):
         return None, IllegalOperationError(
-                self.pos_start, self.pos_end, 'Cannot apply \'//\' to a List')
+                self.pos_start, self.pos_end, 'Cannot apply \'//\' to a List', self.context)
 
     def exponent(self, operand):
         return None, IllegalOperationError(
-                self.pos_start, self.pos_end, 'Cannot apply \'**\' to a List')
+                self.pos_start, self.pos_end, 'Cannot apply \'**\' to a List', self.context)
 
     def get_comparison_eq(self, operand):
         if isinstance(operand, List):
@@ -99,42 +99,42 @@ class List:
             else:
                 return Number(0).set_context(self.context), None
         else: return None, IllegalOperationError(
-                    operand.pos_start, operand.pos_end, 'Expected a List')
+                    operand.pos_start, operand.pos_end, 'Expected a List', self.context)
 
     def get_comparison_neq(self, operand):
         if isinstance(operand, List):
             new_list = self.copy()
             return Number(int(not new_list.get_comparison_eq(operand)[0].value)).set_context(self.context), None
         else: return None, IllegalOperationError(
-                    operand.pos_start, operand.pos_end, 'Expected a List')
+                    operand.pos_start, operand.pos_end, 'Expected a List', self.context)
 
     def get_comparison_lte(self, operand):
         return None, IllegalOperationError(
-                self.pos_start, self.pos_end, 'Cannot apply \'<=\' to a List')
+                self.pos_start, self.pos_end, 'Cannot apply \'<=\' to a List', self.context)
 
     def get_comparison_lt(self, operand):
         return None, IllegalOperationError(
-                self.pos_start, self.pos_end, 'Cannot apply \'<\' to a List')
+                self.pos_start, self.pos_end, 'Cannot apply \'<\' to a List', self.context)
 
     def get_comparison_gte(self, operand):
         return None, IllegalOperationError(
-                self.pos_start, self.pos_end, 'Cannot apply \'>=\' to a List')
+                self.pos_start, self.pos_end, 'Cannot apply \'>=\' to a List', self.context)
 
     def get_comparison_gt(self, operand):
         return None, IllegalOperationError(
-                self.pos_start, self.pos_end, 'Cannot apply \'>\' to a List')
+                self.pos_start, self.pos_end, 'Cannot apply \'>\' to a List', self.context)
 
     def and_by(self, operand):
         return None, IllegalOperationError(
-                self.pos_start, self.pos_end, 'Cannot apply \'and\' to a List')
+                self.pos_start, self.pos_end, 'Cannot apply \'and\' to a List', self.context)
 
     def or_by(self, operand):
         return None, IllegalOperationError(
-                self.pos_start, self.pos_end, 'Cannot apply \'or\' to a List')
+                self.pos_start, self.pos_end, 'Cannot apply \'or\' to a List', self.context)
 
     def not_by(self):
         return None, IllegalOperationError(
-                self.pos_start, self.pos_end, 'Cannot apply \'not\' to a List')
+                self.pos_start, self.pos_end, 'Cannot apply \'not\' to a List', self.context)
         
     def getByIndex(self, indexes):
         temp = self.copy()
