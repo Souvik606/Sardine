@@ -37,7 +37,7 @@ global_symbol_table.set("show", BuiltInFunction.show)
 global_symbol_table.set("listen", BuiltInFunction.listen)
 global_symbol_table.set("Integer", BuiltInFunction.Integer)
 global_symbol_table.set("String", BuiltInFunction.String)
-global_symbol_table.set("typeof", BuiltInFunction.typeof)
+global_symbol_table.set("type", BuiltInFunction.type)
 
 
 def run(filename, input_text):

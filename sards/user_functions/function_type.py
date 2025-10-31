@@ -381,18 +381,18 @@ class BuiltInFunction(BaseFunction):
 
         data = pos_args[0]
         if isinstance(data, Number):
-            print("<type Number>")
+            output = "<type Number>"
         elif isinstance(data, String):
-            print("<type String>")
+            output = "<type String>"
         elif isinstance(data, List):
-            print("<type List>")
+            output = "<type List>"
         else:
-            print(f"<type {type(data).__name__}>")
+            output = f"<type {type(data).__name__}>"
 
-        return res.success(Number(0))
+        return res.success(String(output))
 
 BuiltInFunction.show = BuiltInFunction('show')
 BuiltInFunction.listen = BuiltInFunction('listen')
 BuiltInFunction.Integer = BuiltInFunction('Integer')
 BuiltInFunction.String = BuiltInFunction('String')
-BuiltInFunction.typeof = BuiltInFunction('typeof')
+BuiltInFunction.type = BuiltInFunction('type')
