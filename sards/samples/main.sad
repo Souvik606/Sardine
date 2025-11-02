@@ -1,24 +1,18 @@
-show("--- Test: Function Unpacking ---")
-
-method get_point() {
-    yield 10, 20, 30
-}
-
-x, y, z = get_point()
-
-show("x should be 10:", x)
-show("y should be 20:", y)
-show("z should be 30:", z)
-
-show("--- Test: Direct List Unpacking ---")
-
-a, b = [100, 200]
-show("a should be 100:", a)
-show("b should be 200:", b)
-
-show("--- Test: String Unpacking ---")
-
-c1, c2, c3 = "ABC"
-show("c1 should be A:", c1)
-show("c2 should be B:", c2)
-show("c3 should be C:", c3)
+a = 5#comment
+b = 5 # big huge comment
+c=6#*big 
+multiline
+comment*#
+d=7
+   #* big
+comment
+*#e=8
+f=9#*big
+multiline
+* #
+f=0
+comment
+*#
+show(a)
+show(e)
+show(f)

@@ -79,6 +79,35 @@ class Lexer:
         self.pos.advance(self.current_char)
         self.current_char = self.text[self.pos.index] if self.pos.index < len(self.text) else None
 
+    def skip_comment(self):
+        pos_start = self.pos.copy()
+        self.advance()  
+
+        if self.current_char == '*':
+            self.advance()
+            return self.skip_multiline_comment(pos_start)
+
+        while self.current_char is not None and self.current_char != '\n':
+            self.advance()
+        if self.current_char == '\n':
+            self.advance()
+
+        return None
+
+
+    def skip_multiline_comment(self, pos_start):
+        while self.current_char is not None:
+            if self.current_char == '*':
+                self.advance()
+                if self.current_char == '#':
+                    self.advance()
+                    return None 
+            else:
+                self.advance()
+
+        return ExpectedCharError(pos_start, self.pos, "Closing '*#' for multiline comment")
+
+
     def make_identifier(self):
         id_str = ''
         pos_start = self.pos.copy()
@@ -326,6 +355,10 @@ class Lexer:
             elif self.current_char == '.':
                 tokens.append(Token(T_DOT, pos_start=self.pos))
                 self.advance()
+            elif self.current_char == '#':
+                error = self.skip_comment()
+                if error:
+                    return [], error
             else:
                 pos_start = self.pos.copy()
                 char = self.current_char
