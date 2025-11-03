@@ -193,6 +193,12 @@ class Lexer:
         if self.current_char == '=':
             self.advance()
             token_type = T_LTE
+        elif self.current_char == '<':
+            self.advance()
+            token_type = T_LSHIFT
+            if self.current_char == '=':
+                self.advance()
+                token_type = T_LSHIFTEQUAL
 
         return Token(token_type, pos_start=pos_start, pos_end=self.pos)
 
@@ -204,6 +210,12 @@ class Lexer:
         if self.current_char == '=':
             self.advance()
             token_type = T_GTE
+        elif self.current_char == '>':
+            self.advance()
+            token_type = T_RSHIFT
+            if self.current_char == '=':
+                self.advance()
+                token_type = T_RSHIFTEQUAL
 
         return Token(token_type, pos_start=pos_start, pos_end=self.pos)
     

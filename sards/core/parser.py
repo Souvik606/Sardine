@@ -2169,7 +2169,7 @@ class Parser: # pylint: disable=R0904
         statements:
             IDENTIFIER (LPAREN3 expression RPAREN3)*
             (COMMA IDENTIFIER (LPAREN3 expression RPAREN3)*)*
-            (EQUAL | PLUSEQUAL | MINUSEQUAL | MULEQUAL | DIVEQUAL | MODEQUAL | FLOOREQUAL | EXPEQUAL | BITOREQUAL | BITXOREQUAL | BITANDEQUAL)
+            (EQUAL | PLUSEQUAL | MINUSEQUAL | MULEQUAL | DIVEQUAL | MODEQUAL | FLOOREQUAL | EXPEQUAL | BITOREQUAL | BITXOREQUAL | BITANDEQUAL | LSHIFTEQUAL | RSHIFTEQUAL)
             expression (COMMA expression)*
         """
         res = ParseResult()
@@ -2226,7 +2226,7 @@ class Parser: # pylint: disable=R0904
         # --- Expect '='
         if self.current_tok.type != T_EQ:
             # --- Expect augmented operator
-            if self.current_tok.type in (T_PLUSEQUAL, T_MINUSEQUAL, T_MULEQUAL, T_DIVIDEEQUAL, T_MODULUSEQUAL, T_FLOOREQUAL, T_EXPEQUAL, T_BITOREQUAL, T_BITXOREQUAL, T_BITANDEQUAL):
+            if self.current_tok.type in (T_PLUSEQUAL, T_MINUSEQUAL, T_MULEQUAL, T_DIVIDEEQUAL, T_MODULUSEQUAL, T_FLOOREQUAL, T_EXPEQUAL, T_BITOREQUAL, T_BITXOREQUAL, T_BITANDEQUAL, T_LSHIFTEQUAL, T_RSHIFTEQUAL):
                 operator = Token(
                     self.current_tok.type.replace('EQUAL', ''),
                     pos_start=self.current_tok.pos_start,
@@ -2237,7 +2237,7 @@ class Parser: # pylint: disable=R0904
                     InvalidSyntaxError(
                         self.current_tok.pos_start,
                         self.current_tok.pos_end,
-                        "Expected '=' or '+=' or '-=' or '*=' or '/=' or '%=' or '//=' or '**=' OR '|=' OR '^=' OR '&='"
+                        "Expected '=' or '+=' or '-=' or '*=' or '/=' or '%=' or '//=' or '**=' or '|=' or '^=' or '&=' or '<<=' or '>>='"
                     )
                 )
         res.register_advancement()
@@ -2457,8 +2457,8 @@ class Parser: # pylint: disable=R0904
         """
         Grammar Rule:
 
-        KEYWORD:NOT comp-expression | arith-expression
-        ((EE | NEQ | LT | GT | LTE | GTE) arith-expression)*
+        KEYWORD:NOT comp-expression | shift-expression
+        ((EE | NEQ | LT | GT | LTE | GTE) shift-expression)*
         """
         res = ParseResult()
 
@@ -2472,10 +2472,38 @@ class Parser: # pylint: disable=R0904
                 return res
             return res.success(UnaryOperationNode(operator_token, node))
 
-        left_node = res.register(self.arith_expression())
+        left_node = res.register(self.shift_expression())
         if res.error:
             return res
         while self.current_tok and self.current_tok.type in (T_EE,T_NEQ, T_LT, T_GT, T_GTE, T_LTE):
+            operator = self.current_tok
+            res.register_advancement()
+            self.advance()
+            right_node = res.register(self.shift_expression())
+            if res.error:
+                return res
+            left_node = BinaryOperationNode(left_node, operator, right_node)
+
+        node = res.register(res.success(left_node))
+        if res.error:
+            return res.failure(
+                InvalidSyntaxError(self.current_tok.pos_start,
+                                   self.current_tok.pos_end,
+                                   "Expected int,float,identifier,'+','-','not' or '('"))
+        return res.success(node)
+    
+    def shift_expression(self):
+        """
+        Grammar Rule:
+        
+        arith-expression ((LSHIFT | RSHIFT) arith-expression)*
+        """
+        res = ParseResult()
+        left_node = res.register(self.arith_expression())
+        if res.error:
+            return res
+
+        while self.current_tok and self.current_tok.type in (T_LSHIFT, T_RSHIFT):
             operator = self.current_tok
             res.register_advancement()
             self.advance()
@@ -2489,7 +2517,7 @@ class Parser: # pylint: disable=R0904
             return res.failure(
                 InvalidSyntaxError(self.current_tok.pos_start,
                                    self.current_tok.pos_end,
-                                   "Expected int,float,identifier,'+','-','not' or '('"))
+                                   "Expected int,float,identifier,'+','-' or '('"))
         return res.success(node)
 
     def arith_expression(self):

@@ -151,24 +151,54 @@ class Number:
         
     def bitwise_and(self, operand):
         if isinstance(operand, Number):
+            if isinstance(self.value, float) or isinstance(operand.value, float):
+                return None, IllegalOperationError(
+                    operand.pos_start, operand.pos_end, 'Bitwise operations require integer Numbers', self.context)
             return Number(self.value & operand.value).set_context(self.context), None
         else: return None, IllegalOperationError(
                     operand.pos_start, operand.pos_end, 'Expected a Number type', self.context)
         
     def bitwise_xor(self, operand):
         if isinstance(operand, Number):
+            if isinstance(self.value, float) or isinstance(operand.value, float):
+                return None, IllegalOperationError(
+                    operand.pos_start, operand.pos_end, 'Bitwise operations require integer Numbers', self.context)
             return Number(self.value ^ operand.value).set_context(self.context), None
         else: return None, IllegalOperationError(
                     operand.pos_start, operand.pos_end, 'Expected a Number type', self.context)
         
     def bitwise_or(self, operand):
         if isinstance(operand, Number):
+            if isinstance(self.value, float) or isinstance(operand.value, float):
+                return None, IllegalOperationError(
+                    operand.pos_start, operand.pos_end, 'Bitwise operations require integer Numbers', self.context)
             return Number(self.value | operand.value).set_context(self.context), None
         else: return None, IllegalOperationError(
                     operand.pos_start, operand.pos_end, 'Expected a Number type', self.context)
         
     def bitwise_not(self):
+        if isinstance(self.value, float):
+            return None, IllegalOperationError(
+                self.pos_start, self.pos_end, 'Bitwise operations require integer Numbers', self.context)
         return Number(~self.value).set_context(self.context), None
+    
+    def lshift(self, operand):
+        if isinstance(operand, Number):
+            if isinstance(self.value, float) or isinstance(operand.value, float):
+                return None, IllegalOperationError(
+                    operand.pos_start, operand.pos_end, 'Bitwise operations require integer Numbers', self.context)
+            return Number(self.value << operand.value).set_context(self.context), None
+        else: return None, IllegalOperationError(
+                    operand.pos_start, operand.pos_end, 'Expected a Number type', self.context)
+        
+    def rshift(self, operand):
+        if isinstance(operand, Number):
+            if isinstance(self.value, float) or isinstance(operand.value, float):
+                return None, IllegalOperationError(
+                    operand.pos_start, operand.pos_end, 'Bitwise operations require integer Numbers', self.context)
+            return Number(self.value >> operand.value).set_context(self.context), None
+        else: return None, IllegalOperationError(
+                    operand.pos_start, operand.pos_end, 'Expected a Number type', self.context)
 
     def floor_divide(self, operand):
         if isinstance(operand, Number):

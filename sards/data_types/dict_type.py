@@ -329,6 +329,20 @@ class Dict:
             'Cannot apply \'~\' to a Dictionary',
             self.context
         )
+    
+    def lshift(self, operand):
+        return None, IllegalOperationError(
+            self.pos_start, self.pos_end,
+            'Cannot apply \'<<\' to a Dictionary',
+            self.context
+        )
+    
+    def rshift(self, operand):
+        return None, IllegalOperationError(
+            self.pos_start, self.pos_end,
+            'Cannot apply \'>>\' to a Dictionary',
+            self.context
+        )
 
     def floor_divide(self, operand):
         return None, IllegalOperationError(

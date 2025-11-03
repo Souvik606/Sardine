@@ -102,6 +102,14 @@ class List:
     def floor_divide(self, operand):
         return None, IllegalOperationError(
                 self.pos_start, self.pos_end, 'Cannot apply \'//\' to a List')
+    
+    def lshift(self, operand):
+        return None, IllegalOperationError(
+                self.pos_start, self.pos_end, 'Cannot apply \'<<\' to a List')
+    
+    def rshift(self, operand):
+        return None, IllegalOperationError(
+                self.pos_start, self.pos_end, 'Cannot apply \'>>\' to a List')
 
     def exponent(self, operand):
         return None, IllegalOperationError(

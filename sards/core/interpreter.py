@@ -12,7 +12,7 @@ Classes:
 
 from sards.data_types import Number, String, List, Dict
 from .constants import (T_PLUS, T_MINUS, T_MUL, T_DIVIDE, T_MODULUS, T_FLOOR, T_BITAND, T_BITXOR, T_BITOR, T_BITNOT, T_EXP, T_EE,
-                        T_NEQ, T_GT, T_GTE, T_LT, T_LTE, T_KEYWORD, ERROR_TYPES)
+                        T_LSHIFT, T_RSHIFT, T_NEQ, T_GT, T_GTE, T_LT, T_LTE, T_KEYWORD, ERROR_TYPES)
 from .error import NameError, NotImplementedError, InvalidErrorTypeError, RunTimeError, IllegalOperationError, \
     IndexOutOfBoundsError, ArgumentError, DivisionByZeroError
 from sards.ast_nodes import SymbolTable
@@ -683,6 +683,10 @@ class Interpreter:
             result, error = left_node.bitwise_xor(right_node)
         elif node.operator.type == T_BITOR:
             result, error = left_node.bitwise_or(right_node)
+        elif node.operator.type == T_LSHIFT:
+            result, error = left_node.lshift(right_node)
+        elif node.operator.type == T_RSHIFT:
+            result, error = left_node.rshift(right_node)
         elif node.operator.type == T_EXP:
             result, error = left_node.exponent(right_node)
         elif node.operator.type == T_EE:

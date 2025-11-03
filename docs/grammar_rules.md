@@ -50,7 +50,7 @@ initializer-item: IDENTIFIER COLON expression
 
 jump-statements: KEYWORD:proceed | KEYWORD:escape |KEYWORD:yield expression
 
-statements: IDENTIFIER (LPAREN3 expression RPAREN3)* (COMMA IDENTIFIER (LPAREN3 expression RPAREN3)*)* (EQUAL | PLUSEQUAL | MINUSEQUAL | MULEQUAL | DIVEQUAL | MODEQUAL | FLOOREQUAL | BITOREQUAL | BITXOREQUAL | BITANDEQUAL) expression (COMMA expression)*
+statements: IDENTIFIER (LPAREN3 expression RPAREN3)* (COMMA IDENTIFIER (LPAREN3 expression RPAREN3)*)* (EQUAL | PLUSEQUAL | MINUSEQUAL | MULEQUAL | DIVEQUAL | MODEQUAL | FLOOREQUAL | BITOREQUAL | BITXOREQUAL | BITANDEQUAL | LSHIFTEQUAL | RSHIFTEQUAL) expression (COMMA expression)*
 
 switch-statement: KEYWORD:menu ternary-expression LPAREN2 NEWLINE* (case-statement* NEWLINE*)* default-statement? NEWLINE* (case-statement* NEWLINE*)* RPAREN2
 
@@ -74,7 +74,9 @@ bitwise-xor: bitwise-and (BITXOR bitwise-and)*
 
 bitwise-and: comp-expression (BITAND comp-expression)*
 
-comp-expression: KEYWORD:NOT comp-expression | arith-expression ((EE | NEQ | LT | GT | LTE | GTE) arith-expression)*
+comp-expression: KEYWORD:NOT comp-expression | shift-expression ((EE | NEQ | LT | GT | LTE | GTE) shift-expression)*
+
+shift-expression: arith-expression ((LSHIFT | RSHIFT) arith-expression)*
 
 arith-expression: term ((PLUS | MINUS) term)*
 

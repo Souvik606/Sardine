@@ -39,20 +39,24 @@ T_BITXOREQUAL = 'BITXOREQUAL' # Augmented bitwise XOR operator (^=)
 T_BITOR = 'BITOR'  # Bitwise OR operator (|)
 T_BITOREQUAL = 'BITOREQUAL' # Augmented bitwise OR operator (|=)
 T_BITNOT = 'BITNOT'  # Bitwise NOT operator (~)
-T_EQ = 'EQUAL'
-T_NEQ = 'NOTEQUAL'
-T_EE = 'DOUBLEEQUAL'
-T_LT = 'LESSTHAN'
-T_GT = 'GREATERTHAN'
-T_LTE = 'LESSERTHANEQUAL'
-T_GTE = 'GREATERTHANEQUAL'
-T_ARROW="ARROW"
-T_LPAREN = 'LPAREN'  # Left parenthesis (
-T_RPAREN = 'RPAREN'  # Right parenthesis )
-T_LPAREN2 = 'LPAREN2'
-T_RPAREN2 = 'RPAREN2'
-T_LPAREN3 = 'LPAREN3'
-T_RPAREN3 = 'RPAREN3'
+T_LSHIFT = 'LSHIFT'  # Left shift operator (<<)
+T_LSHIFTEQUAL = 'LSHIFTEQUAL' # Augmented left shift operator (<<=)
+T_RSHIFT = 'RSHIFT'  # Right shift operator (>>)
+T_RSHIFTEQUAL = 'RSHIFTEQUAL' # Augmented right shift operator (>>=)
+T_EQ = 'EQUAL' # Assignment operator (=)
+T_NEQ = 'NOTEQUAL' # Not equal operator (!=)
+T_EE = 'DOUBLEEQUAL' # Equality operator (==)
+T_LT = 'LESSTHAN' # Less than operator (<)
+T_GT = 'GREATERTHAN' # Greater than operator (>)
+T_LTE = 'LESSERTHANEQUAL' # Less than or equal to operator (<=)
+T_GTE = 'GREATERTHANEQUAL' # Greater than or equal to operator (>=)
+T_ARROW="ARROW" # Arrow operator (->)
+T_LPAREN = 'LPAREN' # Left parenthesis (
+T_RPAREN = 'RPAREN' # Right parenthesis )
+T_LPAREN2 = 'LPAREN2' # Left curvy bracket {
+T_RPAREN2 = 'RPAREN2' # Right curvy bracket }
+T_LPAREN3 = 'LPAREN3' # Left square bracket [
+T_RPAREN3 = 'RPAREN3' # Right square bracket ]
 T_COLON = 'COLON'
 T_DOT="DOT"
 T_COMMA = 'COMMA'
