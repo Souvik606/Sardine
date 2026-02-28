@@ -1,6 +1,5 @@
 from .number_type import Number
 from .string_type import String
-from .dict_type import Dict
 from sards.core.error import RunTimeError, IllegalOperationError, DictKeyError, IndexOutOfBoundsError
 
 class ListNode:
@@ -29,6 +28,7 @@ class List:
         return self
 
     def add(self, operand):
+        from .dict_type import Dict #Avoiding Circular Import
         if isinstance(operand, Number) or isinstance(operand, String) or isinstance(operand, Dict):
             new_list = self.copy()
             new_list.elements.append(operand)
@@ -137,6 +137,7 @@ class List:
                 self.pos_start, self.pos_end, 'Cannot apply \'not\' to a List', self.context)
         
     def getByIndex(self, indexes):
+        from .dict_type import Dict #Avoiding Circular Import
         temp = self.copy()
         try:
             for idx in indexes:
@@ -182,6 +183,7 @@ class List:
             )
 
     def assignIndex(self, indexes, val):
+        from .dict_type import Dict #Avoiding Circular Import
         new_list = self.copy()
         temp = new_list
         try:

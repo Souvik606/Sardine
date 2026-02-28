@@ -13,6 +13,18 @@ multiline
 f=0
 comment
 *#
-show(a)
-show(e)
-show(f)
+show(a)method div(a, b) {
+    show(a)
+    show(b)
+    risk {
+        dic = {1:[1,2,[2,3]], 3:4}
+        show(dic[1][2][1])
+    }
+    trap RunTimeError e{
+        show(e)
+    }
+    clean {show(a*b)}
+}
+
+x,y=9,0
+div(x,y)

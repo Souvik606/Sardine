@@ -19,7 +19,10 @@ class Dict:
         self.pos_start = None
         self.elements = {}
         for key, value in elements:
-            self.elements[key] = value
+            if hasattr(key, 'value'):
+                self.elements[key.value] = value
+            else:
+                self.elements[key] = value
             
         self.set_pos()
         self.set_context()
