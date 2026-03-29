@@ -1,6 +1,6 @@
-# Contributing to SARDS
+# Contributing to Sardine
 
-Thank you for your interest in contributing to SARDS! Your contributions help improve the interpreter and make it better
+Thank you for your interest in contributing to Sardine! Your contributions help improve the interpreter and make it better
 for everyone.
 
 ---
@@ -37,22 +37,22 @@ the bug has already been reported.
 ## Pull Request Guidelines
 
 1. **Fork & Branch:**
-    - Fork the repository.
-    - Create a new branch for your feature or bug fix (e.g., `feature/my-new-feature` or `bugfix/fix-issue-123`).
+   - Fork the repository.
+   - Create a new branch for your feature or bug fix (e.g., `feature/my-new-feature` or `bugfix/fix-issue-123`).
 
 2. **Coding Standards:**
-    - Follow [PEP8](https://www.python.org/dev/peps/pep-0008/) for Python code.
-    - Write clear, concise, and well-documented code.
-    - Include tests for any new functionality or bug fixes.
+   - Follow [PEP8](https://www.python.org/dev/peps/pep-0008/) for Python code.
+   - Write clear, concise, and well-documented code.
+   - Include tests for any new functionality or bug fixes.
 
 3. **Commit Messages:**
-    - Use clear and descriptive commit messages.
-    - Each commit message should explain the “what” and “why” of the changes.
+   - Use clear and descriptive commit messages.
+   - Each commit message should explain the “what” and “why” of the changes.
 
 4. **Submit Your PR:**
-    - Ensure all tests pass before submitting.
-    - Provide a clear description of your changes and reference any related issues.
-    - Be open to feedback and ready to make changes.
+   - Ensure all tests pass before submitting.
+   - Provide a clear description of your changes and reference any related issues.
+   - Be open to feedback and ready to make changes.
 
 ---
 
@@ -73,7 +73,7 @@ the bug has already been reported.
 
 ## License
 
-By contributing to SARDS, you agree that your contributions will be licensed under the [MIT License](LICENSE).
+By contributing to Sardine, you agree that your contributions will be licensed under the [MIT License](LICENSE).
 
 ---
 
@@ -81,4 +81,4 @@ By contributing to SARDS, you agree that your contributions will be licensed und
 
 If you have any questions or need further clarification, please open an issue or contact one of the project maintainers.
 
-Thank you for helping to improve SARDS!
+Thank you for helping to improve Sardine!
