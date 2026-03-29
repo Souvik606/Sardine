@@ -11,8 +11,8 @@ Classes:
 """
 
 from sards.data_types import Number, String, List, Dict
-from .constants import (T_PLUS, T_MINUS, T_MUL, T_DIVIDE, T_MODULUS, T_FLOOR, T_EXP, T_EE,
-                        T_NEQ, T_GT, T_GTE, T_LT, T_LTE, T_KEYWORD, ERROR_TYPES)
+from .constants import (T_PLUS, T_MINUS, T_MUL, T_DIVIDE, T_MODULUS, T_FLOOR, T_BITAND, T_BITXOR, T_BITOR, T_BITNOT, T_EXP, T_EE,
+                        T_LSHIFT, T_RSHIFT, T_NEQ, T_GT, T_GTE, T_LT, T_LTE, T_KEYWORD, ERROR_TYPES)
 from .error import NameError, NotImplementedError, InvalidErrorTypeError, RunTimeError, IllegalOperationError, \
     IndexOutOfBoundsError, ArgumentError, DivisionByZeroError
 from sards.ast_nodes import SymbolTable
@@ -677,6 +677,16 @@ class Interpreter:
             result, error = left_node.modulus(right_node)
         elif node.operator.type == T_FLOOR:
             result, error = left_node.floor_divide(right_node)
+        elif node.operator.type == T_BITAND:
+            result, error = left_node.bitwise_and(right_node)
+        elif node.operator.type == T_BITXOR:
+            result, error = left_node.bitwise_xor(right_node)
+        elif node.operator.type == T_BITOR:
+            result, error = left_node.bitwise_or(right_node)
+        elif node.operator.type == T_LSHIFT:
+            result, error = left_node.lshift(right_node)
+        elif node.operator.type == T_RSHIFT:
+            result, error = left_node.rshift(right_node)
         elif node.operator.type == T_EXP:
             result, error = left_node.exponent(right_node)
         elif node.operator.type == T_EE:
@@ -735,6 +745,9 @@ class Interpreter:
 
         elif node.operator.type == T_KEYWORD and node.operator.value == 'not':
             number, error = number.not_by()
+
+        elif node.operator.type == T_BITNOT:
+            number, error = number.bitwise_not()
 
         if error:
             return res.failure(error)

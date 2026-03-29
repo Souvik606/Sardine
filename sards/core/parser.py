@@ -1858,12 +1858,12 @@ class Parser: # pylint: disable=R0904
         """
         Grammar Rule:
 
-        (PLUS | MINUS) unary | exponent
+        (PLUS | MINUS | BITNOT) unary | exponent
         """
         res = ParseResult()
         token = self.current_tok
 
-        if token.type in (T_PLUS, T_MINUS):
+        if token.type in (T_PLUS, T_MINUS, T_BITNOT):
             res.register_advancement()
             self.advance()
             factor = res.register(self.unary())
@@ -2169,7 +2169,7 @@ class Parser: # pylint: disable=R0904
         statements:
             IDENTIFIER (LPAREN3 expression RPAREN3)*
             (COMMA IDENTIFIER (LPAREN3 expression RPAREN3)*)*
-            (PLUSEQUAL | MINUSEQUAL | MULEQUAL | DIVEQUAL | MODEQUAL | FLOOREQUAL | EXPEQUAL)
+            (EQUAL | PLUSEQUAL | MINUSEQUAL | MULEQUAL | DIVEQUAL | MODEQUAL | FLOOREQUAL | EXPEQUAL | BITOREQUAL | BITXOREQUAL | BITANDEQUAL | LSHIFTEQUAL | RSHIFTEQUAL)
             expression (COMMA expression)*
         """
         res = ParseResult()
@@ -2226,7 +2226,7 @@ class Parser: # pylint: disable=R0904
         # --- Expect '='
         if self.current_tok.type != T_EQ:
             # --- Expect augmented operator
-            if self.current_tok.type in (T_PLUSEQUAL, T_MINUSEQUAL, T_MULEQUAL, T_DIVIDEEQUAL, T_MODULUSEQUAL, T_FLOOREQUAL, T_EXPEQUAL):
+            if self.current_tok.type in (T_PLUSEQUAL, T_MINUSEQUAL, T_MULEQUAL, T_DIVIDEEQUAL, T_MODULUSEQUAL, T_FLOOREQUAL, T_EXPEQUAL, T_BITOREQUAL, T_BITXOREQUAL, T_BITANDEQUAL, T_LSHIFTEQUAL, T_RSHIFTEQUAL):
                 operator = Token(
                     self.current_tok.type.replace('EQUAL', ''),
                     pos_start=self.current_tok.pos_start,
@@ -2237,7 +2237,7 @@ class Parser: # pylint: disable=R0904
                     InvalidSyntaxError(
                         self.current_tok.pos_start,
                         self.current_tok.pos_end,
-                        "Expected '=' or '+=' or '-=' or '*=' or '/=' or '%=' or '//=' or '**='"
+                        "Expected '=' or '+=' or '-=' or '*=' or '/=' or '%=' or '//=' or '**=' or '|=' or '^=' or '&=' or '<<=' or '>>='"
                     )
                 )
         res.register_advancement()
@@ -2335,16 +2335,106 @@ class Parser: # pylint: disable=R0904
         """
         Grammar Rule:
 
-        comp-expression ((KEYWORD:AND | KEYWORD:OR) comp-expression)*
+        bitwise-expression ((KEYWORD:AND | KEYWORD:OR) bitwise-expression)*
         """
         res = ParseResult()
-        left_node = res.register(self.comp_expression())
+        left_node = res.register(self.bitwise_expression())
         if res.error:
             return res
 
         while (self.current_tok and
                self.current_tok.type == T_KEYWORD and
                self.current_tok.value in ('and', 'or')):
+            operator = self.current_tok
+            res.register_advancement()
+            self.advance()
+
+            right_node = res.register(self.bitwise_expression())
+            if res.error:
+                return res
+
+            left_node = BinaryOperationNode(left_node, operator, right_node)
+
+        node = res.register(res.success(left_node))
+        if res.error:
+            return res.failure(
+                InvalidSyntaxError(self.current_tok.pos_start,
+                                   self.current_tok.pos_end,
+                                   "Expected int,float,identifier"))
+        return res.success(node)
+
+    def bitwise_expression(self):
+        """
+        Grammar Rule:
+        
+        bitwise-xor (BITOR bitwise-xor)*
+        """
+        res = ParseResult()
+        left_node = res.register(self.bitwise_xor())
+        if res.error:
+            return res
+
+        while self.current_tok and self.current_tok.type == T_BITOR:
+            operator = self.current_tok
+            res.register_advancement()
+            self.advance()
+
+            right_node = res.register(self.bitwise_xor())
+            if res.error:
+                return res
+
+            left_node = BinaryOperationNode(left_node, operator, right_node)
+
+        node = res.register(res.success(left_node))
+        if res.error:
+            return res.failure(
+                InvalidSyntaxError(self.current_tok.pos_start,
+                                   self.current_tok.pos_end,
+                                   "Expected int,float,identifier"))
+        return res.success(node)
+    
+    def bitwise_xor(self):
+        """
+        Grammar Rule:
+        
+        bitwise-and (BITXOR bitwise-and)*
+        """
+        res = ParseResult()
+        left_node = res.register(self.bitwise_and())
+        if res.error:
+            return res
+
+        while self.current_tok and self.current_tok.type == T_BITXOR:
+            operator = self.current_tok
+            res.register_advancement()
+            self.advance()
+
+            right_node = res.register(self.bitwise_and())
+            if res.error:
+                return res
+
+            left_node = BinaryOperationNode(left_node, operator, right_node)
+
+        node = res.register(res.success(left_node))
+        if res.error:
+            return res.failure(
+                InvalidSyntaxError(self.current_tok.pos_start,
+                                   self.current_tok.pos_end,
+                                   "Expected int,float,identifier"))
+        return res.success(node)
+    
+    def bitwise_and(self):
+        """
+        Grammar Rule:
+        
+        comp-expression (BITAND comp-expression)*
+        """
+        res = ParseResult()
+        left_node = res.register(self.comp_expression())
+        if res.error:
+            return res
+
+        while self.current_tok and self.current_tok.type == T_BITAND:
             operator = self.current_tok
             res.register_advancement()
             self.advance()
@@ -2367,8 +2457,8 @@ class Parser: # pylint: disable=R0904
         """
         Grammar Rule:
 
-        KEYWORD:NOT comp-expression | arith-expression
-        ((EE | NEQ | LT | GT | LTE | GTE) arith-expression)*
+        KEYWORD:NOT comp-expression | shift-expression
+        ((EE | NEQ | LT | GT | LTE | GTE) shift-expression)*
         """
         res = ParseResult()
 
@@ -2382,10 +2472,38 @@ class Parser: # pylint: disable=R0904
                 return res
             return res.success(UnaryOperationNode(operator_token, node))
 
-        left_node = res.register(self.arith_expression())
+        left_node = res.register(self.shift_expression())
         if res.error:
             return res
         while self.current_tok and self.current_tok.type in (T_EE,T_NEQ, T_LT, T_GT, T_GTE, T_LTE):
+            operator = self.current_tok
+            res.register_advancement()
+            self.advance()
+            right_node = res.register(self.shift_expression())
+            if res.error:
+                return res
+            left_node = BinaryOperationNode(left_node, operator, right_node)
+
+        node = res.register(res.success(left_node))
+        if res.error:
+            return res.failure(
+                InvalidSyntaxError(self.current_tok.pos_start,
+                                   self.current_tok.pos_end,
+                                   "Expected int,float,identifier,'+','-','not' or '('"))
+        return res.success(node)
+    
+    def shift_expression(self):
+        """
+        Grammar Rule:
+        
+        arith-expression ((LSHIFT | RSHIFT) arith-expression)*
+        """
+        res = ParseResult()
+        left_node = res.register(self.arith_expression())
+        if res.error:
+            return res
+
+        while self.current_tok and self.current_tok.type in (T_LSHIFT, T_RSHIFT):
             operator = self.current_tok
             res.register_advancement()
             self.advance()
@@ -2399,7 +2517,7 @@ class Parser: # pylint: disable=R0904
             return res.failure(
                 InvalidSyntaxError(self.current_tok.pos_start,
                                    self.current_tok.pos_end,
-                                   "Expected int,float,identifier,'+','-','not' or '('"))
+                                   "Expected int,float,identifier,'+','-' or '('"))
         return res.success(node)
 
     def arith_expression(self):
