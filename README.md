@@ -88,7 +88,7 @@ Please view `docs/grammar_rules.md` for details on all grammar rules. User manua
 ## Future Plans
 
 - **REST API (Planned)**: Exposes endpoints to execute code, inspect results, and retrieve AST trees remotely for integration with IDEs or services.
-- **Web Frontend (Planned)**: A sleek, interactive UI for writing, visualizing, and debugging SARDS code.
+- **Web Frontend (Planned)**: A sleek, interactive UI for writing, visualizing, and debugging Sardine code.
 
 ---
 
