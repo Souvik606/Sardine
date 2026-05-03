@@ -50,7 +50,7 @@ initializer-item: IDENTIFIER COLON expression
 
 jump-statements: KEYWORD:proceed | KEYWORD:escape | KEYWORD:yield (expression NEWLINE* (COMMA NEWLINE* expression NEWLINE*)*)?
 
-statements: IDENTIFIER (LPAREN3 expression RPAREN3)* (COMMA IDENTIFIER (LPAREN3 expression RPAREN3)*)* (EQUAL | PLUSEQUAL | MINUSEQUAL | MULEQUAL | DIVEQUAL | MODEQUAL | FLOOREQUAL) expression (COMMA expression)*
+statements: call (COMMA call)* (EQUAL | PLUSEQUAL | MINUSEQUAL | MULEQUAL | DIVEQUAL | MODEQUAL | FLOOREQUAL | EXPEQUAL) expression (COMMA expression)*
 
 switch-statement: KEYWORD:menu ternary-expression LPAREN2 NEWLINE* (case-statement* NEWLINE*)* default-statement? NEWLINE* (case-statement* NEWLINE*)* RPAREN2
 
@@ -86,9 +86,7 @@ keyword-list: keyword-item (COMMA keyword-item)*
 
 keyword-item: IDENTIFIER EQUAL expression
 
-call: attr-access (LPAREN (argument-list)? RPAREN)*
-
-attr-access: factor (DOT IDENTIFIER)*
+call: factor ( (LPAREN (argument-list)? RPAREN) | (DOT IDENTIFIER) | (LPAREN3 expression RPAREN3) )*
 
 factor: INT | FLOAT | STRING | IDENTIFIER (LPAREN3 expression RPAREN3)* | LPAREN expression RPAREN | list-expression | dict-expression | anonymous-func-expr
 

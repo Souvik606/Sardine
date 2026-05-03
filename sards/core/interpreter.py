@@ -715,25 +715,24 @@ class Interpreter:
             value = value.copy().set_pos(node.pos_start, node.pos_end).set_context(context)
             return res.success(value)
 
-    def visit_VariableAssignNode(self, node, context):
-        res =RunTimeResult()
+    def visit_AssignNode(self, node, context):
+        res = RunTimeResult()
         last_result = None
 
-        var_toks = node.var_name_toks
-        value_nodes = node.value_nodes
-        index_nodes = node.index_nodes
-        num_vars = len(var_toks)
-        num_vals = len(value_nodes)
+        num_vars = len(node.left_nodes)
+        num_vals = len(node.value_nodes)
 
         if num_vars > 1 and num_vals == 1:
-            if any(indexes for indexes in index_nodes):
-                return res.failure(RunTimeError(
-                    node.pos_start, node.pos_end,
-                    "Cannot unpack into indexed variables",
-                    context
-                ))
+            for left_node in node.left_nodes:
+                node_type = left_node.__class__.__name__
+                if node_type == "IndexAccessNode" or (node_type == "VariableUseNode" and left_node.index_node):
+                    return res.failure(RunTimeError(
+                        node.pos_start, node.pos_end,
+                        "Cannot unpack into indexed variables",
+                        context
+                    ))
 
-            collection = res.register(self.visit(value_nodes[0], context))
+            collection = res.register(self.visit(node.value_nodes[0], context))
             if res.should_return():
                 return res
 
@@ -745,37 +744,49 @@ class Interpreter:
                             for char in collection.value]
             else:
                 return res.failure(IllegalOperationError(
-                    value_nodes[0].pos_start, value_nodes[0].pos_end,
+                    node.value_nodes[0].pos_start, node.value_nodes[0].pos_end,
                     f"Cannot unpack non-iterable type '{type(collection).__name__}'",
                     context
                 ))
 
             if len(elements) != num_vars:
                 return res.failure(RunTimeError(
-                    value_nodes[0].pos_start, value_nodes[0].pos_end,
+                    node.value_nodes[0].pos_start, node.value_nodes[0].pos_end,
                     f"ValueError: Expected {num_vars} values, but got {len(elements)}",
                     context
                 ))
 
             for i in range(num_vars):
-                var_name = var_toks[i].value
+                left_node = node.left_nodes[i]
                 value = elements[i]
+                node_type = left_node.__class__.__name__
 
-                instance = context.symbol_table.get("this")
-                all_attr_names = []
-                if instance and hasattr(instance.model, 'attr_nodes'):
-                    for attr_node in instance.model.attr_nodes:
-                        for decl in attr_node.declarations:
-                            all_attr_names.append(decl[0].value)
+                if node_type == "VariableUseNode":
+                    var_name = left_node.var_name_tok.value
+                    
+                    instance = context.symbol_table.get("this")
+                    is_attr = False
+                    if instance and hasattr(instance, 'model'):
+                        if instance.model.find_attribute(var_name) is not None:
+                            is_attr = True
 
-                is_attr = instance and var_name in all_attr_names
-
-                if is_attr:
-                    instance.symbol_table.set(var_name, value)
-                else:
-                    context.symbol_table.set(var_name, value)
-
-                last_result = value
+                    if is_attr:
+                        instance.symbol_table.set(var_name, value)
+                    else:
+                        context.symbol_table.set(var_name, value)
+                    last_result = value
+                elif node_type == "AttrAccessNode":
+                    object_val = res.register(self.visit(left_node.object_node, context))
+                    if res.should_return(): return res
+                    attr_name = left_node.attr_name_tok.value
+                    
+                    if not hasattr(object_val, 'set_attr'):
+                        return res.failure(RunTimeError(left_node.pos_start, left_node.pos_end, f"Cannot set attribute on '{type(object_val).__name__}'", context))
+                        
+                    _, err = object_val.set_attr(attr_name, value)
+                    if err:
+                        return res.failure(RunTimeError(left_node.pos_start, left_node.pos_end, err, context))
+                    last_result = value
 
             return res.success(last_result)
 
@@ -787,51 +798,96 @@ class Interpreter:
                     context
                 ))
 
-            for var_tok, value_node, indexes in zip(node.var_name_toks, node.value_nodes, node.index_nodes):
-                var_name = var_tok.value
-                indexes_vals = []
-
-                if indexes:
-                    for index in indexes:
-                        index_val = res.register(self.visit(index, context))
-                        if res.should_return():
-                            return res
-                        indexes_vals.append(index_val)
-
+            for left_node, value_node in zip(node.left_nodes, node.value_nodes):
                 value = res.register(self.visit(value_node, context))
                 if res.should_return():
                     return res
 
-                if indexes_vals:
-                    list_value = context.symbol_table.get(var_name)
-                    if list_value is None:
-                        return res.failure(
-                            NameError(var_tok.pos_start, value_node.pos_end, f"'{var_name}' is not defined", context)
-                        )
-                    list_value, error = list_value.assignIndex(indexes_vals, value)
+                node_type = left_node.__class__.__name__
+
+                if node_type == "IndexAccessNode":
+                    object_val = res.register(self.visit(left_node.object_node, context))
+                    if res.should_return(): return res
+                    
+                    index_val = res.register(self.visit(left_node.index_node, context))
+                    if res.should_return(): return res
+                    
+                    if not hasattr(object_val, 'assignIndex'):
+                        return res.failure(RunTimeError(left_node.pos_start, left_node.pos_end, f"Type '{type(object_val).__name__}' does not support index assignment", context))
+                        
+                    _, error = object_val.assignIndex([index_val], value)
                     if error:
                         return res.failure(error)
-                    context.symbol_table.set(var_name, list_value)
-                    last_result = list_value
-                else:
-                    instance = context.symbol_table.get("this")
+                    last_result = value
+                    
+                elif node_type == "VariableUseNode":
+                    var_name = left_node.var_name_tok.value
+                    indexes = left_node.index_node
 
-                    all_attr_names = []
-                    if instance and hasattr(instance.model, 'attr_nodes'):
-                        for attr_node in instance.model.attr_nodes:
-                            for decl in attr_node.declarations:
-                                all_attr_names.append(decl[0].value)
+                    if indexes:
+                        indexes_vals = []
+                        for index in indexes:
+                            index_val = res.register(self.visit(index, context))
+                            if res.should_return():
+                                return res
+                            indexes_vals.append(index_val)
 
-                    is_attr = instance and var_name in all_attr_names
-
-                    if is_attr:
-                        instance.symbol_table.set(var_name, value)
+                        list_value = context.symbol_table.get(var_name)
+                        if list_value is None:
+                            return res.failure(
+                                NameError(left_node.pos_start, value_node.pos_end, f"'{var_name}' is not defined", context)
+                            )
+                        list_value, error = list_value.assignIndex(indexes_vals, value)
+                        if error:
+                            return res.failure(error)
+                        context.symbol_table.set(var_name, list_value)
+                        last_result = list_value
                     else:
-                        context.symbol_table.set(var_name, value)
+                        instance = context.symbol_table.get("this")
+                        is_attr = False
+                        if instance and hasattr(instance, 'model'):
+                            if instance.model.find_attribute(var_name) is not None:
+                                is_attr = True
 
+                        if is_attr:
+                            instance.symbol_table.set(var_name, value)
+                        else:
+                            context.symbol_table.set(var_name, value)
+                        last_result = value
+                
+                elif node_type == "AttrAccessNode":
+                    object_val = res.register(self.visit(left_node.object_node, context))
+                    if res.should_return(): return res
+                    attr_name = left_node.attr_name_tok.value
+                    
+                    if not hasattr(object_val, 'set_attr'):
+                        return res.failure(RunTimeError(left_node.pos_start, left_node.pos_end, f"Cannot set attribute on '{type(object_val).__name__}'", context))
+                        
+                    _, err = object_val.set_attr(attr_name, value)
+                    if err:
+                        return res.failure(RunTimeError(left_node.pos_start, left_node.pos_end, err, context))
                     last_result = value
 
             return res.success(last_result)
+
+    def visit_IndexAccessNode(self, node, context):
+        res = RunTimeResult()
+        
+        object_val = res.register(self.visit(node.object_node, context))
+        if res.should_return(): return res
+        
+        index_val = res.register(self.visit(node.index_node, context))
+        if res.should_return(): return res
+        
+        if not hasattr(object_val, 'getByIndex'):
+            return res.failure(RunTimeError(node.pos_start, node.pos_end, f"Type '{type(object_val).__name__}' is not scriptable/indexable", context))
+            
+        value, error = object_val.getByIndex([index_val])
+        if error:
+            return res.failure(error)
+            
+        value = value.copy().set_pos(node.pos_start, node.pos_end).set_context(context)
+        return res.success(value)
 
     def visit_NumberNode(self, node, context):
         return RunTimeResult().success(

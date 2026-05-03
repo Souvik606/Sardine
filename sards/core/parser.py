@@ -277,22 +277,25 @@ class Parser: # pylint: disable=R0904
                 return res
             return res.success(foreach_statement)
 
-        if token.type==T_IDENTIFIER and ((self.peek() and self.peek().type==T_LPAREN)
-        or (self.peek() and self.peek().type==T_DOT)):
-            call_node=res.register(self.call())
-            if res.error:
-                return res
-            return res.success(call_node)
-
-        statement_node = res.register(self.statements())
-        if res.error: return res
-        node = res.register(res.success(statement_node))
+        # Try assignment first
+        saved_tok_index = self.tok_index
+        saved_current_tok = self.current_tok
+        
+        stmt = res.try_register(self.statements())
+        if stmt:
+            return res.success(stmt)
+            
+        self.tok_index = saved_tok_index
+        self.current_tok = saved_current_tok
+        
+        # Fallback to expression
+        expr = res.register(self.expression())
         if res.error:
             return res.failure(
                 InvalidSyntaxError(self.current_tok.pos_start,
                                    self.current_tok.pos_end,
-                                   "Expected int,float,identifier"))
-        return res.success(node)
+                                   "Expected statement or expression"))
+        return res.success(expr)
 
     def class_definition(self):
         """
@@ -754,7 +757,7 @@ class Parser: # pylint: disable=R0904
         if res.error:
             return res
 
-        return res.success(VariableAssignNode([var_name_tok], [value_node], [None]))
+        return res.success(AssignNode([VariableUseNode(var_name_tok)], [value_node]))
 
     def list_expression(self):
         """
@@ -2237,61 +2240,63 @@ class Parser: # pylint: disable=R0904
 
     def call(self):
         """
-        Grammar Rule: attr-access (LPAREN (argument-list)? RPAREN)*
-        """
-        res = ParseResult()
-        atom = res.register(self.attr_access())
-        if res.error:
-            return res
-
-        while self.current_tok.type == T_LPAREN:
-            res.register_advancement()
-            self.advance()
-            positional_args, keyword_args = [], []
-
-            if self.current_tok.type != T_RPAREN:
-                args = res.register(self.argument_list())
-                if res.error:
-                    return res
-                positional_args, keyword_args = args
-
-            if self.current_tok.type != T_RPAREN:
-                return res.failure(InvalidSyntaxError(
-                    self.current_tok.pos_start, self.current_tok.pos_end,
-                    "Expected ')'"
-                ))
-            res.register_advancement()
-            self.advance()
-
-            atom = FunctionCallNode(atom, positional_args, keyword_args)
-
-        return res.success(atom)
-
-    def attr_access(self):
-        """
-        Grammar Rule:
-
-        factor (DOT IDENTIFIER)*
+        Grammar Rule: factor ( (LPAREN (argument-list)? RPAREN) | (DOT IDENTIFIER) | (LPAREN3 expression RPAREN3) )*
         """
         res = ParseResult()
         atom = res.register(self.factor())
         if res.error:
             return res
 
-        while self.current_tok.type == T_DOT:
-            res.register_advancement()
-            self.advance()
+        while self.current_tok and self.current_tok.type in (T_LPAREN, T_DOT, T_LPAREN3):
+            if self.current_tok.type == T_LPAREN:
+                res.register_advancement()
+                self.advance()
+                positional_args, keyword_args = [], []
 
-            if self.current_tok.type != T_IDENTIFIER:
-                return res.failure(InvalidSyntaxError(
-                    self.current_tok.pos_start, self.current_tok.pos_end,
-                    "Expected identifier"
-                ))
+                if self.current_tok.type != T_RPAREN:
+                    args = res.register(self.argument_list())
+                    if res.error:
+                        return res
+                    positional_args, keyword_args = args
 
-            attr_name_tok = self.current_tok
-            res.register_advancement()
-            self.advance()
-            atom = AttrAccessNode(atom, attr_name_tok)
+                if self.current_tok.type != T_RPAREN:
+                    return res.failure(InvalidSyntaxError(
+                        self.current_tok.pos_start, self.current_tok.pos_end,
+                        "Expected ')'"
+                    ))
+                res.register_advancement()
+                self.advance()
+
+                atom = FunctionCallNode(atom, positional_args, keyword_args)
+
+            elif self.current_tok.type == T_DOT:
+                res.register_advancement()
+                self.advance()
+
+                if self.current_tok.type != T_IDENTIFIER:
+                    return res.failure(InvalidSyntaxError(
+                        self.current_tok.pos_start, self.current_tok.pos_end,
+                        "Expected identifier"
+                    ))
+
+                attr_name_tok = self.current_tok
+                res.register_advancement()
+                self.advance()
+                atom = AttrAccessNode(atom, attr_name_tok)
+
+            elif self.current_tok.type == T_LPAREN3:
+                res.register_advancement()
+                self.advance()
+                expr = res.register(self.expression())
+                if res.error: return res
+                if self.current_tok.type != T_RPAREN3:
+                    return res.failure(InvalidSyntaxError(
+                        self.current_tok.pos_start, self.current_tok.pos_end,
+                        "Expected ']'"
+                    ))
+                res.register_advancement()
+                self.advance()
+                atom = IndexAccessNode(atom, expr)
 
         return res.success(atom)
 
@@ -2407,54 +2412,26 @@ class Parser: # pylint: disable=R0904
     def statements(self):
         """
         statements:
-            IDENTIFIER (LPAREN3 expression RPAREN3)*
-            (COMMA IDENTIFIER (LPAREN3 expression RPAREN3)*)*
-            (PLUSEQUAL | MINUSEQUAL | MULEQUAL | DIVEQUAL | MODEQUAL | FLOOREQUAL | EXPEQUAL)
+            call (COMMA call)*
+            (EQUAL | PLUSEQUAL | MINUSEQUAL | MULEQUAL | DIVEQUAL | MODEQUAL | FLOOREQUAL | EXPEQUAL)
             expression (COMMA expression)*
         """
         res = ParseResult()
 
-        var_name_toks = []
-        index_nodes = []
-        value_nodes = []
+        left_nodes = []
 
-        # --- Parse LHS (variables and optional indices)
+        # --- Parse LHS (calls/variables/attributes/indices)
         while True:
-            if self.current_tok.type != T_IDENTIFIER:
-                return res.failure(
-                    InvalidSyntaxError(
-                        self.current_tok.pos_start,
-                        self.current_tok.pos_end,
-                        "Expected identifier"
-                    )
-                )
-
-            var_name_toks.append(self.current_tok)
-            res.register_advancement()
-            self.advance()
-
-            indices = []
-            while self.current_tok and self.current_tok.type == T_LPAREN3:
-                res.register_advancement()
-                self.advance()
-
-                expr = res.register(self.expression())
-                if res.error:
-                    return res
-                indices.append(expr)
-
-                if self.current_tok.type != T_RPAREN3:
-                    return res.failure(
-                        InvalidSyntaxError(
-                            self.current_tok.pos_start,
-                            self.current_tok.pos_end,
-                            "Expected ')'"
-                        )
-                    )
-                res.register_advancement()
-                self.advance()
-
-            index_nodes.append(indices if indices else None)
+            left_node = res.register(self.call())
+            if res.error: return res
+            
+            if not isinstance(left_node, (VariableUseNode, AttrAccessNode, IndexAccessNode)):
+                return res.failure(InvalidSyntaxError(
+                    left_node.pos_start, left_node.pos_end,
+                    "Expected variable, attribute, or index for assignment"
+                ))
+                
+            left_nodes.append(left_node)
 
             if self.current_tok.type != T_COMMA:
                 break
@@ -2463,9 +2440,8 @@ class Parser: # pylint: disable=R0904
 
         operator = None
 
-        # --- Expect '='
+        # --- Expect '=' or augmented operator
         if self.current_tok.type != T_EQ:
-            # --- Expect augmented operator
             if self.current_tok.type in (T_PLUSEQUAL, T_MINUSEQUAL, T_MULEQUAL, T_DIVIDEEQUAL, T_MODULUSEQUAL, T_FLOOREQUAL, T_EXPEQUAL):
                 operator = Token(
                     self.current_tok.type.replace('EQUAL', ''),
@@ -2483,6 +2459,7 @@ class Parser: # pylint: disable=R0904
         res.register_advancement()
         self.advance()
 
+        value_nodes = []
         # --- Parse RHS (expressions)
         while True:
             expr = res.register(self.expression())
@@ -2492,7 +2469,7 @@ class Parser: # pylint: disable=R0904
                 value_nodes.append(expr)
             else:
                 val1 = expr
-                value_nodes.append(BinaryOperationNode(left_node=VariableUseNode(var_name_tok=var_name_toks[len(value_nodes)], index_node=index_nodes[len(value_nodes)]), operator=operator, right_node=expr))
+                value_nodes.append(BinaryOperationNode(left_node=left_nodes[len(value_nodes)], operator=operator, right_node=expr))
 
             if self.current_tok.type != T_COMMA:
                 break
@@ -2500,17 +2477,17 @@ class Parser: # pylint: disable=R0904
             self.advance()
 
         # --- Validation: number of vars == number of values
-        if len(var_name_toks) != len(value_nodes):
+        if len(left_nodes) != len(value_nodes):
             if operator and len(value_nodes) == 1:
                 # Allow cases like: a, b += 5
-                for i in range(1, len(var_name_toks)):
+                for i in range(1, len(left_nodes)):
                     value_nodes.append(BinaryOperationNode(
-                        left_node=VariableUseNode(var_name_tok=var_name_toks[i], index_node=index_nodes[i]),
+                        left_node=left_nodes[i],
                         operator=operator,
                         right_node=val1
                     ))
 
-        return res.success(VariableAssignNode(var_name_toks, value_nodes, index_nodes))
+        return res.success(AssignNode(left_nodes, value_nodes))
 
     def jump_statements(self):
         """
