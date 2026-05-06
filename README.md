@@ -85,10 +85,74 @@ Please view `docs/grammar_rules.md` for details on all grammar rules. User manua
 
 ---
 
+## Web Interface & REST API
+
+### 🚀 REST API Server (NEW!)
+
+A Flask-based REST API is now available to execute Sardine code remotely.
+
+**Quick Start:**
+```bash
+pip install -r requirements.txt
+python api_server.py
+```
+
+The API will run on `http://localhost:8000`
+
+**Example:**
+```bash
+curl -X POST http://localhost:8000/api/execute \
+  -H "Content-Type: application/json" \
+  -d '{"code": "show 1 + 2"}'
+```
+
+See `BACKEND_API.md` for complete API documentation.
+
+### 🎨 Web Frontend (Available!)
+
+A modern, interactive web interface for writing and executing Sardine code.
+
+**Setup:**
+```bash
+cd frontend
+pnpm install
+cp .env.example .env.local
+pnpm dev
+```
+
+Open `http://localhost:3000/editor` to start coding!
+
+See `frontend/README.md` for complete frontend documentation.
+
+---
+
+## Development Setup (Complete Stack)
+
+To run both the backend API and web frontend:
+
+### Terminal 1 - Start Backend API
+```bash
+pip install -r requirements.txt
+python api_server.py
+```
+
+### Terminal 2 - Start Frontend
+```bash
+cd frontend
+pnpm install
+pnpm dev
+```
+
+Then open `http://localhost:3000/editor` and start writing Sardine code!
+
+---
+
 ## Future Plans
 
-- **REST API (Planned)**: Exposes endpoints to execute code, inspect results, and retrieve AST trees remotely for integration with IDEs or services.
-- **Web Frontend (Planned)**: A sleek, interactive UI for writing, visualizing, and debugging Sardine code.
+- **Enhanced REST API**: Additional endpoints for code validation, formatting, and history
+- **Web IDE Features**: Code sharing, execution history, syntax validation, themes
+- **Performance**: Optimizations for large code files and faster execution
+- **Ecosystem**: Package manager, standard library, third-party modules
 
 ---
 
