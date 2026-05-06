@@ -46,7 +46,9 @@ class Dict:
         return copy
     
     def __repr__(self):
-        return f'{{{", ".join([f"{k}: {str(v)}" for k, v in self.elements.items()])}}}'
+        def format_key(k):
+            return f"'{k}'" if isinstance(k, str) else str(k)
+        return f'{{{", ".join([f"{format_key(k)}: {repr(v)}" for k, v in self.elements.items()])}}}'
     
     def is_true(self):
         return Number(len(self.elements)).set_context(self.context), None    

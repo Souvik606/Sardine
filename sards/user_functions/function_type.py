@@ -303,16 +303,21 @@ class BuiltInFunction(BaseFunction):
                     ArgumentError(self.pos_start, self.pos_end, f"Unexpected keyword argument '{name}' for show",
                                   self.context))
 
-        def stringify(node):
+        def stringify(node, nested=False):
             if isinstance(node, List):
-                elements = ", ".join(stringify(el) for el in node.elements)
+                elements = ", ".join(stringify(el, nested=True) for el in node.elements)
                 return f"[{elements}]"
             if isinstance(node, Dict):
-                pairs = ", ".join(f"{stringify(k)}: {stringify(v)}" for k, v in node.elements.items())
+                pairs = ", ".join(f"{stringify(k, nested=True)}: {stringify(v, nested=True)}" for k, v in node.elements.items())
                 return f"{{{pairs}}}"
             if isinstance(node, String):
-                return f'{node.value}'
-            return str(node.value)
+                return f"'{node.value}'" if nested else str(node.value)
+            if hasattr(node, 'value'):
+                return str(node.value)
+            # if node is a python string (e.g. dict key) we should probably quote it
+            if isinstance(node, str):
+                return f"'{node}'" if nested else node
+            return str(node)
 
         output = separator.join([stringify(arg) for arg in pos_args])
         print(output, end=end_char)
