@@ -219,6 +219,9 @@ class Lexer:
         if self.current_char == '=':
             self.advance()
             token_type = T_LTE
+        elif self.current_char == '-':
+            self.advance()
+            token_type = T_LARROW
         elif self.current_char == '<':
             self.advance()
             token_type = T_LSHIFT

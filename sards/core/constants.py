@@ -50,7 +50,7 @@ T_LT = 'LESSTHAN' # Less than operator (<)
 T_GT = 'GREATERTHAN' # Greater than operator (>)
 T_LTE = 'LESSERTHANEQUAL' # Less than or equal to operator (<=)
 T_GTE = 'GREATERTHANEQUAL' # Greater than or equal to operator (>=)
-T_ARROW="ARROW" # Arrow operator (->)
+T_LARROW= 'LARROW' # Arrow operator (->)
 T_LPAREN = 'LPAREN' # Left parenthesis (
 T_RPAREN = 'RPAREN' # Right parenthesis )
 T_LPAREN2 = 'LPAREN2' # Left curvy bracket {
