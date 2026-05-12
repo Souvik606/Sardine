@@ -37,8 +37,8 @@ model Dog: Animal {
     }
 
     open method describe() {
-        show("This is", name, ", a", breed)
-        show(name, "'s age is", get_age())
+        show("This is ", name, ", a ", breed, sep="")
+        show(name, "'s age is ", get_age(), sep="")
     }
 
     open method celebrate_birthday() {
