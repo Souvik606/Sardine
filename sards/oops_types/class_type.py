@@ -57,7 +57,7 @@ class Model:
         return None
 
     def is_descendant_of(self, other_model):
-        if self == other_model:
+        if self.name == other_model.name:
             return True
         for p in self.parents:
             if p.is_descendant_of(other_model):

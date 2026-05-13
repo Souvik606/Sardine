@@ -396,8 +396,133 @@ class BuiltInFunction(BaseFunction):
 
         return res.success(String(output))
 
+    def execute_super(self, pos_args, kw_args, exec_context):
+        """
+        Executes the 'super()' built-in.
+
+        Must be called from inside a method body where 'this' is available and
+        the execution context has an owner_class set.  Returns a SuperProxy
+        bound to the current instance, allowing calls like super().method(args)
+        to resolve to the *parent* class's version of an overridden method.
+
+        Example (Sardine):
+            model Animal {
+                open method speak() { show("...") }
+            }
+            model Dog: Animal {
+                open method speak() {
+                    super().speak()   # calls Animal.speak()
+                    show("Woof!")
+                }
+            }
+        """
+        from sards.core import RunTimeResult
+        from sards.oops_types import SuperProxy
+
+        res = RunTimeResult()
+
+        if pos_args or kw_args:
+            return res.failure(
+                ArgumentError(
+                    self.pos_start, self.pos_end,
+                    "super() takes no arguments",
+                    exec_context
+                )
+            )
+
+        # Built-in exec_context is freshly generated; walk the parent chain to
+        # find the method context that carries 'this' and owner_class.
+        search_ctx = self.context   # self.context = the scope super() was called from
+        instance = None
+        owner_class = None
+        while search_ctx is not None:
+            if instance is None:
+                candidate = search_ctx.symbol_table.get("this") if search_ctx.symbol_table else None
+                if candidate is not None:
+                    instance = candidate
+            if owner_class is None and search_ctx.owner_class is not None:
+                owner_class = search_ctx.owner_class
+            if instance is not None and owner_class is not None:
+                break
+            search_ctx = search_ctx.parent
+
+        if instance is None:
+            return res.failure(
+                ArgumentError(
+                    self.pos_start, self.pos_end,
+                    "super() can only be called inside a method body",
+                    exec_context
+                )
+            )
+
+        if owner_class is None:
+            return res.failure(
+                ArgumentError(
+                    self.pos_start, self.pos_end,
+                    "super() could not determine the current class \u2014 "
+                    "make sure you are calling it inside a named method",
+                    exec_context
+                )
+            )
+
+        proxy = SuperProxy(instance, owner_class)
+        proxy.set_context(self.context)
+        proxy.set_pos(self.pos_start, self.pos_end)
+        return res.success(proxy)
+
+    def execute_is_a(self, pos_args, kw_args, exec_context):
+        """
+        Executes the 'is_a()' built-in.
+
+        Checks whether an object is an instance of the given model or any of
+        its ancestor models (polymorphic type check).
+
+        Signature:  is_a(obj, ModelClass) -> 1 (True) or 0 (False)
+
+        Example (Sardine):
+            d = Dog("Buddy", 3, "Woof", "Lab")
+            show(is_a(d, Dog))     # 1
+            show(is_a(d, Animal))  # 1  — Dog inherits from Animal
+            show(is_a(d, Person))  # 0
+        """
+        from sards.core import RunTimeResult
+        from sards.oops_types import ModelInstance, Model
+
+        res = RunTimeResult()
+
+        if len(pos_args) != 2 or kw_args:
+            return res.failure(
+                ArgumentError(
+                    self.pos_start, self.pos_end,
+                    "is_a() takes exactly 2 positional arguments: is_a(object, ModelClass)",
+                    exec_context
+                )
+            )
+
+        obj, model_class = pos_args
+
+        if not isinstance(model_class, Model):
+            return res.failure(
+                ArgumentError(
+                    self.pos_start, self.pos_end,
+                    "Second argument to is_a() must be a model class",
+                    exec_context
+                )
+            )
+
+        if not isinstance(obj, ModelInstance):
+            # Primitive types are never instances of any user-defined model
+            return res.success(Number(0))
+
+        # Use the existing is_descendant_of helper which already handles MRO
+        result = obj.model.is_descendant_of(model_class)
+        return res.success(Number(1 if result else 0))
+
+
 BuiltInFunction.show = BuiltInFunction('show')
 BuiltInFunction.listen = BuiltInFunction('listen')
 BuiltInFunction.Integer = BuiltInFunction('Integer')
 BuiltInFunction.String = BuiltInFunction('String')
 BuiltInFunction.type = BuiltInFunction('type')
+BuiltInFunction.super = BuiltInFunction('super')
+BuiltInFunction.is_a = BuiltInFunction('is_a')

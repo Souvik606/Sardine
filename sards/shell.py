@@ -38,6 +38,8 @@ global_symbol_table.set("listen", BuiltInFunction.listen)
 global_symbol_table.set("Integer", BuiltInFunction.Integer)
 global_symbol_table.set("String", BuiltInFunction.String)
 global_symbol_table.set("type", BuiltInFunction.type)
+global_symbol_table.set("super", BuiltInFunction.super)
+global_symbol_table.set("is_a", BuiltInFunction.is_a)
 
 
 def run(filename, input_text):

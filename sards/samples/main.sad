@@ -1,44 +1,28 @@
-show("--- Test: Menu Statement ---")
+model ServerConfig {
+    attr<user, host, port, debug_mode>
 
-day = "Tuesday"
+    init(user, host = "127.0.0.1", port = 8080, debug_mode = False) {
+        user: user
+        host: host
+        port: port
+        debug_mode: debug_mode
+    }
 
-menu day {
-    choice "Monday" {
-        show("It's Monday.")
-        escape
-    }
-    choice "Tuesday" {
-        show("It's Tuesday.")
-    }
-    choice "Wednesday" {
-        show("It's Wednesday.")
-        escape
-    }
-    fallback {
-        show("It's some other day.")
+    method display_config(prefix = "Config:") {
+        show(prefix, "User=" + user, "Host=" + host, "Port=" + String(port), sep=" | ", end="\n\n")
     }
 }
 
-val = 2
-menu val {
-    choice 1 {
-        show("Value is 1.")
-    }
-    choice 2 {
-        show("Value is 2.")
-        escape
-    }
-    fallback {
-        show("Value is something else.")
-    }
-}
+show("--- Creating configurations ---", end="\n\n")
 
-other_val = 100
-menu other_val {
-    choice 1 {
-        show("Value is 1.")
-    }
-    fallback {
-        show("Value is something else.")
-    }
-}
+show("1. Default Config (using defaults for host, port, debug)")
+default_config = ServerConfig("admin")
+default_config.display_config()
+
+show("2. Custom Port (overriding 'port' positionally)")
+custom_port_config = ServerConfig("guest", "192.168.1.1", 9000)
+custom_port_config.display_config()
+
+show("3. Debug Mode (overriding 'debug_mode' and 'user' by keyword)")
+debug_config = ServerConfig(user = "root", debug_mode = True)
+debug_config.display_config()
