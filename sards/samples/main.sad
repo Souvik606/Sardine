@@ -1,14 +1,27 @@
-show("--- Higher-Order Functions (Returning Functions) ---")
-method multiplier(factor) {
-    my_func = method(n) {
-        yield n * factor
+model ServerConfig {
+    attr<user, host, port, debug_mode>
+
+    init(user, host = "127.0.0.1", port = 8080, debug_mode = False) {
+        user: user
+        host: host
+        port: port
+        debug_mode: debug_mode
     }
-    yield my_func
+
+    method display_config(prefix = "Config:") {
+        show(prefix, "User=" + user, "Host=" + host, "Port=" + String(port), sep=" | ", end="\n\n")
+    }
 }
+show("--- Creating configurations ---", end="\n\n")
 
-times_two = multiplier(2)
-times_three = multiplier(3)
+show("1. Default Config (using defaults for host, port, debug)")
+default_config = ServerConfig("admin")
+default_config.display_config()
 
-show(times_two(5))
-show(times_three(5))
-show(times_two(10))
+show("2. Custom Port (overriding 'port' positionally)")
+custom_port_config = ServerConfig("guest", "192.168.1.1", 9000)
+custom_port_config.display_config()
+
+show("3. Debug Mode (overriding 'debug_mode' and 'user' by keyword)")
+debug_config = ServerConfig(user = "root", debug_mode = True)
+debug_config.display_config()
