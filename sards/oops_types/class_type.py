@@ -73,7 +73,7 @@ class Model:
         self.context = context
         return self
 
-    def execute(self, pos_args, kw_args):
+    def execute(self, pos_args, kw_args, call_context=None):
         from sards.core import Context, RunTimeResult, Interpreter, ArgumentError
 
         res = RunTimeResult()

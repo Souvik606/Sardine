@@ -211,6 +211,8 @@ class Interpreter:
         return res.success(model)
 
     def visit_AttrAccessNode(self, node, context):
+        from sards.user_functions import Function
+
         res = RunTimeResult()
 
         object_val = res.register(self.visit(node.object_node, context))
@@ -219,14 +221,16 @@ class Interpreter:
 
         attr_name = node.attr_name_tok.value
 
-        value, error = object_val.get_attr(attr_name,context)
+        value, error = object_val.get_attr(attr_name, context)
 
         if error:
             return res.failure(error)
 
         value = value.copy()
         value.set_pos(node.pos_start, node.pos_end)
-        value.set_context(context)
+
+        if not isinstance(value, Function):
+            value.set_context(context)
 
         return res.success(value)
 
@@ -362,6 +366,8 @@ class Interpreter:
         return res.success(func_value)
 
     def visit_FunctionCallNode(self, node, context):
+        from sards.user_functions import Function
+
         res = RunTimeResult()
         pos_args = []
         kw_args = {}
@@ -390,13 +396,13 @@ class Interpreter:
                 return res
             kw_args[arg_name] = arg_value
 
-        return_value = res.register(call_value.execute(pos_args, kw_args))
+        return_value = res.register(call_value.execute(pos_args, kw_args, call_context=context))
         if res.should_return():
             return res
 
-        return_value = (return_value.copy()
-                        .set_pos(node.pos_start, node.pos_end)
-                        .set_context(context))
+        return_value = return_value.copy().set_pos(node.pos_start, node.pos_end)
+        if not isinstance(return_value, Function):
+            return_value.set_context(context)
 
         return res.success(return_value)
 
@@ -678,6 +684,8 @@ class Interpreter:
         return res.success(Number(0))
 
     def visit_VariableUseNode(self, node, context):
+        from sards.user_functions import Function
+
         res = RunTimeResult()
         var_name = node.var_name_tok.value
         value = None
@@ -687,7 +695,7 @@ class Interpreter:
         if value is None:
             instance = context.symbol_table.get("this")
             if instance:
-                value, error = instance.get_attr(var_name,context)
+                value, error = instance.get_attr(var_name, context)
                 if error:
                     return res.failure(error)
 
@@ -709,14 +717,18 @@ class Interpreter:
             indexes.append(index_val)
 
         if not indexes:
-            value = value.copy().set_pos(node.pos_start, node.pos_end).set_context(context)
+            value = value.copy().set_pos(node.pos_start, node.pos_end)
+    
+            if not isinstance(value, Function):
+                value.set_context(context)
             return res.success(value)
         else:
             value, error = value.getByIndex(indexes)
             if error:
                 return res.failure(error)
-
-            value = value.copy().set_pos(node.pos_start, node.pos_end).set_context(context)
+            value = value.copy().set_pos(node.pos_start, node.pos_end)
+            if not isinstance(value, Function):
+                value.set_context(context)
             return res.success(value)
 
     def visit_AssignNode(self, node, context):

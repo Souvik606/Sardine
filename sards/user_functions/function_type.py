@@ -162,7 +162,7 @@ class Function(BaseFunction):
         self.param_nodes = param_nodes
         self.auto_return = auto_return
 
-    def execute(self, pos_args, kw_args):
+    def execute(self, pos_args, kw_args, call_context=None):
         from sards.core import RunTimeResult, Interpreter, Context
 
         res = RunTimeResult()
@@ -174,7 +174,9 @@ class Function(BaseFunction):
             exec_context = Context(f"method {self.name}", instance.context, self.pos_start, owner_class=method_owner)
             exec_context.symbol_table = SymbolTable(instance.symbol_table)
         else:
-            exec_context = self.generate_new_context()
+            traceback_parent = call_context if call_context is not None else self.context
+            exec_context = Context(self.name, traceback_parent, self.pos_start)
+            exec_context.symbol_table = SymbolTable(self.context.symbol_table)
 
         res.register(self.check_and_populate_args(self.param_nodes, pos_args, kw_args, exec_context))
         if res.should_return():
@@ -225,13 +227,15 @@ class BuiltInFunction(BaseFunction):
         """
         super().__init__(name)
 
-    def execute(self, pos_args, kw_args):
+    def execute(self, pos_args, kw_args, call_context=None):
         """
         Executes the built-in function with the given arguments.
 
         Args:
             pos_args: A list of positional arguments.
             kw_args: A dictionary of keyword arguments.
+            call_context: The call-site context (accepted for API compatibility
+                          with Function.execute; ignored for built-ins).
 
         Returns:
             res: The result of the function execution.
