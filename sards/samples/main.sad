@@ -49,7 +49,7 @@ model Vec2 {
     }
 
     method show_vec() {
-        show("Vec2(" + show(x) + "," + show(y) + ")")
+        show("Vec2(" + String(x) + "," + String(y) + ")")
     }
 }
 show("--- Creating configurations ---", end="\n\n")
@@ -57,10 +57,12 @@ show("--- Creating configurations ---", end="\n\n")
 show("--- Test: Vec2 Arithmetic Operators ---")
 a = Vec2(1, 2)
 b = Vec2(3, 4)
+a.show_vec()
 
 c = a + b
 show(c.x)
 show(c.y)
+c.show_vec()
 
 d = b - a
 show(d.x)

@@ -54,9 +54,9 @@ statements: call (COMMA call)* (EQUAL | PLUSEQUAL | MINUSEQUAL | MULEQUAL | DIVE
 
 switch-statement: KEYWORD:menu ternary-expression LPAREN2 NEWLINE* (case-statement* NEWLINE*)* default-statement? NEWLINE* (case-statement* NEWLINE*)* RPAREN2
 
-case-statement: KEYWORD:choice ternary-expression LPAREN2 ((expression | statements) RPAREN2) | (NEWLINE multiline RPAREN2)
+case-statement: KEYWORD:choice ternary-expression LPAREN2 NEWLINE* (multiline | jump-statements)* RPAREN2
 
-default-statement: KEYWORD:fallback LPAREN2 ((expression | statements) RPAREN2) | (NEWLINE multiline RPAREN2)
+KEYWORD:fallback LPAREN2 NEWLINE* (multiline | jump-statements)* RPAREN2
 
 param-list: param-item (COMMA param-item)*
 
@@ -184,12 +184,6 @@ Here are some valid expressions and statements according to this grammar:
 
 ## Operator Overloading
 
-SARDS supports **C++-style operator overloading** for user-defined `model` types.  
-You define special named methods (like `__add__`, `__eq__`) inside a model body,
-and the interpreter automatically invokes them whenever the corresponding operator is used.
-
-### Syntax
-
 ```grammar
 operator-method: KEYWORD:method IDENTIFIER LPAREN (param-list)? RPAREN LPAREN2 (multiline | jump-statements)* RPAREN2
 
@@ -203,84 +197,36 @@ operator-method: KEYWORD:method IDENTIFIER LPAREN (param-list)? RPAREN LPAREN2 (
 
 #### Binary Operators (take one parameter `other`)
 
-| Operator | Method name   | Example use       |
-|----------|---------------|-------------------|
-| `+`      | `__add__`     | `a + b`           |
-| `-`      | `__sub__`     | `a - b`           |
-| `*`      | `__mul__`     | `a * b`           |
-| `/`      | `__div__`     | `a / b`           |
-| `%`      | `__mod__`     | `a % b`           |
-| `//`     | `__floordiv__`| `a // b`          |
-| `**`     | `__pow__`     | `a ** b`          |
-| `&`      | `__and__`     | `a & b`           |
-| `\|`     | `__or__`      | `a \| b`          |
-| `^`      | `__xor__`     | `a ^ b`           |
-| `<<`     | `__lshift__`  | `a << b`          |
-| `>>`     | `__rshift__`  | `a >> b`          |
-| `==`     | `__eq__`      | `a == b`          |
-| `!=`     | `__neq__`     | `a != b`          |
-| `<`      | `__lt__`      | `a < b`           |
-| `<=`     | `__lte__`     | `a <= b`          |
-| `>`      | `__gt__`      | `a > b`           |
-| `>=`     | `__gte__`     | `a >= b`          |
-| `and`    | `__land__`    | `a and b`         |
-| `or`     | `__lor__`     | `a or b`          |
+| Operator | Method name    | Example use |
+| -------- | -------------- | ----------- |
+| `+`      | `__add__`      | `a + b`     |
+| `-`      | `__sub__`      | `a - b`     |
+| `*`      | `__mul__`      | `a * b`     |
+| `/`      | `__div__`      | `a / b`     |
+| `%`      | `__mod__`      | `a % b`     |
+| `//`     | `__floordiv__` | `a // b`    |
+| `**`     | `__pow__`      | `a ** b`    |
+| `&`      | `__and__`      | `a & b`     |
+| `\|`     | `__or__`       | `a \| b`    |
+| `^`      | `__xor__`      | `a ^ b`     |
+| `<<`     | `__lshift__`   | `a << b`    |
+| `>>`     | `__rshift__`   | `a >> b`    |
+| `==`     | `__eq__`       | `a == b`    |
+| `!=`     | `__neq__`      | `a != b`    |
+| `<`      | `__lt__`       | `a < b`     |
+| `<=`     | `__lte__`      | `a <= b`    |
+| `>`      | `__gt__`       | `a > b`     |
+| `>=`     | `__gte__`      | `a >= b`    |
+| `and`    | `__land__`     | `a and b`   |
+| `or`     | `__lor__`      | `a or b`    |
 
 #### Unary Operators (take no parameters)
 
-| Operator | Method name | Example use |
-|----------|-------------|-------------|
-| `-`      | `__neg__`   | `-a`        |
-| `not`    | `__not__`   | `not a`     |
-| `~`      | `__bitnot__`| `~a`        |
-
-### Full Example
-
-```sardine
-model Vec2 {
-    open attr <x, y>
-
-    init(nx, ny) {
-        x: nx,
-        y: ny
-    }
-
-    # --- arithmetic ---
-    method __add__(other) {
-        yield Vec2(x + other.x, y + other.y)
-    }
-    method __sub__(other) {
-        yield Vec2(x - other.x, y - other.y)
-    }
-    method __mul__(other) {
-        yield Vec2(x * other.x, y * other.y)
-    }
-
-    # --- comparison ---
-    method __eq__(other) {
-        yield (x == other.x) and (y == other.y)
-    }
-    method __lt__(other) {
-        yield (x < other.x) and (y < other.y)
-    }
-
-    # --- unary ---
-    method __neg__() {
-        yield Vec2(-x, -y)
-    }
-    method __not__() {
-        yield (x == 0) and (y == 0)
-    }
-}
-
-a = Vec2(1, 2)
-b = Vec2(3, 4)
-c = a + b           # calls __add__  -> Vec2(4, 6)
-d = a - b           # calls __sub__  -> Vec2(-2, -2)
-e = -a              # calls __neg__  -> Vec2(-1, -2)
-show(a == b)        # calls __eq__   -> 0 (false)
-show(a < b)         # calls __lt__   -> 1 (true)
-```
+| Operator | Method name  | Example use |
+| -------- | ------------ | ----------- |
+| `-`      | `__neg__`    | `-a`        |
+| `not`    | `__not__`    | `not a`     |
+| `~`      | `__bitnot__` | `~a`        |
 
 ### Error Messages
 
