@@ -631,6 +631,7 @@ class Interpreter:
         if res.should_return():
             return res
 
+        seen_choices = []
         for choice, _, _ in node.cases:
             if choice is None:
                 default_index = match_index
@@ -639,11 +640,23 @@ class Interpreter:
             choice_val = res.register(self.visit(choice, context))
             if res.should_return():
                 return res
-            if selection_val.value == choice_val.value:
+            
+            for seen in seen_choices:
+                if choice_val.value == seen:
+                    return res.failure(RunTimeError(
+                        choice.pos_start, choice.pos_end,
+                        f"Duplicate choice '{choice_val.value}' in menu",
+                        context
+                    ))
+            seen_choices.append(choice_val.value)
+
+            if not match_found and selection_val.value == choice_val.value:
                 match_found = True
-                break
+                start_index = match_index
             match_index = match_index + 1
-        start_index = match_index if match_found else default_index
+        
+        if not match_found:
+            start_index = default_index
 
         for choice, body, return_null in node.cases[start_index:]:
             body_val = res.register(self.visit(body, context))

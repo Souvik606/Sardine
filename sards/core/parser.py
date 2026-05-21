@@ -167,7 +167,7 @@ class Parser: # pylint: disable=R0904
         if not result.error and self.current_tok.type != T_EOF:
             return result.failure(
                 InvalidSyntaxError(self.current_tok.pos_start, self.current_tok.pos_end,
-                                   "Expected '+', '-', '*', '/'"))
+                                   f"Unexpected token '{self.current_tok.value or self.current_tok.type}'"))
         return result
 
     def check_is_statement(self):
@@ -277,6 +277,14 @@ class Parser: # pylint: disable=R0904
                 return res
             return res.success(foreach_statement)
 
+        if token.type == T_IDENTIFIER:
+            next_tok = self.peek()
+            if next_tok and next_tok.type in (T_IDENTIFIER, T_LPAREN2, T_INT, T_FLOAT, T_STRING):
+                return res.failure(InvalidSyntaxError(
+                    self.current_tok.pos_start, self.current_tok.pos_end,
+                    f"Invalid keyword '{token.value}'"
+                ))
+
         # Try assignment first
         saved_tok_index = self.tok_index
         saved_current_tok = self.current_tok
@@ -294,7 +302,7 @@ class Parser: # pylint: disable=R0904
             return res.failure(
                 InvalidSyntaxError(self.current_tok.pos_start,
                                    self.current_tok.pos_end,
-                                   "Expected statement or expression"))
+                                   f"Unexpected token '{self.current_tok.value or self.current_tok.type}'"))
         return res.success(expr)
 
     def class_definition(self):
@@ -1459,6 +1467,12 @@ class Parser: # pylint: disable=R0904
         res.register_advancement()
         self.advance()
 
+        if self.current_tok.type == T_LPAREN2:
+            return res.failure(
+                InvalidSyntaxError(self.current_tok.pos_start,
+                                   self.current_tok.pos_end,
+                                   "Expected expression after 'choice'"))
+
         choice_val = res.register(self.ternary_expression())
         if res.error:
             return res
@@ -2128,13 +2142,7 @@ class Parser: # pylint: disable=R0904
                 return res
             left_node = BinaryOperationNode(left_node, operator, right_node)
 
-        node = res.register(res.success(left_node))
-        if res.error:
-            return res.failure(
-                InvalidSyntaxError(self.current_tok.pos_start,
-                                   self.current_tok.pos_end,
-                                   "Expected 'define',int,float,identifier,'+','-' or '('"))
-        return res.success(node)
+        return res.success(left_node)
 
     def keyword_item(self):
         """
@@ -2381,7 +2389,7 @@ class Parser: # pylint: disable=R0904
         return res.failure(
             InvalidSyntaxError(token.pos_start,
                                token.pos_end,
-                               "Expected int, float,identifier,'+','-'or '('"))
+                               "Expected an expression (value, variable, '(', '[', '{', or operator)"))
 
 
     def term(self):
@@ -2574,13 +2582,7 @@ class Parser: # pylint: disable=R0904
         ternary_node = res.register(self.ternary_expression())
         if res.error:
             return res
-        node = res.register(res.success(ternary_node))
-        if res.error:
-            return res.failure(
-                InvalidSyntaxError(self.current_tok.pos_start,
-                                   self.current_tok.pos_end,
-                                   "Expected int,float,identifier"))
-        return res.success(node)
+        return res.success(ternary_node)
 
     def logical_expression(self):
         """
@@ -2606,13 +2608,7 @@ class Parser: # pylint: disable=R0904
 
             left_node = BinaryOperationNode(left_node, operator, right_node)
 
-        node = res.register(res.success(left_node))
-        if res.error:
-            return res.failure(
-                InvalidSyntaxError(self.current_tok.pos_start,
-                                   self.current_tok.pos_end,
-                                   "Expected int,float,identifier"))
-        return res.success(node)
+        return res.success(left_node)
 
     def bitwise_expression(self):
         """
@@ -2636,14 +2632,8 @@ class Parser: # pylint: disable=R0904
 
             left_node = BinaryOperationNode(left_node, operator, right_node)
 
-        node = res.register(res.success(left_node))
-        if res.error:
-            return res.failure(
-                InvalidSyntaxError(self.current_tok.pos_start,
-                                   self.current_tok.pos_end,
-                                   "Expected int,float,identifier"))
-        return res.success(node)
-    
+        return res.success(left_node)
+
     def bitwise_xor(self):
         """
         Grammar Rule:
@@ -2666,14 +2656,8 @@ class Parser: # pylint: disable=R0904
 
             left_node = BinaryOperationNode(left_node, operator, right_node)
 
-        node = res.register(res.success(left_node))
-        if res.error:
-            return res.failure(
-                InvalidSyntaxError(self.current_tok.pos_start,
-                                   self.current_tok.pos_end,
-                                   "Expected int,float,identifier"))
-        return res.success(node)
-    
+        return res.success(left_node)
+
     def bitwise_and(self):
         """
         Grammar Rule:
@@ -2696,13 +2680,7 @@ class Parser: # pylint: disable=R0904
 
             left_node = BinaryOperationNode(left_node, operator, right_node)
 
-        node = res.register(res.success(left_node))
-        if res.error:
-            return res.failure(
-                InvalidSyntaxError(self.current_tok.pos_start,
-                                   self.current_tok.pos_end,
-                                   "Expected int,float,identifier"))
-        return res.success(node)
+        return res.success(left_node)
 
     def comp_expression(self):
         """
@@ -2735,14 +2713,8 @@ class Parser: # pylint: disable=R0904
                 return res
             left_node = BinaryOperationNode(left_node, operator, right_node)
 
-        node = res.register(res.success(left_node))
-        if res.error:
-            return res.failure(
-                InvalidSyntaxError(self.current_tok.pos_start,
-                                   self.current_tok.pos_end,
-                                   "Expected int,float,identifier,'+','-','not' or '('"))
-        return res.success(node)
-    
+        return res.success(left_node)
+
     def shift_expression(self):
         """
         Grammar Rule:
@@ -2763,13 +2735,7 @@ class Parser: # pylint: disable=R0904
                 return res
             left_node = BinaryOperationNode(left_node, operator, right_node)
 
-        node = res.register(res.success(left_node))
-        if res.error:
-            return res.failure(
-                InvalidSyntaxError(self.current_tok.pos_start,
-                                   self.current_tok.pos_end,
-                                   "Expected int,float,identifier,'+','-' or '('"))
-        return res.success(node)
+        return res.success(left_node)
 
     def arith_expression(self):
         """Parses full expressions, handling addition and subtraction operations.
@@ -2792,10 +2758,4 @@ class Parser: # pylint: disable=R0904
                 return res
             left_node = BinaryOperationNode(left_node, operator, right_node)
 
-        node = res.register(res.success(left_node))
-        if res.error:
-            return res.failure(
-                InvalidSyntaxError(self.current_tok.pos_start,
-                                   self.current_tok.pos_end,
-                                   "Expected 'define',int,float,identifier,'+','-' or '('"))
-        return res.success(node)
+        return res.success(left_node)
