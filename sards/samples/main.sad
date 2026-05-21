@@ -149,3 +149,18 @@ cnt = cnt + step
 show(cnt.val)
 cnt = cnt - step
 show(cnt.val)
+
+# -----------------------------------------------------------------------
+# Test: Exception Handling
+# -----------------------------------------------------------------------
+show("--- Test: Exception Handling ---")
+risk {
+    # Cause a NameError intentionally
+    x = undefined_variable
+} trap NameError err {
+    show("Caught Exception:")
+    show("  Type: " + err.type)
+    show("  Message: " + err.message)
+} clean {
+    show("Cleanup block executed")
+}

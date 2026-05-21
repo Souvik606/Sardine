@@ -275,9 +275,19 @@ class Interpreter:
 
                 # Bind error variable if provided
                 if trap_node.error_name:
+                    from sards.oops_types.class_type import Model
+                    from sards.oops_types.class_instance import ModelInstance
+                    from sards.data_types import String
+
+                    exception_model = Model(error.error_name, [], None, {})
+                    e_instance = ModelInstance(exception_model)
+                    e_instance.set_attr("type", String(error.error_name))
+                    e_instance.set_attr("message", String(error.details))
+                    e_instance.set_attr("traceback", String(error.to_string()))
+
                     trap_context.symbol_table.set(
                         trap_node.error_name.value,
-                        String(error.to_string())
+                        e_instance
                         .set_pos(trap_node.pos_start, trap_node.pos_end)
                         .set_context(trap_context)
                     )
