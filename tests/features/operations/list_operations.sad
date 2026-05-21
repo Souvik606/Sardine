@@ -13,17 +13,17 @@ show("--- Illegal Operations ---")
 risk {
     show([1, 2] - [3])
 } trap IllegalOperationError e {
-    show("Caught expected error:", e)
+    show("Caught expected error:", e.traceback)
 }
 
 risk {
     show([1, 2] / 2)
 } trap IllegalOperationError e {
-    show("Caught expected error:", e)
+    show("Caught expected error:", e.traceback)
 }
 
 risk {
     show([1, 2] + "hello")
 } trap IllegalOperationError e {
-    show("Caught expected error:", e)
+    show("Caught expected error:", e.traceback)
 }

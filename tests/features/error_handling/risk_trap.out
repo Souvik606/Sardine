@@ -1,6 +1,8 @@
 Inside risk block, before error
 Caught an error: Traceback (most recent call last):
-File tests/features/error_handling/risk_trap.sad, line 3, in <program>
+  File tests/features/error_handling/risk_trap.sad, line 3, in <program>
+        a = 10 / 0
+                 ^
 DivisionByZeroError: Division by zero
 Inside clean block
 ---

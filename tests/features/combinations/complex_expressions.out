@@ -9,5 +9,7 @@ check(5) is false
 <type Number> 3.0
 --- Risk/Trap with complex operation ---
 Caught expected error: Traceback (most recent call last):
-File tests/features/combinations/complex_expressions.sad, line 37, in <program>
+  File tests/features/combinations/complex_expressions.sad, line 37, in <program>
+        y = x + 5
+                ^
 IllegalOperationError: Expected a String type

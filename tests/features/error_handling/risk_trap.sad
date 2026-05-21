@@ -3,7 +3,7 @@ risk {
     a = 10 / 0
     show("This should not be printed")
 } trap RunTimeError e{
-    show("Caught an error:", e)
+    show("Caught an error:", e.traceback)
 } clean {
     show("Inside clean block")
 }
