@@ -1,0 +1,155 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Sardine",
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#strings"
+    },
+    {
+      "include": "#keywords"
+    },
+    {
+      "include": "#storage_types"
+    },
+    {
+      "include": "#builtins"
+    },
+    {
+      "include": "#exceptions"
+    },
+    {
+      "include": "#constants"
+    },
+    {
+      "include": "#numbers"
+    },
+    {
+      "include": "#operators"
+    }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.block.sardine",
+          "begin": "#\\*",
+          "end": "\\*#"
+        },
+        {
+          "name": "comment.line.number-sign.sardine",
+          "match": "#.*$"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.sardine",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.sardine",
+              "match": "\\\\."
+            }
+          ]
+        },
+        {
+          "name": "string.quoted.single.sardine",
+          "begin": "'",
+          "end": "'",
+          "patterns": [
+            {
+              "name": "constant.character.escape.sardine",
+              "match": "\\\\."
+            }
+          ]
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.sardine",
+          "match": "\\b(when|orwhen|otherwise|Cycle|whenever|escape|proceed|menu|choice|fallback|risk|trap|clean|yield)\\b"
+        },
+        {
+          "name": "keyword.operator.logical.sardine",
+          "match": "\\b(and|or|not)\\b"
+        },
+        {
+          "name": "keyword.other.sardine",
+          "match": "\\b(trace)\\b"
+        }
+      ]
+    },
+    "storage_types": {
+      "patterns": [
+        {
+          "name": "storage.type.sardine",
+          "match": "\\b(define|method|model|attr|init|open|secret|guarded)\\b"
+        }
+      ]
+    },
+    "builtins": {
+      "patterns": [
+        {
+          "name": "support.function.builtin.sardine",
+          "match": "\\b(show|listen|type|is_a|super|len|int|float|string|list|dict)\\b"
+        }
+      ]
+    },
+    "exceptions": {
+      "patterns": [
+        {
+          "name": "support.class.exception.sardine",
+          "match": "\\b(RunTimeError|IllegalOperationError|DivisionByZeroError|IndexOutOfBoundsError|NameError|ArgumentError|InvalidErrorTypeError)\\b"
+        }
+      ]
+    },
+    "constants": {
+      "patterns": [
+        {
+          "name": "constant.language.sardine",
+          "match": "\\b(True|False|None)\\b"
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.float.sardine",
+          "match": "\\b[0-9]+\\.[0-9]+\\b"
+        },
+        {
+          "name": "constant.numeric.integer.sardine",
+          "match": "\\b[0-9]+\\b"
+        }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.arithmetic.sardine",
+          "match": "(\\+|-|\\*|/|%|//|\\*\\*|\\+=|-=|\\*=|/=|%=|//=|\\*\\*=)"
+        },
+        {
+          "name": "keyword.operator.bitwise.sardine",
+          "match": "(&|\\||\\^|~|<<|>>|&=|\\|=|\\^=|<<=|>>=)"
+        },
+        {
+          "name": "keyword.operator.comparison.sardine",
+          "match": "(==|!=|<=|>=|<|>)"
+        },
+        {
+          "name": "keyword.operator.assignment.sardine",
+          "match": "(=|<-)"
+        }
+      ]
+    }
+  },
+  "scopeName": "source.sardine"
+}

@@ -24,6 +24,7 @@ model Person {
         show("Hello, my name is", name, "and I am", age, "years old.")
     }
 }
+
 p = Person("John", 30)
 show("--- Testing type() ---")
 show(type(10))
