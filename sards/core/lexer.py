@@ -116,9 +116,9 @@ class Lexer:
             id_str += self.current_char
             self.advance()
 
-        if id_str in KEYWORDS:token_type=T_KEYWORD
-        elif id_str in ERROR_TYPES:token_type=T_ERROR
-        else:token_type=T_IDENTIFIER
+        if id_str in KEYWORDS: token_type = T_KEYWORD
+        elif id_str in ERROR_TYPES: token_type = T_ERROR
+        else: token_type = T_IDENTIFIER
 
         return Token(token_type, id_str, pos_start, self.pos)
 
@@ -345,7 +345,7 @@ class Lexer:
                 self.advance()
             elif self.current_char in DIGITS:
                 tokens.append(self.make_number())
-            elif self.current_char in LETTERS:
+            elif self.current_char in LETTERS + '_':
                 tokens.append(self.make_identifier())
             elif self.current_char == '"':
                 tokens.append(self.make_string())
