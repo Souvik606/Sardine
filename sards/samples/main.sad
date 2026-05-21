@@ -52,6 +52,7 @@ model Vec2 {
         show("Vec2(" + show(x) + "," + show(y) + ")")
     }
 }
+show("--- Creating configurations ---", end="\n\n")
 
 show("--- Test: Vec2 Arithmetic Operators ---")
 a = Vec2(1, 2)

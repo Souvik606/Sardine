@@ -1,15 +1,6 @@
 <div align="center">
   <img src="media/v0.3d-cropped.png" alt="Sardine Logo" style="padding:10px" width="200">
   <br>
-  <a href="https://github.com/Souvik606/SARDS/releases">
-    <img src="https://img.shields.io/badge/0.0.4-teal?label=version" alt="Version">
-  </a>
-  <a href="https://github.com/Souvik606/SARDS/issues">
-    <img src="https://img.shields.io/github/issues/Souvik606/SARDS" alt="Issues">
-  </a>
-  <a href="https://github.com/Souvik606/SARDS">
-    <img src="https://img.shields.io/github/stars/Souvik606/SARDS" alt="GitHub Stars">
-  </a>
 </div>
 
 # Sardine: A Custom Language Made with Python
@@ -19,9 +10,7 @@ Sardine is a custom programming language built with Python. It combines a powerf
 addition, Sardine offers an **Interactive Shell** for real-time coding, and will soon be offering a **REST API** for remote
 execution and parsing, and a modern **Web Frontend** to enhance your development experience.
 
----
-
-[![Frontend Lint Check](https://github.com/Souvik606/SARDS/actions/workflows/eslint.yml/badge.svg)](https://github.com/Souvik606/SARDS/actions/workflows/eslint.yml)
+[![Sardine Tests](https://github.com/Souvik606/SARDS/actions/workflows/tests.yml/badge.svg)](https://github.com/Souvik606/SARDS/actions/workflows/tests.yml)
 
 ---
 

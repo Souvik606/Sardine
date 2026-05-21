@@ -120,7 +120,8 @@ def run_file(filepath):
 
     # Print errors if encountered, otherwise display the result
     if errors:
-        print(f"Error in {filepath}:")
+        relative_path = os.path.relpath(filepath, start=os.curdir).replace('\\', '/')
+        print(f"Error in {relative_path}:")
         print(errors.to_string())
     # else:
     #     if result is not None:
