@@ -37,5 +37,5 @@ risk {
     y = x + 5
     show("This should not print")
 } trap RunTimeError e {
-    show("Caught expected error:", e)
+    show("Caught expected error:", e.traceback)
 }
