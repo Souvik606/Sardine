@@ -303,6 +303,45 @@ class Lexer:
         self.advance()
         return Token(T_STRING, string, pos_start, self.pos)
 
+    def make_fstring(self):
+        """
+        Reads a $\"...\" interpolated string literal and produces a T_FSTRING token.
+
+        The raw string value is stored verbatim (including {{...}} placeholders) so
+        the parser can split it and re-lex each embedded expression.
+        """
+        raw = ''
+        pos_start = self.pos.copy()
+        escape_character = False
+        self.advance()  # skip opening '"'
+
+        escape_characters = {'n': '\n', 't': '\t'}
+        depth = 0  # track nesting of {{ }} so we store them as-is
+
+        while self.current_char is not None and (self.current_char != '"' or depth > 0 or escape_character):
+            if escape_character:
+                if depth > 0:
+                    raw += '\\' + self.current_char
+                else:
+                    raw += escape_characters.get(self.current_char, self.current_char)
+                escape_character = False
+            else:
+                if self.current_char == '\\':
+                    escape_character = True
+                elif self.current_char == '{':
+                    depth += 1
+                    raw += '{'
+                elif self.current_char == '}':
+                    if depth > 0:
+                        depth -= 1
+                    raw += '}'
+                else:
+                    raw += self.current_char
+            self.advance()
+
+        self.advance()
+        return Token(T_FSTRING, raw, pos_start, self.pos)
+
     def make_number(self):
         """
         Extracts a numerical value (integer or float) from the input text.
@@ -349,6 +388,14 @@ class Lexer:
                 tokens.append(self.make_identifier())
             elif self.current_char == '"':
                 tokens.append(self.make_string())
+            elif self.current_char == '$':
+                pos_start = self.pos.copy()
+                self.advance()
+                if self.current_char == '"':
+                    tokens.append(self.make_fstring())
+                else:
+                    char = '$'
+                    return [], IllegalCharError(pos_start, self.pos, f'"{char}"')
             elif self.current_char == '+':
                 tokens.append(self.make_plus())
             elif self.current_char == '-':

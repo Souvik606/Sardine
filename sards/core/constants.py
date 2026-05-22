@@ -15,6 +15,7 @@ LETTERS_DIGITS = DIGITS + LETTERS
 T_INT = 'INT'  # Integer number token
 T_FLOAT = 'FLOAT'  # Floating-point number token
 T_STRING = 'STRING'
+T_FSTRING = 'FSTRING'  # Interpolated string $"..." token
 T_IDENTIFIER = 'IDENTIFIER'  # Identifier token
 T_KEYWORD = 'KEYWORD'
 T_ERROR='ERROR'

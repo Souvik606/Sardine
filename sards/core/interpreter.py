@@ -368,6 +368,31 @@ class Interpreter:
             String(node.token.value).set_context(context).set_pos(node.pos_start, node.pos_end)
         )
 
+    def visit_FStringNode(self, node, context):
+        """
+        Evaluate a $"..." interpolated string.
+
+        Each ('literal', text) part is kept as-is.
+        Each ('expr', ast_node) part is evaluated and converted to str.
+        All parts are concatenated into a single String value.
+        """
+        res = RunTimeResult()
+        result_str = ''
+
+        for kind, part in node.parts:
+            if kind == 'literal':
+                result_str += part
+            else:
+                # 'expr' — evaluate the sub-expression
+                value = res.register(self.visit(part, context))
+                if res.should_return():
+                    return res
+                result_str += str(value)
+
+        return res.success(
+            String(result_str).set_context(context).set_pos(node.pos_start, node.pos_end)
+        )
+
     def visit_FunctionDefinitionNode(self, node, context):
         from sards.user_functions import Function
         res = RunTimeResult()

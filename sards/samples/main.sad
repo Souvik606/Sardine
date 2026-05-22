@@ -1,54 +1,26 @@
-# -----------------------------------------------------------------------
-# Tests all 5 summon syntax variants
-# -----------------------------------------------------------------------
+# F-String feature demonstration in Sardine
 
-show("=== Test 1: summon math_utils  (bare module) ===")
-summon math_utils
-show(math_utils.PI)
-show(math_utils.square(5))
-show(math_utils.factorial(6))
+# 1. Simple Variable Interpolation
+name = "World"
+show($"Hello {name}! Welcome to Sardine.")
 
-show("")
-show("=== Test 2: summon math_utils as mu  (module alias) ===")
-summon math_utils as mu
-show(mu.PI)
-show(mu.cube(3))
+# 2. Arithmetic Expressions inside F-Strings
+a = 10
+b = 20
+show($"The sum of {a} and {b} is {a + b}")
+show($"The product of {a} and {b} is {a * b}")
 
-show("")
-show("=== Test 3: summon square, circle_area from math_utils  (specific names) ===")
-summon square, circle_area from math_utils
-show(square(4))
-show(circle_area(5))
-
-show("")
-show("=== Test 4: summon factorial as fact from math_utils  (name with alias) ===")
-summon factorial as fact from math_utils
-show(fact(7))
-
-show("")
-show("=== Test 5: summon * from math_utils  (wildcard) ===")
-summon * from math_utils
-show(PI)
-show(absolute(-42))
-show(cube(4))
-
-show("")
-show("=== Test 6: ModuleError on bad module ===")
-risk {
-    summon totally_nonexistent_module
-} trap ModuleError e {
-    show("ModuleError caught correctly:")
-    show("  " + e.message)
+# 3. Using functions and variables together
+method greet(person) {
+    show($"Greetings, {person}! Have a great day.")
 }
+greet("Alice")
 
-show("")
-show("=== Test 7: ModuleError on bad member ===")
-risk {
-    summon nonexistent_name from math_utils
-} trap ModuleError e {
-    show("Bad member error caught:")
-    show("  " + e.message)
-}
+# 4. Complex expressions
+x = 5
+show($"x squared is {x * x}, and x cubed is {x * x * x}")
 
-show("")
-show("All summon tests passed!")
+# 5. Multiple Variables
+language = "Sardine"
+version = 1.0
+show($"Language: {language}, Version: {version}")

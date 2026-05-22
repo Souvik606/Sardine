@@ -27,10 +27,11 @@ Methods:
 """
 
 from sards.ast_nodes import *
+from sards.ast_nodes.fstring_node import FStringNode
 from sards.data_types import ListNode, StringNode, DictNode
 from .constants import *
 from .error import InvalidSyntaxError
-from .lexer import Token
+from .lexer import Token, Lexer
 
 class ParseResult:
     """Stores the result of a parsing operation, including errors and the parsed node."""
@@ -2479,6 +2480,14 @@ class Parser: # pylint: disable=R0904
             self.advance()
             return res.success(StringNode(token))
 
+        if token.type == T_FSTRING:
+            res.register_advancement()
+            self.advance()
+            fstring_node = res.register(self._parse_fstring(token))
+            if res.error:
+                return res
+            return res.success(fstring_node)
+
         if token.type == T_IDENTIFIER:
             res.register_advancement()
             self.advance()
@@ -2909,3 +2918,71 @@ class Parser: # pylint: disable=R0904
             left_node = BinaryOperationNode(left_node, operator, right_node)
 
         return res.success(left_node)
+
+    # ------------------------------------------------------------------
+    # F-string parsing helper
+    # ------------------------------------------------------------------
+
+    def _parse_fstring(self, token):
+        """
+        Parse a T_FSTRING token's raw value into a FStringNode.
+
+        The raw value contains ordinary text and {expr} placeholders.
+        We split on the placeholders, then re-lex and re-parse each
+        embedded expression using a fresh Lexer + Parser instance.
+
+        Returns a ParseResult wrapping a FStringNode.
+        """
+        res = ParseResult()
+        raw = token.value        
+        pos_start = token.pos_start
+        pos_end = token.pos_end
+        filename = pos_start.file_name if pos_start else '<fstring>'
+
+        parts = []     
+        i = 0
+        n = len(raw)
+
+        while i < n:
+            brace_start = raw.find('{', i)
+            if brace_start == -1:
+                literal = raw[i:]
+                if literal:
+                    parts.append(('literal', literal))
+                break
+
+            literal = raw[i:brace_start]
+            if literal:
+                parts.append(('literal', literal))
+
+            depth = 1
+            j = brace_start + 1
+            while j < n and depth > 0:
+                if raw[j] == '{':
+                    depth += 1
+                elif raw[j] == '}':
+                    depth -= 1
+                j += 1
+
+            expr_src = raw[brace_start + 1 : j - 1] 
+
+            sub_lexer = Lexer(filename, expr_src)
+            sub_tokens, lex_error = sub_lexer.enumerate_tokens()
+            if lex_error:
+                return res.failure(InvalidSyntaxError(
+                    pos_start, pos_end,
+                    f"Error in f-string expression {{{expr_src}}}: {lex_error.details}"
+                ))
+
+            sub_parser = Parser(sub_tokens)
+            sub_res = sub_parser.expression()
+            if sub_res.error:
+                return res.failure(InvalidSyntaxError(
+                    pos_start, pos_end,
+                    f"Error in f-string expression {{{expr_src}}}: {sub_res.error.details}"
+                ))
+
+            parts.append(('expr', sub_res.node))
+            i = j 
+
+        return res.success(FStringNode(parts, pos_start, pos_end))

@@ -13,11 +13,12 @@ from .foreach_node import ForEachLoopNode
 from .exception_node import TryNode,CatchNode,FinallyNode
 from .class_node import ModelNode,AttrNode,AttrAccessNode,InitNode
 from .import_node import SummonNode
+from .fstring_node import FStringNode
 
 __all__ = ["ForNode", "IfNode", "BreakNode", "ReturnNode", "ContinueNode",
            "ForEachLoopNode","SwitchNode", "VariableUseNode", "AssignNode", "IndexAccessNode",
            "SymbolTable","WhileNode", "FunctionCallNode", "FunctionDefinitionNode",
            "TryNode","CatchNode","FinallyNode",
            "ModelNode","AttrNode","InitNode","AttrAccessNode",
-           "SummonNode"
+           "SummonNode","FStringNode"
            ]
