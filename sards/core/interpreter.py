@@ -1098,10 +1098,14 @@ class Interpreter:
                 break
 
         if resolved_path is None:
+            display_candidates = [
+                os.path.relpath(path, start=os.curdir).replace('\\', '/')
+                for path in candidates
+            ]
             return res.failure(ModuleError(
                 node.pos_start, node.pos_end,
                 f"Module '{module_name}' not found. Searched:\n" +
-                "\n".join(f"  {p}" for p in candidates),
+                "\n".join(f"  {p}" for p in display_candidates),
                 context
             ))
 
