@@ -92,6 +92,8 @@ def run(filename, input_text):
     interpreter = Interpreter()
     context = Context('<program>')
     context.symbol_table = global_symbol_table
+    # Store the directory of the source file so 'summon' can find sibling modules
+    context.source_dir = os.path.dirname(os.path.abspath(filename)) if filename != '<stdin>' else os.getcwd()
     res = interpreter.visit(syntax_tree.node, context)
 
     return res.value, res.error

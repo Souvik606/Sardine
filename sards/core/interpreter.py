@@ -10,16 +10,24 @@ Classes:
 - Interpreter: Evaluates AST nodes and executes operations.
 """
 
+import os
+
 from sards.ast_nodes import SymbolTable
 from sards.core import NameError, NotImplementedError, InvalidErrorTypeError, RunTimeError, IllegalOperationError, \
     IndexOutOfBoundsError, ArgumentError, DivisionByZeroError,ValueError
-from sards.data_types import Number, String, List, Dict
+from sards.data_types import Number, String, List, Dict, Module
 
 from .constants import (T_PLUS, T_MINUS, T_MUL, T_DIVIDE, T_MODULUS, T_FLOOR, T_BITAND, T_BITXOR, T_BITOR, T_BITNOT, T_EXP, T_EE,
                         T_LSHIFT, T_RSHIFT, T_NEQ, T_GT, T_GTE, T_LT, T_LTE, T_KEYWORD, ERROR_TYPES)
 from .error import NameError, NotImplementedError, InvalidErrorTypeError, RunTimeError, IllegalOperationError, \
-    IndexOutOfBoundsError, ArgumentError, DivisionByZeroError
+    IndexOutOfBoundsError, ArgumentError, DivisionByZeroError, ModuleError
 from sards.ast_nodes import SymbolTable
+
+# Global module cache: abs_path -> Module instance
+_MODULE_CACHE = {}
+
+# Standard library directory (sibling folder 'stdlib' next to sards/)
+_STDLIB_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'stdlib')
 
 ERROR_CLASS_MAP = {
     "RunTimeError": RunTimeError,
@@ -29,7 +37,8 @@ ERROR_CLASS_MAP = {
     "NameError": NameError,
     "ArgumentError": ArgumentError,
     "NotImplementedError": NotImplementedError,
-    "InvalidErrorTypeError":InvalidErrorTypeError
+    "InvalidErrorTypeError": InvalidErrorTypeError,
+    "ModuleError": ModuleError,
 }
 
 
@@ -1059,3 +1068,120 @@ class Interpreter:
             return res.failure(error)
         else:
             return res.success(number.set_pos(node.pos_start, node.pos_end))
+
+    # ------------------------------------------------------------------
+    # summon / import
+    # ------------------------------------------------------------------
+
+    def visit_SummonNode(self, node, context):
+        """
+        Resolves, loads (or retrieves from cache), and executes a Sardine module,
+        then binds the requested names into the current context's symbol table.
+        """
+        res = RunTimeResult()
+        module_name = node.module_tok.value
+
+        # ── 1. Resolve the file path ────────────────────────────────────
+        # Derive the directory of the currently-executing file from context.
+        source_dir = getattr(context, 'source_dir', None) or os.getcwd()
+        candidates = [
+            os.path.join(source_dir, module_name + '.sad'),
+            os.path.join(source_dir, module_name + '.sard'),
+            os.path.join(_STDLIB_DIR, module_name + '.sad'),
+            os.path.join(_STDLIB_DIR, module_name + '.sard'),
+        ]
+
+        resolved_path = None
+        for path in candidates:
+            if os.path.isfile(path):
+                resolved_path = os.path.abspath(path)
+                break
+
+        if resolved_path is None:
+            return res.failure(ModuleError(
+                node.pos_start, node.pos_end,
+                f"Module '{module_name}' not found. Searched:\n" +
+                "\n".join(f"  {p}" for p in candidates),
+                context
+            ))
+
+        # ── 2. Check cache ───────────────────────────────────────────────
+        if resolved_path in _MODULE_CACHE:
+            module_obj = _MODULE_CACHE[resolved_path]
+        else:
+            # ── 3. Read & execute the module ─────────────────────────────
+            with open(resolved_path, 'r', encoding='utf-8') as f:
+                source = f.read()
+
+            from .lexer import Lexer
+            from .parser import Parser
+
+            lexer = Lexer(resolved_path, source)
+            tokens, lex_error = lexer.enumerate_tokens()
+            if lex_error:
+                return res.failure(ModuleError(
+                    node.pos_start, node.pos_end,
+                    f"Lexer error in module '{module_name}': {lex_error.details}",
+                    context
+                ))
+
+            parser = Parser(tokens)
+            parse_result = parser.parse()
+            if parse_result.error:
+                return res.failure(ModuleError(
+                    node.pos_start, node.pos_end,
+                    f"Syntax error in module '{module_name}': {parse_result.error.details}",
+                    context
+                ))
+
+            # Build a fresh context for the module, inheriting global builtins
+            mod_symbol_table = SymbolTable(parent=context.symbol_table)
+            mod_context = Context(f"<module '{module_name}'>",
+                                  parent=context,
+                                  parent_entry_pos=node.pos_start)
+            mod_context.symbol_table = mod_symbol_table
+            mod_context.source_dir = os.path.dirname(resolved_path)
+
+            mod_interpreter = Interpreter()
+            mod_res = mod_interpreter.visit(parse_result.node, mod_context)
+            if mod_res.error:
+                return res.failure(ModuleError(
+                    node.pos_start, node.pos_end,
+                    f"Runtime error in module '{module_name}': {mod_res.error.details}",
+                    context
+                ))
+
+            module_obj = Module(module_name, mod_symbol_table)
+            module_obj.set_pos(node.pos_start, node.pos_end)
+            module_obj.set_context(context)
+            _MODULE_CACHE[resolved_path] = module_obj
+
+        # ── 4. Bind names into current scope ────────────────────────────
+
+        # Case A: bare  summon math  OR  summon math as m
+        if not node.names and not node.wildcard:
+            bind_name = node.module_alias.value if node.module_alias else module_name
+            context.symbol_table.set(bind_name, module_obj)
+            return res.success(module_obj)
+
+        # Case B: wildcard  summon * from math
+        if node.wildcard:
+            for name, value in module_obj.symbol_table.symbols.items():
+                context.symbol_table.set(name, value)
+            return res.success(module_obj)
+
+        # Case C: specific names  summon sin, cos from math
+        #         or with alias   summon factorial as fact from math
+        for orig_tok, alias_tok in node.names:
+            orig_name = orig_tok.value
+            value = module_obj.symbol_table.get(orig_name)
+            if value is None:
+                return res.failure(ModuleError(
+                    orig_tok.pos_start, orig_tok.pos_end,
+                    f"Module '{module_name}' has no member '{orig_name}'",
+                    context
+                ))
+            bind_name = alias_tok.value if alias_tok else orig_name
+            context.symbol_table.set(bind_name, value)
+
+        return res.success(module_obj)

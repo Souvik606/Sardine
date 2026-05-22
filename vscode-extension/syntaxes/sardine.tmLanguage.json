@@ -74,7 +74,7 @@
       "patterns": [
         {
           "name": "keyword.control.sardine",
-          "match": "\\b(when|orwhen|otherwise|Cycle|whenever|escape|proceed|menu|choice|fallback|risk|trap|clean|yield)\\b"
+          "match": "\\b(when|orwhen|otherwise|Cycle|whenever|escape|proceed|menu|choice|fallback|risk|trap|clean|yield|summon|from|as)\\b"
         },
         {
           "name": "keyword.operator.logical.sardine",

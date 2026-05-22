@@ -277,6 +277,12 @@ class Parser: # pylint: disable=R0904
                 return res
             return res.success(foreach_statement)
 
+        if token.type == T_KEYWORD and token.value == 'summon':
+            summon_stmt = res.register(self.summon_statement())
+            if res.error:
+                return res
+            return res.success(summon_stmt)
+
         if token.type == T_IDENTIFIER:
             next_tok = self.peek()
             if next_tok and next_tok.type in (T_IDENTIFIER, T_LPAREN2, T_INT, T_FLOAT, T_STRING):
@@ -1840,6 +1846,150 @@ class Parser: # pylint: disable=R0904
         self.advance()
 
         return res.success(ForEachLoopNode(var_name_tokens, collection_node, body_node))
+
+    def summon_statement(self):
+        """
+        Grammar Rule:
+        summon-stmt :=
+            'summon' '*' 'from' IDENTIFIER                               # wildcard
+          | 'summon' IDENTIFIER 'as' IDENTIFIER 'from' IDENTIFIER        # single name with alias
+          | 'summon' IDENTIFIER (',' IDENTIFIER)* 'from' IDENTIFIER      # multiple names
+          | 'summon' IDENTIFIER 'as' IDENTIFIER                          # module with alias
+          | 'summon' IDENTIFIER                                          # bare module
+        """
+        res = ParseResult()
+
+        if not (self.current_tok.type == T_KEYWORD and self.current_tok.value == 'summon'):
+            return res.failure(InvalidSyntaxError(
+                self.current_tok.pos_start, self.current_tok.pos_end, "Expected 'summon'"
+            ))
+        pos_start = self.current_tok.pos_start.copy()
+        res.register_advancement()
+        self.advance()
+
+        # ── Case 1: summon * from MODULE ────────────────────────────────
+        if self.current_tok.type == T_MUL:
+            res.register_advancement()
+            self.advance()
+
+            if not (self.current_tok.type == T_KEYWORD and self.current_tok.value == 'from'):
+                return res.failure(InvalidSyntaxError(
+                    self.current_tok.pos_start, self.current_tok.pos_end,
+                    "Expected 'from' after '*'"
+                ))
+            res.register_advancement()
+            self.advance()
+
+            if self.current_tok.type != T_IDENTIFIER:
+                return res.failure(InvalidSyntaxError(
+                    self.current_tok.pos_start, self.current_tok.pos_end,
+                    "Expected module name after 'from'"
+                ))
+            module_tok = self.current_tok
+            pos_end = module_tok.pos_end.copy()
+            res.register_advancement()
+            self.advance()
+
+            return res.success(SummonNode(
+                module_tok=module_tok, wildcard=True,
+                pos_start=pos_start, pos_end=pos_end
+            ))
+
+        # ── Must start with IDENTIFIER from here ────────────────────────
+        if self.current_tok.type != T_IDENTIFIER:
+            return res.failure(InvalidSyntaxError(
+                self.current_tok.pos_start, self.current_tok.pos_end,
+                "Expected module name or identifier after 'summon'"
+            ))
+        first_tok = self.current_tok
+        res.register_advancement()
+        self.advance()
+
+        # ── Case 2: summon NAME as ALIAS from MODULE  (single with alias)
+        #    or     summon NAME (',' NAME)* from MODULE  (multiple names)
+        # Check whether 'from' or 'as' or ',' follows
+        is_from_import = False
+        peek = self.current_tok
+
+        if peek.type == T_COMMA or (peek.type == T_KEYWORD and peek.value == 'from'):
+            is_from_import = True
+        elif peek.type == T_KEYWORD and peek.value == 'as':
+            # Lookahead: after alias comes either 'from' (name-with-alias) or EOL (module alias)
+            saved_i = self.tok_index
+            saved_t = self.current_tok
+            res.register_advancement(); self.advance()   # consume 'as'
+            if self.current_tok.type != T_IDENTIFIER:
+                return res.failure(InvalidSyntaxError(
+                    self.current_tok.pos_start, self.current_tok.pos_end,
+                    "Expected alias name after 'as'"
+                ))
+            alias_tok = self.current_tok
+            res.register_advancement(); self.advance()   # consume alias
+            if self.current_tok.type == T_KEYWORD and self.current_tok.value == 'from':
+                # Case: summon NAME as ALIAS from MODULE
+                res.register_advancement(); self.advance()  # consume 'from'
+                if self.current_tok.type != T_IDENTIFIER:
+                    return res.failure(InvalidSyntaxError(
+                        self.current_tok.pos_start, self.current_tok.pos_end,
+                        "Expected module name after 'from'"
+                    ))
+                module_tok = self.current_tok
+                pos_end = module_tok.pos_end.copy()
+                res.register_advancement(); self.advance()
+                return res.success(SummonNode(
+                    module_tok=module_tok,
+                    names=[(first_tok, alias_tok)],
+                    pos_start=pos_start, pos_end=pos_end
+                ))
+            else:
+                # Case: summon NAME as ALIAS  (module alias)
+                pos_end = alias_tok.pos_end.copy()
+                return res.success(SummonNode(
+                    module_tok=first_tok,
+                    module_alias=alias_tok,
+                    pos_start=pos_start, pos_end=pos_end
+                ))
+
+        if is_from_import:
+            # Collect comma-separated names: first_tok already consumed
+            names = [(first_tok, None)]
+            while self.current_tok.type == T_COMMA:
+                res.register_advancement(); self.advance()
+                if self.current_tok.type != T_IDENTIFIER:
+                    return res.failure(InvalidSyntaxError(
+                        self.current_tok.pos_start, self.current_tok.pos_end,
+                        "Expected identifier after ','"
+                    ))
+                names.append((self.current_tok, None))
+                res.register_advancement(); self.advance()
+
+            if not (self.current_tok.type == T_KEYWORD and self.current_tok.value == 'from'):
+                return res.failure(InvalidSyntaxError(
+                    self.current_tok.pos_start, self.current_tok.pos_end,
+                    "Expected 'from'"
+                ))
+            res.register_advancement(); self.advance()
+
+            if self.current_tok.type != T_IDENTIFIER:
+                return res.failure(InvalidSyntaxError(
+                    self.current_tok.pos_start, self.current_tok.pos_end,
+                    "Expected module name after 'from'"
+                ))
+            module_tok = self.current_tok
+            pos_end = module_tok.pos_end.copy()
+            res.register_advancement(); self.advance()
+
+            return res.success(SummonNode(
+                module_tok=module_tok, names=names,
+                pos_start=pos_start, pos_end=pos_end
+            ))
+
+        # ── Case 5: bare summon NAME ────────────────────────────────────
+        pos_end = first_tok.pos_end.copy()
+        return res.success(SummonNode(
+            module_tok=first_tok,
+            pos_start=pos_start, pos_end=pos_end
+        ))
 
     def if_expression(self):
         """

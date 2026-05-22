@@ -1,166 +1,54 @@
 # -----------------------------------------------------------------------
-# Test: Operator Overloading
-# Demonstrates operator overloading via special method names.
+# Tests all 5 summon syntax variants
 # -----------------------------------------------------------------------
 
-# ----------- Model 1: Vec2 - 2D Vector with arithmetic + comparison ----
-model Vec2 {
-    open attr <x, y>
+show("=== Test 1: summon math_utils  (bare module) ===")
+summon math_utils
+show(math_utils.PI)
+show(math_utils.square(5))
+show(math_utils.factorial(6))
 
-    init(nx, ny) {
-        x: nx,
-        y: ny
-    }
+show("")
+show("=== Test 2: summon math_utils as mu  (module alias) ===")
+summon math_utils as mu
+show(mu.PI)
+show(mu.cube(3))
 
-    method __add__(other) {
-        yield Vec2(x + other.x, y + other.y)
-    }
+show("")
+show("=== Test 3: summon square, circle_area from math_utils  (specific names) ===")
+summon square, circle_area from math_utils
+show(square(4))
+show(circle_area(5))
 
-    method __sub__(other) {
-        yield Vec2(x - other.x, y - other.y)
-    }
+show("")
+show("=== Test 4: summon factorial as fact from math_utils  (name with alias) ===")
+summon factorial as fact from math_utils
+show(fact(7))
 
-    method __mul__(other) {
-        yield Vec2(x * other.x, y * other.y)
-    }
+show("")
+show("=== Test 5: summon * from math_utils  (wildcard) ===")
+summon * from math_utils
+show(PI)
+show(absolute(-42))
+show(cube(4))
 
-    method __eq__(other) {
-        yield (x == other.x) and (y == other.y)
-    }
-
-    method __neq__(other) {
-        yield not ((x == other.x) and (y == other.y))
-    }
-
-    method __lt__(other) {
-        yield (x < other.x) and (y < other.y)
-    }
-
-    method __gt__(other) {
-        yield (x > other.x) and (y > other.y)
-    }
-
-    method __neg__() {
-        yield Vec2(-x, -y)
-    }
-
-    method __not__() {
-        yield (x == 0) and (y == 0)
-    }
-
-    method show_vec() {
-        show("Vec2(" + String(x) + "," + String(y) + ")")
-    }
-}
-show("--- Creating configurations ---", end="\n\n")
-
-show("--- Test: Vec2 Arithmetic Operators ---")
-a = Vec2(1, 2)
-b = Vec2(3, 4)
-a.show_vec()
-
-c = a + b
-show(c.x)
-show(c.y)
-c.show_vec()
-
-d = b - a
-show(d.x)
-show(d.y)
-
-e = a * b
-show(e.x)
-show(e.y)
-
-show("--- Test: Vec2 Unary Operators ---")
-n = -a
-show(n.x)
-show(n.y)
-
-show("--- Test: Vec2 Comparison Operators ---")
-show(a == b)
-show(a != b)
-show(a < b)
-show(b > a)
-
-# -----------------------------------------------------------------------
-# Model 2: Fraction - arithmetic on rational numbers
-# -----------------------------------------------------------------------
-model Fraction {
-    open attr <num, den>
-
-    init(n, d) {
-        num: n,
-        den: d
-    }
-
-    method __add__(other) {
-        yield Fraction(num * other.den + other.num * den, den * other.den)
-    }
-
-    method __mul__(other) {
-        yield Fraction(num * other.num, den * other.den)
-    }
-
-    method __eq__(other) {
-        yield (num * other.den) == (other.num * den)
-    }
-}
-
-show("--- Test: Fraction Arithmetic ---")
-f1 = Fraction(1, 2)
-f2 = Fraction(1, 3)
-f3 = f1 + f2
-show(f3.num)
-show(f3.den)
-
-f4 = f1 * f2
-show(f4.num)
-show(f4.den)
-
-show("--- Test: Fraction Equality ---")
-half1 = Fraction(1, 2)
-half2 = Fraction(2, 4)
-show(half1 == half2)
-
-# -----------------------------------------------------------------------
-# Model 3: Counter - augmented assignment reuses __add__
-# -----------------------------------------------------------------------
-model Counter {
-    open attr <val>
-
-    init(v) {
-        val: v
-    }
-
-    method __add__(other) {
-        yield Counter(val + other.val)
-    }
-
-    method __sub__(other) {
-        yield Counter(val - other.val)
-    }
-}
-
-show("--- Test: Counter Augmented Assignment ---")
-cnt = Counter(10)
-step = Counter(5)
-cnt = cnt + step
-show(cnt.val)
-cnt = cnt - step
-show(cnt.val)
-
-# -----------------------------------------------------------------------
-# Test: Exception Handling
-# -----------------------------------------------------------------------
-show("--- Test: Exception Handling ---")
+show("")
+show("=== Test 6: ModuleError on bad module ===")
 risk {
-    # Cause a NameError intentionally
-    x = undefined_variable
-} trap NameError err {
-    show("Caught Exception:")
-    show("  Type: " + err.type)
-    show("  Message: " + err.message)
-} clean {
-    show("Cleanup block executed")
+    summon totally_nonexistent_module
+} trap ModuleError e {
+    show("ModuleError caught correctly:")
+    show("  " + e.message)
 }
+
+show("")
+show("=== Test 7: ModuleError on bad member ===")
+risk {
+    summon nonexistent_name from math_utils
+} trap ModuleError e {
+    show("Bad member error caught:")
+    show("  " + e.message)
+}
+
+show("")
+show("All summon tests passed!")

@@ -364,3 +364,14 @@ class AttributeError(RunTimeError):
     def __init__(self, pos_start, pos_end, details, context):
         super().__init__(pos_start, pos_end, details, context)
         self.error_name = "AttributeError"
+
+class ModuleError(RunTimeError):
+    """
+    Error raised when a module cannot be found or a name inside a module
+    cannot be resolved.
+    Example: summon nonexistent_module
+             summon foo from mymodule  # but 'foo' is not defined in mymodule
+    """
+    def __init__(self, pos_start, pos_end, details, context):
+        super().__init__(pos_start, pos_end, details, context)
+        self.error_name = "ModuleError"

@@ -68,7 +68,8 @@ T_QUESTION = 'QUESTION'
 
 KEYWORDS = ['define', 'and', 'or', 'not', 'when', 'orwhen', 'otherwise', 'Cycle', 'whenever',
             'method', 'yield', 'escape', 'proceed', 'menu', 'choice', 'fallback','risk','trap','clean',
-            'model','attr','init','open','secret','guarded','trace']
+            'model','attr','init','open','secret','guarded','trace',
+            'summon', 'from', 'as']
 
 ERROR_TYPES=['RunTimeError','IllegalOperationError','DivisionByZeroError','IndexOutOfBoundsError',
-             'NameError','ArgumentError','InvalidErrorTypeError']
+             'NameError','ArgumentError','InvalidErrorTypeError','ModuleError']
