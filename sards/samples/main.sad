@@ -1,26 +1,52 @@
-# F-String feature demonstration in Sardine
+# ── 1. List Comprehension with Cycle (range) ─────────────────
+squares = [i * i Cycle i = 1 : 5]
+show($"Squares 1-5: {squares}")
 
-# 1. Simple Variable Interpolation
-name = "World"
-show($"Hello {name}! Welcome to Sardine.")
+evens = [i Cycle i = 0 : 10 : 2]
+show($"Even numbers 0-10: {evens}")
 
-# 2. Arithmetic Expressions inside F-Strings
-a = 10
-b = 20
-show($"The sum of {a} and {b} is {a + b}")
-show($"The product of {a} and {b} is {a * b}")
+countdown = [i Cycle i = 5 : 1 : -1]
+show($"Countdown: {countdown}")
 
-# 3. Using functions and variables together
-method greet(person) {
-    show($"Greetings, {person}! Have a great day.")
-}
-greet("Alice")
+# ── 2. List Comprehension with Cycle + when filter ────────────
+odds = [i Cycle i = 1 : 10 when i % 2 == 1]
+show($"Odd numbers 1-10: {odds}")
 
-# 4. Complex expressions
-x = 5
-show($"x squared is {x * x}, and x cubed is {x * x * x}")
+big_doubles = [i * 2 Cycle i = 1 : 6 when i > 3]
+show($"Doubled values greater than 3: {big_doubles}")
 
-# 5. Multiple Variables
-language = "Sardine"
-version = 1.0
-show($"Language: {language}, Version: {version}")
+# ── 3. List Comprehension with trace (foreach) ────────────────
+nums = [1, 2, 3, 4, 5]
+doubled = [x * 2 trace x <- nums]
+show($"Doubled list: {doubled}")
+
+# ── 4. List Comprehension with trace + when filter ────────────
+filtered = [x trace x <- nums when x > 2]
+show($"Values > 2: {filtered}")
+
+# ── 5. List Comprehension: unpack pairs ───────────────────────
+pairs = [[1, 10], [2, 20], [3, 30]]
+sums = [k + v trace k, v <- pairs]
+show($"Sum of each pair: {sums}")
+
+# ── 6. Dict Comprehension with Cycle ─────────────────────────
+sq_dict = {i : i * i Cycle i = 1 : 5}
+show($"Square dict (Cycle): {sq_dict}")
+
+# ── 7. Dict Comprehension with Cycle + when filter ───────────
+odd_dict = {i : i * 10 Cycle i = 1 : 6 when i % 2 == 1}
+show($"Odd keys x10 (Cycle): {odd_dict}")
+
+# ── 8. Dict Comprehension with trace ─────────────────────────
+data = [1, 2, 3, 4]
+data_dict = {x : x * x trace x <- data}
+show($"Squared dict (trace): {data_dict}")
+
+# ── 9. Dict Comprehension with trace + when filter ────────────
+filtered_dict = {x : x * 2 trace x <- data when x > 2}
+show($"Filtered dict (x > 2): {filtered_dict}")
+
+# ── 10. Dict Comprehension: unpack pairs ─────────────────────
+kv_pairs = [["one", 1], ["two", 2], ["three", 3]]
+word_dict = {k : v trace k, v <- kv_pairs}
+show($"Word dict from pairs: {word_dict}")

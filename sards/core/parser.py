@@ -28,6 +28,7 @@ Methods:
 
 from sards.ast_nodes import *
 from sards.ast_nodes.fstring_node import FStringNode
+from sards.ast_nodes.comprehension_nodes import ListComprehensionNode, DictComprehensionNode
 from sards.data_types import ListNode, StringNode, DictNode
 from .constants import *
 from .error import InvalidSyntaxError
@@ -778,7 +779,16 @@ class Parser: # pylint: disable=R0904
         """
         Grammar Rule:
 
-        list-expression: LPAREN3 NEWLINE* (expression(NEWLINE* COMMA NEWLINE* expression)*)? RPAREN3
+        list-expression:
+            LPAREN3 NEWLINE* (expression (NEWLINE* COMMA NEWLINE* expression)*)? RPAREN3
+
+        list-comprehension (Cycle):
+            LPAREN3 expression KEYWORD:Cycle IDENTIFIER EQUAL expression COLON expression
+                    (COLON expression)? (KEYWORD:when expression)? RPAREN3
+
+        list-comprehension (trace):
+            LPAREN3 expression KEYWORD:trace IDENTIFIER (COMMA IDENTIFIER)* LARROW expression
+                    (KEYWORD:when expression)? RPAREN3
         """
         res = ParseResult()
         element_nodes = []
@@ -793,14 +803,44 @@ class Parser: # pylint: disable=R0904
         res.register_advancement()
         self.advance()
 
-        while self.current_tok.type==T_NEWLINE:
+        while self.current_tok.type == T_NEWLINE:
             res.register_advancement()
             self.advance()
 
         if self.current_tok.type == T_RPAREN3:
+            # empty list []
             res.register_advancement()
             self.advance()
-        else:
+            return res.success(ListNode([], pos_start, self.current_tok.pos_end.copy()))
+
+        # Parse the first (and possibly only) expression
+        first_expr = res.register(self.expression())
+        if res.error:
+            return res
+
+        while self.current_tok.type == T_NEWLINE:
+            res.register_advancement()
+            self.advance()
+
+        # ── List comprehension with Cycle ─────────────────────────────
+        if self.current_tok.type == T_KEYWORD and self.current_tok.value == 'Cycle':
+            return self._parse_list_comp_cycle(res, first_expr, pos_start)
+
+        # ── List comprehension with trace ─────────────────────────────
+        if self.current_tok.type == T_KEYWORD and self.current_tok.value == 'trace':
+            return self._parse_list_comp_trace(res, first_expr, pos_start)
+
+        # ── Plain list literal ────────────────────────────────────────
+        element_nodes.append(first_expr)
+
+        while self.current_tok and self.current_tok.type == T_COMMA:
+            res.register_advancement()
+            self.advance()
+
+            while self.current_tok.type == T_NEWLINE:
+                res.register_advancement()
+                self.advance()
+
             element_nodes.append(res.register(self.expression()))
             if res.error:
                 return res
@@ -809,32 +849,144 @@ class Parser: # pylint: disable=R0904
                 res.register_advancement()
                 self.advance()
 
-            while self.current_tok and self.current_tok.type == T_COMMA:
-                res.register_advancement()
-                self.advance()
+        if self.current_tok.type != T_RPAREN3:
+            return res.failure(
+                InvalidSyntaxError(self.current_tok.pos_start,
+                                   self.current_tok.pos_end,
+                                   "Expected ',' or ']"))
 
-                while self.current_tok.type == T_NEWLINE:
-                    res.register_advancement()
-                    self.advance()
+        res.register_advancement()
+        self.advance()
 
-                element_nodes.append(res.register(self.expression()))
-                if res.error:
-                    return res
+        return res.success(ListNode(element_nodes, pos_start, self.current_tok.pos_end.copy()))
 
-                while self.current_tok.type == T_NEWLINE:
-                    res.register_advancement()
-                    self.advance()
+    def _parse_list_comp_cycle(self, res, expr_node, pos_start):
+        """
+        Parse the Cycle clause of a list comprehension after the expr has been read.
+        [expr Cycle var = start : end (: step)? (when cond)?]
+        """
+        # consume 'Cycle'
+        res.register_advancement()
+        self.advance()
 
-            if self.current_tok.type != T_RPAREN3:
-                return res.failure(
-                    InvalidSyntaxError(self.current_tok.pos_start,
-                                       self.current_tok.pos_end,
-                                       "Expected ',' or ']"))
+        if self.current_tok.type != T_IDENTIFIER:
+            return res.failure(InvalidSyntaxError(
+                self.current_tok.pos_start, self.current_tok.pos_end,
+                "Expected loop variable name after 'Cycle'"))
+        var_name_tok = self.current_tok
+        res.register_advancement()
+        self.advance()
 
+        if self.current_tok.type != T_EQ:
+            return res.failure(InvalidSyntaxError(
+                self.current_tok.pos_start, self.current_tok.pos_end, "Expected '='"))
+        res.register_advancement()
+        self.advance()
+
+        start_node = res.register(self.expression())
+        if res.error: return res
+
+        if self.current_tok.type != T_COLON:
+            return res.failure(InvalidSyntaxError(
+                self.current_tok.pos_start, self.current_tok.pos_end, "Expected ':'"))
+        res.register_advancement()
+        self.advance()
+
+        end_node = res.register(self.expression())
+        if res.error: return res
+
+        step_node = None
+        if self.current_tok.type == T_COLON:
+            res.register_advancement()
+            self.advance()
+            step_node = res.register(self.expression())
+            if res.error: return res
+
+        condition_node = None
+        if self.current_tok.type == T_KEYWORD and self.current_tok.value == 'when':
+            res.register_advancement()
+            self.advance()
+            condition_node = res.register(self.expression())
+            if res.error: return res
+
+        if self.current_tok.type != T_RPAREN3:
+            return res.failure(InvalidSyntaxError(
+                self.current_tok.pos_start, self.current_tok.pos_end,
+                "Expected ']' to close list comprehension"))
+        pos_end = self.current_tok.pos_end.copy()
+        res.register_advancement()
+        self.advance()
+
+        node = ListComprehensionNode(
+            expr_node=expr_node, loop_type='Cycle',
+            var_name_tok=var_name_tok,
+            start_node=start_node, end_node=end_node, step_node=step_node,
+            condition_node=condition_node,
+            pos_start=pos_start, pos_end=pos_end
+        )
+        return res.success(node)
+
+    def _parse_list_comp_trace(self, res, expr_node, pos_start):
+        """
+        Parse the trace clause of a list comprehension after the expr has been read.
+        [expr trace var <- collection (when cond)?]
+        """
+        # consume 'trace'
+        res.register_advancement()
+        self.advance()
+
+        var_name_tokens = []
+        if self.current_tok.type != T_IDENTIFIER:
+            return res.failure(InvalidSyntaxError(
+                self.current_tok.pos_start, self.current_tok.pos_end,
+                "Expected at least one variable name after 'trace'"))
+        var_name_tokens.append(self.current_tok)
+        res.register_advancement()
+        self.advance()
+
+        while self.current_tok.type == T_COMMA:
+            res.register_advancement()
+            self.advance()
+            if self.current_tok.type != T_IDENTIFIER:
+                return res.failure(InvalidSyntaxError(
+                    self.current_tok.pos_start, self.current_tok.pos_end,
+                    "Expected identifier after ','"))
+            var_name_tokens.append(self.current_tok)
             res.register_advancement()
             self.advance()
 
-        return res.success(ListNode(element_nodes, pos_start, self.current_tok.pos_end.copy()))
+        if self.current_tok.type != T_LARROW:
+            return res.failure(InvalidSyntaxError(
+                self.current_tok.pos_start, self.current_tok.pos_end, "Expected '<-'"))
+        res.register_advancement()
+        self.advance()
+
+        collection_node = res.register(self.expression())
+        if res.error: return res
+
+        condition_node = None
+        if self.current_tok.type == T_KEYWORD and self.current_tok.value == 'when':
+            res.register_advancement()
+            self.advance()
+            condition_node = res.register(self.expression())
+            if res.error: return res
+
+        if self.current_tok.type != T_RPAREN3:
+            return res.failure(InvalidSyntaxError(
+                self.current_tok.pos_start, self.current_tok.pos_end,
+                "Expected ']' to close list comprehension"))
+        pos_end = self.current_tok.pos_end.copy()
+        res.register_advancement()
+        self.advance()
+
+        node = ListComprehensionNode(
+            expr_node=expr_node, loop_type='trace',
+            var_name_tokens=var_name_tokens, collection_node=collection_node,
+            condition_node=condition_node,
+            pos_start=pos_start, pos_end=pos_end
+        )
+        return res.success(node)
+
 
     def dict_expression(self):
         """
@@ -842,6 +994,14 @@ class Parser: # pylint: disable=R0904
         dict-expression:
             LPAREN2 NEWLINE* (dict-entry (NEWLINE* COMMA NEWLINE* dict-entry)*)?
             NEWLINE* RPAREN2
+
+        dict-comprehension (Cycle):
+            LPAREN2 expression COLON expression KEYWORD:Cycle IDENTIFIER EQUAL expression
+                    COLON expression (COLON expression)? (KEYWORD:when expression)? RPAREN2
+
+        dict-comprehension (trace):
+            LPAREN2 expression COLON expression KEYWORD:trace IDENTIFIER (COMMA IDENTIFIER)*
+                    LARROW expression (KEYWORD:when expression)? RPAREN2
         """
         res = ParseResult()
         keyval_nodes = []
@@ -859,7 +1019,44 @@ class Parser: # pylint: disable=R0904
             res.register_advancement()
             self.advance()
 
-        if self.current_tok.type != T_RPAREN2:
+        if self.current_tok.type == T_RPAREN2:
+            # empty dict {}
+            res.register_advancement()
+            self.advance()
+            return res.success(DictNode([], pos_start, self.current_tok.pos_end.copy()))
+
+        # Parse the first key:value pair
+        first_entry = res.register(self.dict_entry())
+        if res.error:
+            return res
+        first_key, first_val = first_entry
+
+        while self.current_tok.type == T_NEWLINE:
+            res.register_advancement()
+            self.advance()
+
+        # ── Dict comprehension with Cycle ──────────────────────────────
+        if self.current_tok.type == T_KEYWORD and self.current_tok.value == 'Cycle':
+            return self._parse_dict_comp_cycle(res, first_key, first_val, pos_start)
+
+        # ── Dict comprehension with trace ──────────────────────────────
+        if self.current_tok.type == T_KEYWORD and self.current_tok.value == 'trace':
+            return self._parse_dict_comp_trace(res, first_key, first_val, pos_start)
+
+        # ── Plain dict literal ─────────────────────────────────────────
+        keyval_nodes.append(first_entry)
+
+        while self.current_tok.type == T_COMMA:
+            res.register_advancement()
+            self.advance()
+
+            while self.current_tok.type == T_NEWLINE:
+                res.register_advancement()
+                self.advance()
+
+            if self.current_tok.type == T_RPAREN2:
+                break
+
             entry = res.register(self.dict_entry())
             if res.error:
                 return res
@@ -868,26 +1065,6 @@ class Parser: # pylint: disable=R0904
             while self.current_tok.type == T_NEWLINE:
                 res.register_advancement()
                 self.advance()
-
-            while self.current_tok.type == T_COMMA:
-                res.register_advancement()
-                self.advance()
-
-                while self.current_tok.type == T_NEWLINE:
-                    res.register_advancement()
-                    self.advance()
-
-                if self.current_tok.type == T_RPAREN2:
-                    break
-
-                entry = res.register(self.dict_entry())
-                if res.error:
-                    return res
-                keyval_nodes.append(entry)
-
-                while self.current_tok.type == T_NEWLINE:
-                    res.register_advancement()
-                    self.advance()
 
         if self.current_tok.type != T_RPAREN2:
             return res.failure(
@@ -900,6 +1077,131 @@ class Parser: # pylint: disable=R0904
 
         return res.success(
             DictNode(keyval_nodes, pos_start, self.current_tok.pos_end.copy()))
+
+    def _parse_dict_comp_cycle(self, res, key_node, val_node, pos_start):
+        """
+        {key : val Cycle var = start : end (: step)? (when cond)?}
+        """
+        # consume 'Cycle'
+        res.register_advancement()
+        self.advance()
+
+        if self.current_tok.type != T_IDENTIFIER:
+            return res.failure(InvalidSyntaxError(
+                self.current_tok.pos_start, self.current_tok.pos_end,
+                "Expected loop variable name after 'Cycle'"))
+        var_name_tok = self.current_tok
+        res.register_advancement()
+        self.advance()
+
+        if self.current_tok.type != T_EQ:
+            return res.failure(InvalidSyntaxError(
+                self.current_tok.pos_start, self.current_tok.pos_end, "Expected '='"))
+        res.register_advancement()
+        self.advance()
+
+        start_node = res.register(self.expression())
+        if res.error: return res
+
+        if self.current_tok.type != T_COLON:
+            return res.failure(InvalidSyntaxError(
+                self.current_tok.pos_start, self.current_tok.pos_end, "Expected ':'"))
+        res.register_advancement()
+        self.advance()
+
+        end_node = res.register(self.expression())
+        if res.error: return res
+
+        step_node = None
+        if self.current_tok.type == T_COLON:
+            res.register_advancement()
+            self.advance()
+            step_node = res.register(self.expression())
+            if res.error: return res
+
+        condition_node = None
+        if self.current_tok.type == T_KEYWORD and self.current_tok.value == 'when':
+            res.register_advancement()
+            self.advance()
+            condition_node = res.register(self.expression())
+            if res.error: return res
+
+        if self.current_tok.type != T_RPAREN2:
+            return res.failure(InvalidSyntaxError(
+                self.current_tok.pos_start, self.current_tok.pos_end,
+                "Expected '}' to close dict comprehension"))
+        pos_end = self.current_tok.pos_end.copy()
+        res.register_advancement()
+        self.advance()
+
+        node = DictComprehensionNode(
+            key_node=key_node, val_node=val_node, loop_type='Cycle',
+            var_name_tok=var_name_tok,
+            start_node=start_node, end_node=end_node, step_node=step_node,
+            condition_node=condition_node,
+            pos_start=pos_start, pos_end=pos_end
+        )
+        return res.success(node)
+
+    def _parse_dict_comp_trace(self, res, key_node, val_node, pos_start):
+        """
+        {key : val trace var <- collection (when cond)?}
+        """
+        # consume 'trace'
+        res.register_advancement()
+        self.advance()
+
+        var_name_tokens = []
+        if self.current_tok.type != T_IDENTIFIER:
+            return res.failure(InvalidSyntaxError(
+                self.current_tok.pos_start, self.current_tok.pos_end,
+                "Expected at least one variable name after 'trace'"))
+        var_name_tokens.append(self.current_tok)
+        res.register_advancement()
+        self.advance()
+
+        while self.current_tok.type == T_COMMA:
+            res.register_advancement()
+            self.advance()
+            if self.current_tok.type != T_IDENTIFIER:
+                return res.failure(InvalidSyntaxError(
+                    self.current_tok.pos_start, self.current_tok.pos_end,
+                    "Expected identifier after ','"))
+            var_name_tokens.append(self.current_tok)
+            res.register_advancement()
+            self.advance()
+
+        if self.current_tok.type != T_LARROW:
+            return res.failure(InvalidSyntaxError(
+                self.current_tok.pos_start, self.current_tok.pos_end, "Expected '<-'"))
+        res.register_advancement()
+        self.advance()
+
+        collection_node = res.register(self.expression())
+        if res.error: return res
+
+        condition_node = None
+        if self.current_tok.type == T_KEYWORD and self.current_tok.value == 'when':
+            res.register_advancement()
+            self.advance()
+            condition_node = res.register(self.expression())
+            if res.error: return res
+
+        if self.current_tok.type != T_RPAREN2:
+            return res.failure(InvalidSyntaxError(
+                self.current_tok.pos_start, self.current_tok.pos_end,
+                "Expected '}' to close dict comprehension"))
+        pos_end = self.current_tok.pos_end.copy()
+        res.register_advancement()
+        self.advance()
+
+        node = DictComprehensionNode(
+            key_node=key_node, val_node=val_node, loop_type='trace',
+            var_name_tokens=var_name_tokens, collection_node=collection_node,
+            condition_node=condition_node,
+            pos_start=pos_start, pos_end=pos_end
+        )
+        return res.success(node)
 
     def dict_entry(self):
         """

@@ -393,6 +393,207 @@ class Interpreter:
             String(result_str).set_context(context).set_pos(node.pos_start, node.pos_end)
         )
 
+    def visit_ListComprehensionNode(self, node, context):
+        """
+        Evaluate a list comprehension.
+
+        Supports two loop forms:
+          - 'Cycle' : numeric range  [expr Cycle i = start : end (: step)? (when cond)?]
+          - 'trace' : collection     [expr trace x <- coll (when cond)?]
+
+        An isolated child context is used so the loop variable does not
+        leak into the surrounding scope.
+        """
+        from sards.ast_nodes import SymbolTable
+        res = RunTimeResult()
+        elements = []
+
+        # Create a child scope for the comprehension variable(s)
+        comp_context = Context('<comprehension>', context, node.pos_start)
+        comp_context.symbol_table = SymbolTable(parent=context.symbol_table)
+
+        if node.loop_type == 'Cycle':
+            start_val = res.register(self.visit(node.start_node, context))
+            if res.should_return(): return res
+            end_val = res.register(self.visit(node.end_node, context))
+            if res.should_return(): return res
+
+            if node.step_node:
+                step_val = res.register(self.visit(node.step_node, context))
+                if res.should_return(): return res
+            else:
+                step_val = Number(1)
+
+            i = start_val.value
+            var_name = node.var_name_tok.value
+
+            if step_val.value >= 0:
+                condition = lambda: i <= end_val.value
+            else:
+                condition = lambda: i >= end_val.value
+
+            while condition():
+                comp_context.symbol_table.set(var_name, Number(i))
+                i += step_val.value
+
+                # Optional filter
+                if node.condition_node:
+                    cond_val = res.register(self.visit(node.condition_node, comp_context))
+                    if res.should_return(): return res
+                    truthy, _ = cond_val.is_true()
+                    if not truthy.value:
+                        continue
+
+                elem = res.register(self.visit(node.expr_node, comp_context))
+                if res.should_return(): return res
+                elements.append(elem)
+
+        elif node.loop_type == 'trace':
+            collection = res.register(self.visit(node.collection_node, context))
+            if res.should_return(): return res
+
+            # Build iterable items (same logic as visit_ForEachLoopNode)
+            num_vars = len(node.var_name_tokens)
+
+            if isinstance(collection, List):
+                items = collection.elements
+            elif isinstance(collection, String):
+                items = [String(ch).set_context(context).set_pos(
+                    node.pos_start, node.pos_end) for ch in collection.value]
+            else:
+                return res.failure(IllegalOperationError(
+                    node.pos_start, node.pos_end,
+                    f"'{type(collection).__name__}' object is not iterable in comprehension",
+                    context))
+
+            for item in items:
+                if num_vars == 1:
+                    comp_context.symbol_table.set(node.var_name_tokens[0].value, item)
+                else:
+                    if not isinstance(item, List) or len(item.elements) != num_vars:
+                        return res.failure(IllegalOperationError(
+                            node.pos_start, node.pos_end,
+                            f"Cannot unpack item into {num_vars} variables in comprehension",
+                            context))
+                    for idx, var_tok in enumerate(node.var_name_tokens):
+                        comp_context.symbol_table.set(var_tok.value, item.elements[idx])
+
+                # Optional filter
+                if node.condition_node:
+                    cond_val = res.register(self.visit(node.condition_node, comp_context))
+                    if res.should_return(): return res
+                    truthy, _ = cond_val.is_true()
+                    if not truthy.value:
+                        continue
+
+                elem = res.register(self.visit(node.expr_node, comp_context))
+                if res.should_return(): return res
+                elements.append(elem)
+
+        return res.success(
+            List(elements).set_context(context).set_pos(node.pos_start, node.pos_end)
+        )
+
+    def visit_DictComprehensionNode(self, node, context):
+        """
+        Evaluate a dict comprehension.
+
+        Supports two loop forms:
+          - 'Cycle' : numeric range  {key:val Cycle i = start : end (: step)? (when cond)?}
+          - 'trace' : collection     {key:val trace x <- coll (when cond)?}
+        """
+        from sards.ast_nodes import SymbolTable
+        res = RunTimeResult()
+        pairs = []   # list of (key, value) tuples
+
+        # Child scope for loop variable(s)
+        comp_context = Context('<dict-comprehension>', context, node.pos_start)
+        comp_context.symbol_table = SymbolTable(parent=context.symbol_table)
+
+        if node.loop_type == 'Cycle':
+            start_val = res.register(self.visit(node.start_node, context))
+            if res.should_return(): return res
+            end_val = res.register(self.visit(node.end_node, context))
+            if res.should_return(): return res
+
+            if node.step_node:
+                step_val = res.register(self.visit(node.step_node, context))
+                if res.should_return(): return res
+            else:
+                step_val = Number(1)
+
+            i = start_val.value
+            var_name = node.var_name_tok.value
+
+            if step_val.value >= 0:
+                condition = lambda: i <= end_val.value
+            else:
+                condition = lambda: i >= end_val.value
+
+            while condition():
+                comp_context.symbol_table.set(var_name, Number(i))
+                i += step_val.value
+
+                if node.condition_node:
+                    cond_val = res.register(self.visit(node.condition_node, comp_context))
+                    if res.should_return(): return res
+                    truthy, _ = cond_val.is_true()
+                    if not truthy.value:
+                        continue
+
+                key = res.register(self.visit(node.key_node, comp_context))
+                if res.should_return(): return res
+                val = res.register(self.visit(node.val_node, comp_context))
+                if res.should_return(): return res
+                pairs.append((key, val))
+
+        elif node.loop_type == 'trace':
+            collection = res.register(self.visit(node.collection_node, context))
+            if res.should_return(): return res
+
+            num_vars = len(node.var_name_tokens)
+
+            if isinstance(collection, List):
+                items = collection.elements
+            elif isinstance(collection, String):
+                items = [String(ch).set_context(context).set_pos(
+                    node.pos_start, node.pos_end) for ch in collection.value]
+            else:
+                return res.failure(IllegalOperationError(
+                    node.pos_start, node.pos_end,
+                    f"'{type(collection).__name__}' object is not iterable in dict comprehension",
+                    context))
+
+            for item in items:
+                if num_vars == 1:
+                    comp_context.symbol_table.set(node.var_name_tokens[0].value, item)
+                else:
+                    if not isinstance(item, List) or len(item.elements) != num_vars:
+                        return res.failure(IllegalOperationError(
+                            node.pos_start, node.pos_end,
+                            f"Cannot unpack into {num_vars} variables in dict comprehension",
+                            context))
+                    for idx, var_tok in enumerate(node.var_name_tokens):
+                        comp_context.symbol_table.set(var_tok.value, item.elements[idx])
+
+                if node.condition_node:
+                    cond_val = res.register(self.visit(node.condition_node, comp_context))
+                    if res.should_return(): return res
+                    truthy, _ = cond_val.is_true()
+                    if not truthy.value:
+                        continue
+
+                key = res.register(self.visit(node.key_node, comp_context))
+                if res.should_return(): return res
+                val = res.register(self.visit(node.val_node, comp_context))
+                if res.should_return(): return res
+                pairs.append((key, val))
+
+        return res.success(
+            Dict(pairs).set_context(context).set_pos(node.pos_start, node.pos_end)
+        )
+
+
     def visit_FunctionDefinitionNode(self, node, context):
         from sards.user_functions import Function
         res = RunTimeResult()
