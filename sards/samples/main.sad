@@ -1,28 +1,26 @@
-model ServerConfig {
-    attr<user, host, port, debug_mode>
+# F-String feature demonstration in Sardine
 
-    init(user, host = "127.0.0.1", port = 8080, debug_mode = False) {
-        user: user
-        host: host
-        port: port
-        debug_mode: debug_mode
-    }
+# 1. Simple Variable Interpolation
+name = "World"
+show($"Hello {name}! Welcome to Sardine.")
 
-    method display_config(prefix = "Config:") {
-        show(prefix, "User=" + user, "Host=" + host, "Port=" + String(port), sep=" | ", end="\n\n")
-    }
+# 2. Arithmetic Expressions inside F-Strings
+a = 10
+b = 20
+show($"The sum of {a} and {b} is {a + b}")
+show($"The product of {a} and {b} is {a * b}")
+
+# 3. Using functions and variables together
+method greet(person) {
+    show($"Greetings, {person}! Have a great day.")
 }
+greet("Alice")
 
-show("--- Creating configurations ---", end="\n\n")
+# 4. Complex expressions
+x = 5
+show($"x squared is {x * x}, and x cubed is {x * x * x}")
 
-show("1. Default Config (using defaults for host, port, debug)")
-default_config = ServerConfig("admin")
-default_config.display_config()
-
-show("2. Custom Port (overriding 'port' positionally)")
-custom_port_config = ServerConfig("guest", "192.168.1.1", 9000)
-custom_port_config.display_config()
-
-show("3. Debug Mode (overriding 'debug_mode' and 'user' by keyword)")
-debug_config = ServerConfig(user = "root", debug_mode = True)
-debug_config.display_config()
+# 5. Multiple Variables
+language = "Sardine"
+version = 1.0
+show($"Language: {language}, Version: {version}")

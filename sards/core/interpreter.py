@@ -10,12 +10,24 @@ Classes:
 - Interpreter: Evaluates AST nodes and executes operations.
 """
 
-from sards.data_types import Number, String, List, Dict
+import os
+
+from sards.ast_nodes import SymbolTable
+from sards.core import NameError, NotImplementedError, InvalidErrorTypeError, RunTimeError, IllegalOperationError, \
+    IndexOutOfBoundsError, ArgumentError, DivisionByZeroError,ValueError
+from sards.data_types import Number, String, List, Dict, Module
+
 from .constants import (T_PLUS, T_MINUS, T_MUL, T_DIVIDE, T_MODULUS, T_FLOOR, T_BITAND, T_BITXOR, T_BITOR, T_BITNOT, T_EXP, T_EE,
                         T_LSHIFT, T_RSHIFT, T_NEQ, T_GT, T_GTE, T_LT, T_LTE, T_KEYWORD, ERROR_TYPES)
 from .error import NameError, NotImplementedError, InvalidErrorTypeError, RunTimeError, IllegalOperationError, \
-    IndexOutOfBoundsError, ArgumentError, DivisionByZeroError
+    IndexOutOfBoundsError, ArgumentError, DivisionByZeroError, ModuleError
 from sards.ast_nodes import SymbolTable
+
+# Global module cache: abs_path -> Module instance
+_MODULE_CACHE = {}
+
+# Standard library directory (sibling folder 'stdlib' next to sards/)
+_STDLIB_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'stdlib')
 
 ERROR_CLASS_MAP = {
     "RunTimeError": RunTimeError,
@@ -25,7 +37,8 @@ ERROR_CLASS_MAP = {
     "NameError": NameError,
     "ArgumentError": ArgumentError,
     "NotImplementedError": NotImplementedError,
-    "InvalidErrorTypeError":InvalidErrorTypeError
+    "InvalidErrorTypeError": InvalidErrorTypeError,
+    "ModuleError": ModuleError,
 }
 
 
@@ -207,6 +220,8 @@ class Interpreter:
         return res.success(model)
 
     def visit_AttrAccessNode(self, node, context):
+        from sards.user_functions import Function
+
         res = RunTimeResult()
 
         object_val = res.register(self.visit(node.object_node, context))
@@ -215,14 +230,16 @@ class Interpreter:
 
         attr_name = node.attr_name_tok.value
 
-        value, error = object_val.get_attr(attr_name,context)
+        value, error = object_val.get_attr(attr_name, context)
 
         if error:
             return res.failure(error)
 
         value = value.copy()
         value.set_pos(node.pos_start, node.pos_end)
-        value.set_context(context)
+
+        if not isinstance(value, Function):
+            value.set_context(context)
 
         return res.success(value)
 
@@ -267,9 +284,19 @@ class Interpreter:
 
                 # Bind error variable if provided
                 if trap_node.error_name:
+                    from sards.oops_types.class_type import Model
+                    from sards.oops_types.class_instance import ModelInstance
+                    from sards.data_types import String
+
+                    exception_model = Model(error.error_name, [], None, {})
+                    e_instance = ModelInstance(exception_model)
+                    e_instance.set_attr("type", String(error.error_name))
+                    e_instance.set_attr("message", String(error.details))
+                    e_instance.set_attr("traceback", String(error.to_string()))
+
                     trap_context.symbol_table.set(
                         trap_node.error_name.value,
-                        String(error.to_string())
+                        e_instance
                         .set_pos(trap_node.pos_start, trap_node.pos_end)
                         .set_context(trap_context)
                     )
@@ -341,6 +368,31 @@ class Interpreter:
             String(node.token.value).set_context(context).set_pos(node.pos_start, node.pos_end)
         )
 
+    def visit_FStringNode(self, node, context):
+        """
+        Evaluate a $"..." interpolated string.
+
+        Each ('literal', text) part is kept as-is.
+        Each ('expr', ast_node) part is evaluated and converted to str.
+        All parts are concatenated into a single String value.
+        """
+        res = RunTimeResult()
+        result_str = ''
+
+        for kind, part in node.parts:
+            if kind == 'literal':
+                result_str += part
+            else:
+                # 'expr' — evaluate the sub-expression
+                value = res.register(self.visit(part, context))
+                if res.should_return():
+                    return res
+                result_str += str(value)
+
+        return res.success(
+            String(result_str).set_context(context).set_pos(node.pos_start, node.pos_end)
+        )
+
     def visit_FunctionDefinitionNode(self, node, context):
         from sards.user_functions import Function
         res = RunTimeResult()
@@ -358,8 +410,9 @@ class Interpreter:
         return res.success(func_value)
 
     def visit_FunctionCallNode(self, node, context):
+        from sards.user_functions import Function
+
         res = RunTimeResult()
-        # UPDATED: Initialize separate lists for positional and keyword args
         pos_args = []
         kw_args = {}
 
@@ -375,28 +428,25 @@ class Interpreter:
                 context
             ))
 
-        # UPDATED: Process positional arguments
-        for arg_node in node.positional_arg_nodes:
+        for arg_node in node.positional_param_nodes:
             pos_args.append(res.register(self.visit(arg_node, context)))
             if res.should_return():
                 return res
 
-        # UPDATED: Process keyword arguments
-        for name_tok, value_node in node.keyword_arg_nodes:
+        for name_tok, value_node in node.keyword_param_nodes:
             arg_name = name_tok.value
             arg_value = res.register(self.visit(value_node, context))
             if res.should_return():
                 return res
             kw_args[arg_name] = arg_value
 
-        # UPDATED: Pass both positional and keyword args to execute
-        return_value = res.register(call_value.execute(pos_args, kw_args))
+        return_value = res.register(call_value.execute(pos_args, kw_args, call_context=context))
         if res.should_return():
             return res
 
-        return_value = (return_value.copy()
-                        .set_pos(node.pos_start, node.pos_end)
-                        .set_context(context))
+        return_value = return_value.copy().set_pos(node.pos_start, node.pos_end)
+        if not isinstance(return_value, Function):
+            return_value.set_context(context)
 
         return res.success(return_value)
 
@@ -475,8 +525,145 @@ class Interpreter:
         return res.success(
             Number(0) if node.return_null else (List(elements)
                                                 .set_context(context)
-                                                .set_pos(node.pos_start,
-                                                                                           node.pos_end)))
+                                                .set_pos(node.pos_start,node.pos_end)))
+
+    def visit_ForEachLoopNode(self, node, context):
+        res = RunTimeResult()
+        var_name_tokens = node.var_name_tokens
+        num_vars = len(var_name_tokens)
+
+        collection = res.register(self.visit(node.collection_node, context))
+        if res.should_return():
+            return res
+
+        if isinstance(collection, Dict):
+            if num_vars == 1:
+                var_name = var_name_tokens[0].value
+                for key, value in collection.elements.items():
+                    pair = List([key.copy(), value.copy()])
+                    pair.set_context(context).set_pos(node.pos_start, node.pos_end)
+                    context.symbol_table.set(var_name, pair)
+
+                    value = res.register(self.visit(node.body_node, context))
+                    if (res.should_return() and
+                            not res.loop_continue and
+                            not res.loop_or_switch_break):
+                        return res
+                    if res.loop_continue:
+                        continue
+                    if res.loop_or_switch_break:
+                        break
+
+            elif num_vars == 2:
+                key_var_name = var_name_tokens[0].value
+                val_var_name = var_name_tokens[1].value
+                for key, value in collection.elements.items():
+                    context.symbol_table.set(key_var_name, key.copy())
+                    context.symbol_table.set(val_var_name, value.copy())
+
+                    value = res.register(self.visit(node.body_node, context))
+                    if (res.should_return() and
+                            not res.loop_continue and
+                            not res.loop_or_switch_break):
+                        return res
+                    if res.loop_continue:
+                        continue
+                    if res.loop_or_switch_break:
+                        break
+            else:
+                return res.failure(
+                    ArgumentError(
+                        node.pos_start, node.pos_end,
+                        f"Dictionary trace expects 1 or 2 variables, but got {num_vars}",
+                        context
+                    )
+                )
+
+        elif isinstance(collection, List):
+            if num_vars == 1:
+                var_name = var_name_tokens[0].value
+                for element in collection.elements:
+                    context.symbol_table.set(var_name, element.copy())
+
+                    value = res.register(self.visit(node.body_node, context))
+                    if (res.should_return() and
+                            not res.loop_continue and
+                            not res.loop_or_switch_break):
+                        return res
+                    if res.loop_continue:
+                        continue
+                    if res.loop_or_switch_break:
+                        break
+            else:
+                for element in collection.elements:
+                    if not isinstance(element, List):
+                        return res.failure(
+                            IllegalOperationError(
+                                element.pos_start, element.pos_end,
+                                f"Cannot unpack non-list item into {num_vars} variables",
+                                context
+                            )
+                        )
+
+                    if len(element.elements) != num_vars:
+                        return res.failure(
+                            ValueError(
+                                element.pos_start, element.pos_end,
+                                f"Expected {num_vars} values to unpack, but got {len(element.elements)}",
+                                context
+                            )
+                        )
+
+                    for i in range(num_vars):
+                        var_name = var_name_tokens[i].value
+                        sub_element = element.elements[i]
+                        context.symbol_table.set(var_name, sub_element.copy())
+
+                    value = res.register(self.visit(node.body_node, context))
+                    if (res.should_return() and
+                            not res.loop_continue and
+                            not res.loop_or_switch_break):
+                        return res
+                    if res.loop_continue:
+                        continue
+                    if res.loop_or_switch_break:
+                        break
+
+        elif isinstance(collection, String):
+            if num_vars == 1:
+                var_name = var_name_tokens[0].value
+                for char in collection.value:
+                    char_str = String(char).set_context(context).set_pos(node.pos_start, node.pos_end)
+                    context.symbol_table.set(var_name, char_str)
+
+                    value = res.register(self.visit(node.body_node, context))
+                    if (res.should_return() and
+                            not res.loop_continue and
+                            not res.loop_or_switch_break):
+                        return res
+                    if res.loop_continue:
+                        continue
+                    if res.loop_or_switch_break:
+                        break
+            else:
+                return res.failure(
+                    ArgumentError(
+                        node.pos_start, node.pos_end,
+                        f"Cannot unpack a string into {num_vars} variables",
+                        context
+                    )
+                )
+
+        else:
+            return res.failure(
+                IllegalOperationError(
+                    collection.pos_start, collection.pos_end,
+                    f"'{type(collection).__name__}' object is not iterable",
+                    context
+                )
+            )
+
+        return res.success(Number(0))
 
     def visit_SwitchNode(self, node, context):
         res = RunTimeResult()
@@ -488,6 +675,7 @@ class Interpreter:
         if res.should_return():
             return res
 
+        seen_choices = []
         for choice, _, _ in node.cases:
             if choice is None:
                 default_index = match_index
@@ -496,11 +684,23 @@ class Interpreter:
             choice_val = res.register(self.visit(choice, context))
             if res.should_return():
                 return res
-            if selection_val.value == choice_val.value:
+            
+            for seen in seen_choices:
+                if choice_val.value == seen:
+                    return res.failure(RunTimeError(
+                        choice.pos_start, choice.pos_end,
+                        f"Duplicate choice '{choice_val.value}' in menu",
+                        context
+                    ))
+            seen_choices.append(choice_val.value)
+
+            if not match_found and selection_val.value == choice_val.value:
                 match_found = True
-                break
+                start_index = match_index
             match_index = match_index + 1
-        start_index = match_index if match_found else default_index
+        
+        if not match_found:
+            start_index = default_index
 
         for choice, body, return_null in node.cases[start_index:]:
             body_val = res.register(self.visit(body, context))
@@ -541,6 +741,8 @@ class Interpreter:
         return res.success(Number(0))
 
     def visit_VariableUseNode(self, node, context):
+        from sards.user_functions import Function
+
         res = RunTimeResult()
         var_name = node.var_name_tok.value
         value = None
@@ -550,7 +752,7 @@ class Interpreter:
         if value is None:
             instance = context.symbol_table.get("this")
             if instance:
-                value, error = instance.get_attr(var_name,context)
+                value, error = instance.get_attr(var_name, context)
                 if error:
                     return res.failure(error)
 
@@ -572,65 +774,193 @@ class Interpreter:
             indexes.append(index_val)
 
         if not indexes:
-            value = value.copy().set_pos(node.pos_start, node.pos_end).set_context(context)
+            value = value.copy().set_pos(node.pos_start, node.pos_end)
+    
+            if not isinstance(value, Function):
+                value.set_context(context)
             return res.success(value)
         else:
             value, error = value.getByIndex(indexes)
             if error:
                 return res.failure(error)
-
-            value = value.copy().set_pos(node.pos_start, node.pos_end).set_context(context)
+            value = value.copy().set_pos(node.pos_start, node.pos_end)
+            if not isinstance(value, Function):
+                value.set_context(context)
             return res.success(value)
 
-    def visit_VariableAssignNode(self, node, context):
+    def visit_AssignNode(self, node, context):
         res = RunTimeResult()
         last_result = None
 
-        for var_tok, value_node, indexes in zip(node.var_name_toks, node.value_nodes, node.index_nodes):
-            var_name = var_tok.value
-            indexes_vals = []
+        num_vars = len(node.left_nodes)
+        num_vals = len(node.value_nodes)
 
-            if indexes:
-                for index in indexes:
-                    index_val = res.register(self.visit(index, context))
-                    if res.should_return():
-                        return res
-                    indexes_vals.append(index_val)
+        if num_vars > 1 and num_vals == 1:
+            for left_node in node.left_nodes:
+                node_type = left_node.__class__.__name__
+                if node_type == "IndexAccessNode" or (node_type == "VariableUseNode" and left_node.index_node):
+                    return res.failure(RunTimeError(
+                        node.pos_start, node.pos_end,
+                        "Cannot unpack into indexed variables",
+                        context
+                    ))
 
-            value = res.register(self.visit(value_node, context))
+            collection = res.register(self.visit(node.value_nodes[0], context))
             if res.should_return():
                 return res
 
-            if indexes_vals:
-                list_value = context.symbol_table.get(var_name)
-                if list_value is None:
-                    return res.failure(
-                        NameError(var_tok.pos_start, value_node.pos_end, f"'{var_name}' is not defined", context)
-                    )
-                list_value, error = list_value.assignIndex(indexes_vals, value)
-                if error:
-                    return res.failure(error)
-                context.symbol_table.set(var_name, list_value)
-                last_result = list_value
+            elements = []
+            if isinstance(collection, List):
+                elements = collection.elements
+            elif isinstance(collection, String):
+                elements = [String(char).set_context(context).set_pos(collection.pos_start, collection.pos_end)
+                            for char in collection.value]
             else:
-                instance = context.symbol_table.get("this")
+                return res.failure(IllegalOperationError(
+                    node.value_nodes[0].pos_start, node.value_nodes[0].pos_end,
+                    f"Cannot unpack non-iterable type '{type(collection).__name__}'",
+                    context
+                ))
 
-                all_attr_names = []
-                if instance and hasattr(instance.model, 'attr_nodes'):
-                    for attr_node in instance.model.attr_nodes:
-                        for decl in attr_node.declarations:
-                            all_attr_names.append(decl[0].value)
+            if len(elements) != num_vars:
+                return res.failure(RunTimeError(
+                    node.value_nodes[0].pos_start, node.value_nodes[0].pos_end,
+                    f"ValueError: Expected {num_vars} values, but got {len(elements)}",
+                    context
+                ))
 
-                is_attr = instance and var_name in all_attr_names
+            for i in range(num_vars):
+                left_node = node.left_nodes[i]
+                value = elements[i]
+                node_type = left_node.__class__.__name__
 
-                if is_attr:
-                    instance.symbol_table.set(var_name, value)
-                else:
-                    context.symbol_table.set(var_name, value)
+                if node_type == "VariableUseNode":
+                    var_name = left_node.var_name_tok.value
+                    
+                    instance = context.symbol_table.get("this")
+                    is_attr = False
+                    if instance and hasattr(instance, 'model'):
+                        if instance.model.find_attribute(var_name) is not None:
+                            is_attr = True
 
-                last_result = value
+                    if is_attr:
+                        instance.symbol_table.set(var_name, value)
+                    else:
+                        context.symbol_table.set(var_name, value)
+                    last_result = value
+                elif node_type == "AttrAccessNode":
+                    object_val = res.register(self.visit(left_node.object_node, context))
+                    if res.should_return(): return res
+                    attr_name = left_node.attr_name_tok.value
+                    
+                    if not hasattr(object_val, 'set_attr'):
+                        return res.failure(RunTimeError(left_node.pos_start, left_node.pos_end, f"Cannot set attribute on '{type(object_val).__name__}'", context))
+                        
+                    _, err = object_val.set_attr(attr_name, value)
+                    if err:
+                        return res.failure(RunTimeError(left_node.pos_start, left_node.pos_end, err, context))
+                    last_result = value
 
-        return res.success(last_result)
+            return res.success(last_result)
+
+        else:
+            if num_vars != num_vals:
+                return res.failure(RunTimeError(
+                    node.pos_start, node.pos_end,
+                    f"Interpreter Error: Mismatched assignment count ({num_vars} vars, {num_vals} vals)",
+                    context
+                ))
+
+            for left_node, value_node in zip(node.left_nodes, node.value_nodes):
+                value = res.register(self.visit(value_node, context))
+                if res.should_return():
+                    return res
+
+                node_type = left_node.__class__.__name__
+
+                if node_type == "IndexAccessNode":
+                    object_val = res.register(self.visit(left_node.object_node, context))
+                    if res.should_return(): return res
+                    
+                    index_val = res.register(self.visit(left_node.index_node, context))
+                    if res.should_return(): return res
+                    
+                    if not hasattr(object_val, 'assignIndex'):
+                        return res.failure(RunTimeError(left_node.pos_start, left_node.pos_end, f"Type '{type(object_val).__name__}' does not support index assignment", context))
+                        
+                    _, error = object_val.assignIndex([index_val], value)
+                    if error:
+                        return res.failure(error)
+                    last_result = value
+                    
+                elif node_type == "VariableUseNode":
+                    var_name = left_node.var_name_tok.value
+                    indexes = left_node.index_node
+
+                    if indexes:
+                        indexes_vals = []
+                        for index in indexes:
+                            index_val = res.register(self.visit(index, context))
+                            if res.should_return():
+                                return res
+                            indexes_vals.append(index_val)
+
+                        list_value = context.symbol_table.get(var_name)
+                        if list_value is None:
+                            return res.failure(
+                                NameError(left_node.pos_start, value_node.pos_end, f"'{var_name}' is not defined", context)
+                            )
+                        list_value, error = list_value.assignIndex(indexes_vals, value)
+                        if error:
+                            return res.failure(error)
+                        context.symbol_table.set(var_name, list_value)
+                        last_result = list_value
+                    else:
+                        instance = context.symbol_table.get("this")
+                        is_attr = False
+                        if instance and hasattr(instance, 'model'):
+                            if instance.model.find_attribute(var_name) is not None:
+                                is_attr = True
+
+                        if is_attr:
+                            instance.symbol_table.set(var_name, value)
+                        else:
+                            context.symbol_table.set(var_name, value)
+                        last_result = value
+                
+                elif node_type == "AttrAccessNode":
+                    object_val = res.register(self.visit(left_node.object_node, context))
+                    if res.should_return(): return res
+                    attr_name = left_node.attr_name_tok.value
+                    
+                    if not hasattr(object_val, 'set_attr'):
+                        return res.failure(RunTimeError(left_node.pos_start, left_node.pos_end, f"Cannot set attribute on '{type(object_val).__name__}'", context))
+                        
+                    _, err = object_val.set_attr(attr_name, value)
+                    if err:
+                        return res.failure(RunTimeError(left_node.pos_start, left_node.pos_end, err, context))
+                    last_result = value
+
+            return res.success(last_result)
+
+    def visit_IndexAccessNode(self, node, context):
+        res = RunTimeResult()
+        
+        object_val = res.register(self.visit(node.object_node, context))
+        if res.should_return(): return res
+        
+        index_val = res.register(self.visit(node.index_node, context))
+        if res.should_return(): return res
+        
+        if not hasattr(object_val, 'getByIndex'):
+            return res.failure(RunTimeError(node.pos_start, node.pos_end, f"Type '{type(object_val).__name__}' is not scriptable/indexable", context))
+            
+        value, error = object_val.getByIndex([index_val])
+        if error:
+            return res.failure(error)
+            
+        value = value.copy().set_pos(node.pos_start, node.pos_end).set_context(context)
+        return res.success(value)
 
     def visit_NumberNode(self, node, context):
         return RunTimeResult().success(
@@ -639,15 +969,25 @@ class Interpreter:
 
     def visit_ReturnNode(self, node, context):
         res = RunTimeResult()
+        return_values = []
 
-        if node.node_to_return:
-            value = res.register(self.visit(node.node_to_return, context))
+        if not node.nodes_to_return:
+            return res.success_return(Number(0))
+
+        for node_to_return in node.nodes_to_return:
+            value = res.register(self.visit(node_to_return, context))
             if res.should_return():
                 return res
-        else:
-            value = Number(0)
+            return_values.append(value)
 
-        return res.success_return(value)
+        if len(return_values) == 1:
+            return res.success_return(return_values[0])
+
+        return res.success_return(
+            List(return_values)
+            .set_context(context)
+            .set_pos(node.pos_start, node.pos_end)
+        )
 
     def visit_ContinueNode(self, node, context):
         return RunTimeResult().success_continue()
@@ -753,3 +1093,124 @@ class Interpreter:
             return res.failure(error)
         else:
             return res.success(number.set_pos(node.pos_start, node.pos_end))
+
+    # ------------------------------------------------------------------
+    # summon / import
+    # ------------------------------------------------------------------
+
+    def visit_SummonNode(self, node, context):
+        """
+        Resolves, loads (or retrieves from cache), and executes a Sardine module,
+        then binds the requested names into the current context's symbol table.
+        """
+        res = RunTimeResult()
+        module_name = node.module_tok.value
+
+        # ── 1. Resolve the file path ────────────────────────────────────
+        # Derive the directory of the currently-executing file from context.
+        source_dir = getattr(context, 'source_dir', None) or os.getcwd()
+        candidates = [
+            os.path.join(source_dir, module_name + '.sad'),
+            os.path.join(source_dir, module_name + '.sard'),
+            os.path.join(_STDLIB_DIR, module_name + '.sad'),
+            os.path.join(_STDLIB_DIR, module_name + '.sard'),
+        ]
+
+        resolved_path = None
+        for path in candidates:
+            if os.path.isfile(path):
+                resolved_path = os.path.abspath(path)
+                break
+
+        if resolved_path is None:
+            display_candidates = [
+                os.path.relpath(path, start=os.curdir).replace('\\', '/')
+                for path in candidates
+            ]
+            return res.failure(ModuleError(
+                node.pos_start, node.pos_end,
+                f"Module '{module_name}' not found. Searched:\n" +
+                "\n".join(f"  {p}" for p in display_candidates),
+                context
+            ))
+
+        # ── 2. Check cache ───────────────────────────────────────────────
+        if resolved_path in _MODULE_CACHE:
+            module_obj = _MODULE_CACHE[resolved_path]
+        else:
+            # ── 3. Read & execute the module ─────────────────────────────
+            with open(resolved_path, 'r', encoding='utf-8') as f:
+                source = f.read()
+
+            from .lexer import Lexer
+            from .parser import Parser
+
+            lexer = Lexer(resolved_path, source)
+            tokens, lex_error = lexer.enumerate_tokens()
+            if lex_error:
+                return res.failure(ModuleError(
+                    node.pos_start, node.pos_end,
+                    f"Lexer error in module '{module_name}': {lex_error.details}",
+                    context
+                ))
+
+            parser = Parser(tokens)
+            parse_result = parser.parse()
+            if parse_result.error:
+                return res.failure(ModuleError(
+                    node.pos_start, node.pos_end,
+                    f"Syntax error in module '{module_name}': {parse_result.error.details}",
+                    context
+                ))
+
+            # Build a fresh context for the module, inheriting global builtins
+            mod_symbol_table = SymbolTable(parent=context.symbol_table)
+            mod_context = Context(f"<module '{module_name}'>",
+                                  parent=context,
+                                  parent_entry_pos=node.pos_start)
+            mod_context.symbol_table = mod_symbol_table
+            mod_context.source_dir = os.path.dirname(resolved_path)
+
+            mod_interpreter = Interpreter()
+            mod_res = mod_interpreter.visit(parse_result.node, mod_context)
+            if mod_res.error:
+                return res.failure(ModuleError(
+                    node.pos_start, node.pos_end,
+                    f"Runtime error in module '{module_name}': {mod_res.error.details}",
+                    context
+                ))
+
+            module_obj = Module(module_name, mod_symbol_table)
+            module_obj.set_pos(node.pos_start, node.pos_end)
+            module_obj.set_context(context)
+            _MODULE_CACHE[resolved_path] = module_obj
+
+        # ── 4. Bind names into current scope ────────────────────────────
+
+        # Case A: bare  summon math  OR  summon math as m
+        if not node.names and not node.wildcard:
+            bind_name = node.module_alias.value if node.module_alias else module_name
+            context.symbol_table.set(bind_name, module_obj)
+            return res.success(module_obj)
+
+        # Case B: wildcard  summon * from math
+        if node.wildcard:
+            for name, value in module_obj.symbol_table.symbols.items():
+                context.symbol_table.set(name, value)
+            return res.success(module_obj)
+
+        # Case C: specific names  summon sin, cos from math
+        #         or with alias   summon factorial as fact from math
+        for orig_tok, alias_tok in node.names:
+            orig_name = orig_tok.value
+            value = module_obj.symbol_table.get(orig_name)
+            if value is None:
+                return res.failure(ModuleError(
+                    orig_tok.pos_start, orig_tok.pos_end,
+                    f"Module '{module_name}' has no member '{orig_name}'",
+                    context
+                ))
+            bind_name = alias_tok.value if alias_tok else orig_name
+            context.symbol_table.set(bind_name, value)
+
+        return res.success(module_obj)

@@ -23,8 +23,10 @@ as an Abstract Syntax Tree (AST).
 
 """
 
-from sards import *
+import sys
 import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from sards import *
 
 global_symbol_table = SymbolTable()
 global_symbol_table.set("None", Number(0))
@@ -35,7 +37,9 @@ global_symbol_table.set("show", BuiltInFunction.show)
 global_symbol_table.set("listen", BuiltInFunction.listen)
 global_symbol_table.set("Integer", BuiltInFunction.Integer)
 global_symbol_table.set("String", BuiltInFunction.String)
-global_symbol_table.set("typeof", BuiltInFunction.typeof)
+global_symbol_table.set("type", BuiltInFunction.type)
+global_symbol_table.set("super", BuiltInFunction.super)
+global_symbol_table.set("is_a", BuiltInFunction.is_a)
 
 
 def run(filename, input_text):
@@ -88,6 +92,8 @@ def run(filename, input_text):
     interpreter = Interpreter()
     context = Context('<program>')
     context.symbol_table = global_symbol_table
+    # Store the directory of the source file so 'summon' can find sibling modules
+    context.source_dir = os.path.dirname(os.path.abspath(filename)) if filename != '<stdin>' else os.getcwd()
     res = interpreter.visit(syntax_tree.node, context)
 
     return res.value, res.error
@@ -116,34 +122,38 @@ def run_file(filepath):
 
     # Print errors if encountered, otherwise display the result
     if errors:
-        print(f"Error in {filepath}:")
+        relative_path = os.path.relpath(filepath, start=os.curdir).replace('\\', '/')
+        print(f"Error in {relative_path}:")
         print(errors.to_string())
+    # else:
+    #     if result is not None:
+    #         print(result)
+
+if __name__ == "__main__":
+    if len(sys.argv) > 1:
+        run_file(sys.argv[1])
     else:
-        if result is not None:
-            print(result)
+        choice = input('Enter 0 for REPL mode and 1 for file input: ')
+        if choice == '0':
+            # REPL (Read-Eval-Print Loop) for continuous user interaction
+            while True:
+                try:
+                    text = input('code > ') # Prompt user for an expression
+                    if text.lower() in ['exit', 'quit']:
+                        print("Goodbye!")
+                        break
+                    result, errors = run('<stdin>', text)
 
-choice = input('Enter 0 for REPL mode and 1 for file input: ')
-if choice == '0':
-    # REPL (Read-Eval-Print Loop) for continuous user interaction
-    while True:
-        try:
-            text = input('code > ') # Prompt user for an expression
-            if text.lower() in ['exit', 'quit']:
-                print("Goodbye!")
-                break
-            result, errors = run('<stdin>', text)
-
-            # Print errors if encountered, otherwise display the AST
-            if errors:
-                print(errors.to_string())
-            else:
-                print(result)
-        except KeyboardInterrupt:
-            print("\nGoodbye!")
-            break
-        except EOFError:
-            print("\nGoodbye!")
-            break
-else:
-    run_file('sards/samples/main.sad')
-
+                    # Print errors if encountered, otherwise display the AST
+                    if errors:
+                        print(errors.to_string())
+                    else:
+                        print(result)
+                except KeyboardInterrupt:
+                    print("\nGoodbye!")
+                    break
+                except EOFError:
+                    print("\nGoodbye!")
+                    break
+        else:
+            run_file('sards/samples/main.sad')

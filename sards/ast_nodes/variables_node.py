@@ -5,7 +5,8 @@ which represent variable-related nodes and symbol tables in the abstract syntax 
 Classes:
     SymbolTable: A class to represent a symbol table for storing variable names and values.
     VariableUseNode: A class to represent a variable usage node in the AST.
-    VariableAssignNode: A class to represent a variable assignment node in the AST.
+    AssignNode: A class to represent an assignment node in the AST.
+    IndexAccessNode: A class to represent index access on any node.
 """
 
 class SymbolTable: # pylint: disable=R0903
@@ -77,32 +78,31 @@ class VariableUseNode: # pylint: disable=R0903
         else:return f'({self.var_name_tok.value}:{self.index_node})'
 
 
-class VariableAssignNode:  # pylint: disable=R0903
+class IndexAccessNode:
     """
-    Represents one or more variable assignments in the AST.
-
-    Attributes:
-        var_name_toks: List of tokens representing variable names.
-        value_nodes: List of nodes representing values to assign.
-        index_nodes: List of lists of index nodes (parallel to var_name_toks).
-        pos_start: The starting position of the assignment.
-        pos_end: The ending position of the assignment.
+    Represents index access on an object.
     """
-    def __init__(self, var_name_toks, value_nodes, index_nodes=None):
-        if index_nodes is None:
-            index_nodes = [None] * len(var_name_toks)
+    def __init__(self, object_node, index_node):
+        self.object_node = object_node
+        self.index_node = index_node
+        self.pos_start = self.object_node.pos_start
+        self.pos_end = self.index_node.pos_end
 
-        self.var_name_toks = var_name_toks
+    def __repr__(self):
+        return f"({self.object_node}[{self.index_node}])"
+
+class AssignNode:
+    """
+    Represents one or more assignments in the AST.
+    """
+    def __init__(self, left_nodes, value_nodes):
+        self.left_nodes = left_nodes
         self.value_nodes = value_nodes
-        self.index_nodes = index_nodes
-        self.pos_start = self.var_name_toks[0].pos_start
+        self.pos_start = self.left_nodes[0].pos_start
         self.pos_end = self.value_nodes[-1].pos_end
 
     def __repr__(self):
         parts = []
-        for tok, idxs, val in zip(self.var_name_toks, self.index_nodes, self.value_nodes):
-            if not idxs:
-                parts.append(f"({tok.value}:{val})")
-            else:
-                parts.append(f"(({tok.value}:{idxs}):{val})")
+        for left, val in zip(self.left_nodes, self.value_nodes):
+            parts.append(f"({left}:{val})")
         return ",".join(parts)

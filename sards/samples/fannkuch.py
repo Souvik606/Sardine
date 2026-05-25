@@ -1,3 +1,5 @@
+import time
+
 def fannkuch(n):
     maxFlipsCount = 0
     permSign = True
@@ -39,8 +41,22 @@ def fannkuch(n):
             else:
                 r = nm
                 if not count[r]:
-                    print( checksum )
                     return maxFlipsCount
             count[r] -= 1
+
 n = 5
-print(( "Pfannkuchen(%i) = %i" % (n, fannkuch(n)) ))
+
+# --- Timing starts here ---
+start_time = time.perf_counter()
+
+# Execute the function and store the result
+result = fannkuch(n)
+
+# --- Timing ends here ---
+end_time = time.perf_counter()
+
+# Calculate the difference
+execution_time = end_time - start_time
+
+print(( "Pfannkuchen(%i) = %i" % (n, result) ))
+print(f"Execution time: {execution_time:.6f} seconds")

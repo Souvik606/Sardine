@@ -79,6 +79,35 @@ class Lexer:
         self.pos.advance(self.current_char)
         self.current_char = self.text[self.pos.index] if self.pos.index < len(self.text) else None
 
+    def skip_comment(self):
+        pos_start = self.pos.copy()
+        self.advance()  
+
+        if self.current_char == '*':
+            self.advance()
+            return self.skip_multiline_comment(pos_start)
+
+        while self.current_char is not None and self.current_char != '\n':
+            self.advance()
+        if self.current_char == '\n':
+            self.advance()
+
+        return None
+
+
+    def skip_multiline_comment(self, pos_start):
+        while self.current_char is not None:
+            if self.current_char == '*':
+                self.advance()
+                if self.current_char == '#':
+                    self.advance()
+                    return None 
+            else:
+                self.advance()
+
+        return ExpectedCharError(pos_start, self.pos, "Closing '*#' for multiline comment")
+
+
     def make_identifier(self):
         id_str = ''
         pos_start = self.pos.copy()
@@ -87,9 +116,9 @@ class Lexer:
             id_str += self.current_char
             self.advance()
 
-        if id_str in KEYWORDS:token_type=T_KEYWORD
-        elif id_str in ERROR_TYPES:token_type=T_ERROR
-        else:token_type=T_IDENTIFIER
+        if id_str in KEYWORDS: token_type = T_KEYWORD
+        elif id_str in ERROR_TYPES: token_type = T_ERROR
+        else: token_type = T_IDENTIFIER
 
         return Token(token_type, id_str, pos_start, self.pos)
 
@@ -154,10 +183,7 @@ class Lexer:
         self.advance()
         token_type=T_MINUS
 
-        if self.current_char==">":
-            self.advance()
-            token_type=T_ARROW
-        elif self.current_char=="=":
+        if self.current_char=="=":
             self.advance()
             token_type=T_MINUSEQUAL
 
@@ -193,6 +219,9 @@ class Lexer:
         if self.current_char == '=':
             self.advance()
             token_type = T_LTE
+        elif self.current_char == '-':
+            self.advance()
+            token_type = T_LARROW
         elif self.current_char == '<':
             self.advance()
             token_type = T_LSHIFT
@@ -274,6 +303,45 @@ class Lexer:
         self.advance()
         return Token(T_STRING, string, pos_start, self.pos)
 
+    def make_fstring(self):
+        """
+        Reads a $\"...\" interpolated string literal and produces a T_FSTRING token.
+
+        The raw string value is stored verbatim (including {{...}} placeholders) so
+        the parser can split it and re-lex each embedded expression.
+        """
+        raw = ''
+        pos_start = self.pos.copy()
+        escape_character = False
+        self.advance()  # skip opening '"'
+
+        escape_characters = {'n': '\n', 't': '\t'}
+        depth = 0  # track nesting of {{ }} so we store them as-is
+
+        while self.current_char is not None and (self.current_char != '"' or depth > 0 or escape_character):
+            if escape_character:
+                if depth > 0:
+                    raw += '\\' + self.current_char
+                else:
+                    raw += escape_characters.get(self.current_char, self.current_char)
+                escape_character = False
+            else:
+                if self.current_char == '\\':
+                    escape_character = True
+                elif self.current_char == '{':
+                    depth += 1
+                    raw += '{'
+                elif self.current_char == '}':
+                    if depth > 0:
+                        depth -= 1
+                    raw += '}'
+                else:
+                    raw += self.current_char
+            self.advance()
+
+        self.advance()
+        return Token(T_FSTRING, raw, pos_start, self.pos)
+
     def make_number(self):
         """
         Extracts a numerical value (integer or float) from the input text.
@@ -316,10 +384,18 @@ class Lexer:
                 self.advance()
             elif self.current_char in DIGITS:
                 tokens.append(self.make_number())
-            elif self.current_char in LETTERS:
+            elif self.current_char in LETTERS + '_':
                 tokens.append(self.make_identifier())
             elif self.current_char == '"':
                 tokens.append(self.make_string())
+            elif self.current_char == '$':
+                pos_start = self.pos.copy()
+                self.advance()
+                if self.current_char == '"':
+                    tokens.append(self.make_fstring())
+                else:
+                    char = '$'
+                    return [], IllegalCharError(pos_start, self.pos, f'"{char}"')
             elif self.current_char == '+':
                 tokens.append(self.make_plus())
             elif self.current_char == '-':
@@ -380,6 +456,10 @@ class Lexer:
             elif self.current_char == '.':
                 tokens.append(Token(T_DOT, pos_start=self.pos))
                 self.advance()
+            elif self.current_char == '#':
+                error = self.skip_comment()
+                if error:
+                    return [], error
             else:
                 pos_start = self.pos.copy()
                 char = self.current_char

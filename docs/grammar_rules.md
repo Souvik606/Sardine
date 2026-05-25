@@ -28,7 +28,7 @@ Below is the complete grammar definition:
 ```grammar
 multiline: NEWLINE* (singleline)* (NEWLINE* (singleline))* NEWLINE*
 
-singleline: call | statements | if-expression | for-expression | while-expression | switch-statement | function-definition | exception-handling | class-definition
+singleline: call | statements | if-expression | for-expression | while-expression | switch-statement | function-definition | exception-handling | class-definition | foreach-expression
 
 class-definition: KEYWORD:model IDENTIFIER (COLON IDENTIFIER (COMMA IDENTIFIER)*)? LPAREN2 NEWLINE* (class-member NEWLINE*)* RPAREN2
 
@@ -48,15 +48,15 @@ initializer-list: initializer-item ((COMMA NEWLINE* | NEWLINE+) initializer-item
 
 initializer-item: IDENTIFIER COLON expression
 
-jump-statements: KEYWORD:proceed | KEYWORD:escape |KEYWORD:yield expression
+jump-statements: KEYWORD:proceed | KEYWORD:escape | KEYWORD:yield (expression NEWLINE* (COMMA NEWLINE* expression NEWLINE*)*)?
 
-statements: IDENTIFIER (LPAREN3 expression RPAREN3)* (COMMA IDENTIFIER (LPAREN3 expression RPAREN3)*)* (EQUAL | PLUSEQUAL | MINUSEQUAL | MULEQUAL | DIVEQUAL | MODEQUAL | FLOOREQUAL | BITOREQUAL | BITXOREQUAL | BITANDEQUAL | LSHIFTEQUAL | RSHIFTEQUAL) expression (COMMA expression)*
+statements: call (COMMA call)* (EQUAL | PLUSEQUAL | MINUSEQUAL | MULEQUAL | DIVEQUAL | MODEQUAL | FLOOREQUAL | EXPEQUAL) expression (COMMA expression)*
 
 switch-statement: KEYWORD:menu ternary-expression LPAREN2 NEWLINE* (case-statement* NEWLINE*)* default-statement? NEWLINE* (case-statement* NEWLINE*)* RPAREN2
 
-case-statement: KEYWORD:choice ternary-expression LPAREN2 ((expression | statements) RPAREN2) | (NEWLINE multiline RPAREN2)
+case-statement: KEYWORD:choice ternary-expression LPAREN2 NEWLINE* (multiline | jump-statements)* RPAREN2
 
-default-statement: KEYWORD:fallback LPAREN2 ((expression | statements) RPAREN2) | (NEWLINE multiline RPAREN2)
+KEYWORD:fallback LPAREN2 NEWLINE* (multiline | jump-statements)* RPAREN2
 
 param-list: param-item (COMMA param-item)*
 
@@ -94,15 +94,15 @@ keyword-list: keyword-item (COMMA keyword-item)*
 
 keyword-item: IDENTIFIER EQUAL expression
 
-call: attr-access (LPAREN (argument-list)? RPAREN)*
+call: factor ( (LPAREN (argument-list)? RPAREN) | (DOT IDENTIFIER) | (LPAREN3 expression RPAREN3) )*
 
-attr-access: factor (DOT IDENTIFIER)*
+factor: INT | FLOAT | STRING | IDENTIFIER (LPAREN3 expression RPAREN3)* | LPAREN expression RPAREN | list-expression | dict-expression | anonymous-func-expr
 
-factor: INT | FLOAT | STRING | IDENTIFIER (LPAREN3 expression RPAREN3)* | LPAREN expression RPAREN | list-expression | dict-expression
+dict-expression: LPAREN2 NEWLINE* (dict-entry (NEWLINE* COMMA NEWLINE* dict-entry)*)? NEWLINE* RPAREN2
 
-dict-expression: LPAREN2 (expression COLON expression(COMMA expression COLON expression)*)? RPAREN2
+dict-entry: expression NEWLINE* COLON NEWLINE* expression
 
-list-expression: LPAREN3 (expression(COMMA expression)*)? RPAREN3
+list-expression: LPAREN3 NEWLINE* (expression(NEWLINE* COMMA NEWLINE* expression)*)? RPAREN3
 
 exception-handling: try-expression NEWLINE* ( catch-expression NEWLINE* (catch-expression)* NEWLINE* finally-expression? | finally-expression)
 
@@ -116,7 +116,11 @@ while-expression: KEYWORD:whenever expression LPAREN2 (multiline | jump-statemen
 
 for-expression: KEYWORD:Cycle IDENTIFIER EQUAL expression COLON expression (COLON expression)? LPAREN2 (multiline | jump-statements)* RPAREN2
 
-function-definition: KEYWORD:method IDENTIFIER? LPAREN (param-list)? RPAREN LPAREN2 (multiline |jump-statements)* RPAREN2
+foreach-expression:KEYWORD:trace IDENTIFIER (COMMA IDENTIFIER)* LARROW expression NEWLINE* LPAREN2 (multiline | jump-statements)* RPAREN2
+
+function-definition: KEYWORD:method IDENTIFIER LPAREN (param-list)? RPAREN LPAREN2 (multiline |jump-statements)* RPAREN2
+
+anonymous-func-expr: KEYWORD:method LPAREN (param-list)? RPAREN LPAREN2 (multiline |jump-statements)* RPAREN2
 
 if-expression: KEYWORD:when expression LPAREN2 (multiline | jump-statements)* RPAREN2 NEWLINE* (elif-expression | else-expression)?
 
@@ -175,3 +179,71 @@ Here are some valid expressions and statements according to this grammar:
   when condition ( doSomething() )
   multiline block...
   ```
+
+---
+
+## Operator Overloading
+
+```grammar
+operator-method: KEYWORD:method IDENTIFIER LPAREN (param-list)? RPAREN LPAREN2 (multiline | jump-statements)* RPAREN2
+
+# IDENTIFIER must be one of the reserved operator method names listed below.
+```
+
+> **Note:** Operator methods follow the same method-definition rules as ordinary methods.
+> Access modifiers (`open`, `guarded`, `secret`) are allowed but `open` is recommended.
+
+### Special Method Names
+
+#### Binary Operators (take one parameter `other`)
+
+| Operator | Method name    | Example use |
+| -------- | -------------- | ----------- |
+| `+`      | `__add__`      | `a + b`     |
+| `-`      | `__sub__`      | `a - b`     |
+| `*`      | `__mul__`      | `a * b`     |
+| `/`      | `__div__`      | `a / b`     |
+| `%`      | `__mod__`      | `a % b`     |
+| `//`     | `__floordiv__` | `a // b`    |
+| `**`     | `__pow__`      | `a ** b`    |
+| `&`      | `__and__`      | `a & b`     |
+| `\|`     | `__or__`       | `a \| b`    |
+| `^`      | `__xor__`      | `a ^ b`     |
+| `<<`     | `__lshift__`   | `a << b`    |
+| `>>`     | `__rshift__`   | `a >> b`    |
+| `==`     | `__eq__`       | `a == b`    |
+| `!=`     | `__neq__`      | `a != b`    |
+| `<`      | `__lt__`       | `a < b`     |
+| `<=`     | `__lte__`      | `a <= b`    |
+| `>`      | `__gt__`       | `a > b`     |
+| `>=`     | `__gte__`      | `a >= b`    |
+| `and`    | `__land__`     | `a and b`   |
+| `or`     | `__lor__`      | `a or b`    |
+
+#### Unary Operators (take no parameters)
+
+| Operator | Method name  | Example use |
+| -------- | ------------ | ----------- |
+| `-`      | `__neg__`    | `-a`        |
+| `not`    | `__not__`    | `not a`     |
+| `~`      | `__bitnot__` | `~a`        |
+
+### Error Messages
+
+If an operator method is **not** defined, Sardine raises an `IllegalOperationError` with a
+helpful hint:
+
+```
+IllegalOperationError: Operator '+' is not defined for 'MyModel'.
+Define 'method __add__(other) {...}' inside the model to enable it.
+```
+
+### Rules and Caveats
+
+1. Operator methods **must use `yield`** to return a value, just like regular methods.
+2. The returned value can be **any Sardine type** — a new instance, a `Number`, a `String`, etc.
+3. Augmented assignment (`+=`, `-=`, …) reuses the same binary operator method:  
+   `a += b` is equivalent to `a = a + b`, so `__add__` is called.
+4. Unary minus (`-a`) internally calls `__neg__` if defined; otherwise it falls back to `__mul__`
+   with `Number(-1)` (which would require `__mul__`).
+5. Operator methods **do not need to be `open`**; any access level is respected.

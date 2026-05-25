@@ -19,7 +19,10 @@ class Dict:
         self.pos_start = None
         self.elements = {}
         for key, value in elements:
-            self.elements[key.value] = value
+            if hasattr(key, 'value'):
+                self.elements[key.value] = value
+            else:
+                self.elements[key] = value
             
         self.set_pos()
         self.set_context()
@@ -35,7 +38,7 @@ class Dict:
         return self
     
     def copy(self):
-        elements = [(Number(k) if isinstance(k, (int, float)) else String(k), v) 
+        elements = [(k, v)
                    for k, v in self.elements.items()]
         copy = Dict(elements)
         copy.set_pos(self.pos_start, self.pos_end)
@@ -43,7 +46,9 @@ class Dict:
         return copy
     
     def __repr__(self):
-        return f'{{{", ".join([f"{k}: {str(v)}" for k, v in self.elements.items()])}}}'
+        def format_key(k):
+            return f"'{k}'" if isinstance(k, str) else str(k)
+        return f'{{{", ".join([f"{format_key(k)}: {repr(v)}" for k, v in self.elements.items()])}}}'
     
     def is_true(self):
         return Number(len(self.elements)).set_context(self.context), None    

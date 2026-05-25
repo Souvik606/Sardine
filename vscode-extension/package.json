@@ -1,0 +1,36 @@
+{
+  "name": "sardine-lang",
+  "displayName": "Sardine Language",
+  "description": "Syntax highlighting for the Sardine programming language",
+  "version": "0.1.0",
+  "engines": {
+    "vscode": "^1.70.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "sardine",
+        "aliases": ["Sardine", "sardine"],
+        "extensions": [".sad", ".sard"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "sardine",
+        "scopeName": "source.sardine",
+        "path": "./syntaxes/sardine.tmLanguage.json"
+      }
+    ],
+    "themes": [
+      {
+        "label": "Sardine Ocean Dark",
+        "uiTheme": "vs-dark",
+        "path": "./themes/sardine-ocean-color-theme.json"
+      }
+    ]
+  }
+}

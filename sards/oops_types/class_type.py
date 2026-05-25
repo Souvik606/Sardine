@@ -57,7 +57,7 @@ class Model:
         return None
 
     def is_descendant_of(self, other_model):
-        if self == other_model:
+        if self.name == other_model.name:
             return True
         for p in self.parents:
             if p.is_descendant_of(other_model):
@@ -73,7 +73,7 @@ class Model:
         self.context = context
         return self
 
-    def execute(self, pos_args, kw_args):
+    def execute(self, pos_args, kw_args, call_context=None):
         from sards.core import Context, RunTimeResult, Interpreter, ArgumentError
 
         res = RunTimeResult()

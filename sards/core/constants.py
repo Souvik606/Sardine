@@ -15,6 +15,7 @@ LETTERS_DIGITS = DIGITS + LETTERS
 T_INT = 'INT'  # Integer number token
 T_FLOAT = 'FLOAT'  # Floating-point number token
 T_STRING = 'STRING'
+T_FSTRING = 'FSTRING'  # Interpolated string $"..." token
 T_IDENTIFIER = 'IDENTIFIER'  # Identifier token
 T_KEYWORD = 'KEYWORD'
 T_ERROR='ERROR'
@@ -50,7 +51,7 @@ T_LT = 'LESSTHAN' # Less than operator (<)
 T_GT = 'GREATERTHAN' # Greater than operator (>)
 T_LTE = 'LESSERTHANEQUAL' # Less than or equal to operator (<=)
 T_GTE = 'GREATERTHANEQUAL' # Greater than or equal to operator (>=)
-T_ARROW="ARROW" # Arrow operator (->)
+T_LARROW= 'LARROW' # Left arrow operator (<-)
 T_LPAREN = 'LPAREN' # Left parenthesis (
 T_RPAREN = 'RPAREN' # Right parenthesis )
 T_LPAREN2 = 'LPAREN2' # Left curvy bracket {
@@ -68,7 +69,8 @@ T_QUESTION = 'QUESTION'
 
 KEYWORDS = ['define', 'and', 'or', 'not', 'when', 'orwhen', 'otherwise', 'Cycle', 'whenever',
             'method', 'yield', 'escape', 'proceed', 'menu', 'choice', 'fallback','risk','trap','clean',
-            'model','attr','init','open','secret','guarded']
+            'model','attr','init','open','secret','guarded','trace',
+            'summon', 'from', 'as']
 
 ERROR_TYPES=['RunTimeError','IllegalOperationError','DivisionByZeroError','IndexOutOfBoundsError',
-             'NameError','ArgumentError','InvalidErrorTypeError']
+             'NameError','ArgumentError','InvalidErrorTypeError','ModuleError']

@@ -8,22 +8,23 @@ Classes:
     BreakNode: A class to represent a 'break' statement node in the AST.
 """
 
-class ReturnNode: # pylint: disable=R0903
+class ReturnNode:  # pylint: disable=R0903
     """
-    Represents a 'return' statement node in the abstract syntax tree (AST).
+    Represents a 'yield' (return) statement node in the abstract syntax tree (AST).
 
     Attributes:
-        node_to_return: The node representing the value to return.
-        pos_start: The starting position of the 'return' statement in the source code.
-        pos_end: The ending position of the 'return' statement in the source code.
+        nodes_to_return: A list of nodes representing the values to return.
+        This list can be empty (for a bare 'yield').
+        pos_start: The starting position of the 'yield' statement in the source code.
+        pos_end: The ending position of the 'yield' statement in the source code.
     """
-    def __init__(self, node_to_return, pos_start, pos_end):
-        self.node_to_return = node_to_return
+    def __init__(self, nodes_to_return, pos_start, pos_end):
+        self.nodes_to_return = nodes_to_return
         self.pos_start = pos_start
         self.pos_end = pos_end
 
     def __repr__(self):
-        return f'({self.node_to_return})'
+        return f'({self.nodes_to_return})'
 
 class ContinueNode: # pylint: disable=R0903
     """

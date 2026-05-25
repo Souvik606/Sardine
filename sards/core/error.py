@@ -5,6 +5,8 @@ This module provides utility classes for tracking the position of characters in 
 and handling errors encountered during tokenization, parsing, or runtime execution.
 """
 
+import os
+
 # ------------------------------
 # POSITION CLASS
 # ------------------------------
@@ -64,6 +66,48 @@ class Position:
 
 
 # ------------------------------
+# SOURCE DISPLAY HELPER
+# ------------------------------
+
+def string_with_arrows(text, pos_start, pos_end):
+    """
+    Produces a snippet of source text with a caret (^) underline pointing to the
+    exact range of the error — similar to how Python displays syntax errors.
+
+    Example output:
+        switch x {
+        ^^^^^^
+
+    Parameters:
+    - text (str): The full source text.
+    - pos_start (Position): Start of the error token.
+    - pos_end (Position): End of the error token.
+
+    Returns:
+    - str: Two lines — the source line, then the caret underline.
+    """
+    lines = text.splitlines()
+
+    # Only show the line where the error *starts*
+    idx = max(0, min(pos_start.line, len(lines) - 1))
+    line = lines[idx]
+
+    col_start = max(0, min(pos_start.col, len(line)))
+
+    # If the error ends on the same line, use that column; otherwise
+    # highlight to end-of-line.  Never go past line length.
+    if pos_end.line == pos_start.line:
+        col_end = max(col_start + 1, min(pos_end.col, len(line)))
+    else:
+        col_end = max(col_start + 1, len(line))
+
+    indent  = '    '
+    snippet = indent + line + '\n'
+    snippet += indent + ' ' * col_start + '^' * (col_end - col_start)
+    return snippet
+
+
+# ------------------------------
 # BASE ERROR CLASS
 # ------------------------------
 
@@ -90,15 +134,31 @@ class BaseError:
 
     def to_string(self):
         """
-        Create a formatted error message with file, line, and details.
+        Create a formatted error message with file, line, source snippet and details.
 
-        Returns:
-        - str: Example -> "Invalid Syntax: unexpected token
-                          File test.lang, line 3"
+        Returns a Python-style error block, e.g.:
+
+            File test.sard, line 3
+                switch x {
+                ^^^^^^
+            Invalid Syntax Error: Invalid keyword 'switch'
         """
+        try:
+            relative_path = os.path.relpath(
+                self.pos_start.file_name, start=os.curdir
+            ).replace('\\', '/')
+        except ValueError:
+            # relpath can fail across drives on Windows
+            relative_path = self.pos_start.file_name
+
+        header  = f"  File {relative_path}, line {self.pos_start.line + 1}"
+        snippet = string_with_arrows(
+            self.pos_start.file_text, self.pos_start, self.pos_end
+        )
         return (
-            f"{self.error_name}: {self.details}\n"
-            f"File {self.pos_start.file_name}, line {self.pos_start.line + 1}"
+            f"{header}\n"
+            f"{snippet}\n"
+            f"{self.error_name}: {self.details}"
         )
 
 
@@ -157,28 +217,45 @@ class RunTimeError(BaseError):
 
     def generate_traceback(self):
         """
-        Walk back through contexts to produce Python-like traceback.
+        Walk back through contexts to produce Python-like traceback with
+        source-line snippets and caret pointers at each call site.
 
         Returns:
-        - str: Traceback text showing file, line, and function call chain.
+        - str: Full traceback text.
         """
-        result = ''
+        frames = []
         position = self.pos_start
-        context = self.context
+        context  = self.context
 
         while context:
-            result = (
-                f"File {position.file_name}, line {position.line + 1}, "
+            try:
+                relative_path = os.path.relpath(
+                    position.file_name, start=os.curdir
+                ).replace('\\', '/')
+            except ValueError:
+                relative_path = position.file_name
+
+            snippet = string_with_arrows(
+                position.file_text, position, self.pos_end
+                if context.parent is None else position
+            )
+
+            frames.append(
+                f"  File {relative_path}, line {position.line + 1}, "
                 f"in {context.display_name}\n"
-            ) + result
-            # step into parent context
+                f"{snippet}"
+            )
+
             position = context.parent_entry_pos
-            context = context.parent
+            context  = context.parent
+
+        frames.reverse()
+        traceback_body = '\n'.join(frames)
 
         return (
-            "Traceback (most recent call last):\n" +
-            result +
-            f"{self.error_name}: {self.details}"
+            "Traceback (most recent call last):\n"
+            + traceback_body + '\n'
+            + f"{self.error_name}: {self.details}"
         )
 
     def to_string(self):
@@ -206,7 +283,7 @@ class DivisionByZeroError(RunTimeError):
     """
     Error for division by zero (runtime math exception).
     """
-    def __init__(self, pos_start, pos_end, details,context):
+    def __init__(self, pos_start, pos_end, details, context):
         super().__init__(pos_start, pos_end, "Division by zero", context)
         self.error_name = "DivisionByZeroError"
 
@@ -219,7 +296,7 @@ class IndexOutOfBoundsError(RunTimeError):
     def __init__(self, pos_start, pos_end, details, context):
         super().__init__(pos_start, pos_end, details, context)
         self.error_name = "IndexOutOfBoundsError"
-        
+
 
 class NameError(RunTimeError):
     """
@@ -242,8 +319,7 @@ class ArgumentError(RunTimeError):
 
 class NotImplementedError(RunTimeError):
     """
-    Error for function call argument mismatches.
-    Example: myFunc(1, 2, 3) when definition is myFunc(a, b).
+    Error for unimplemented features.
     """
     def __init__(self, pos_start, pos_end, details, context):
         super().__init__(pos_start, pos_end, details, context)
@@ -260,12 +336,16 @@ class InvalidErrorTypeError(RunTimeError):
 
 class DictKeyError(RunTimeError):
     """
-    Error raised when a 'trap' block specifies an invalid or unsupported error type.
-    Example: trap UnknownError e { ... }
+    Error raised when a dictionary key is not found.
     """
     def __init__(self, pos_start, pos_end, details, context):
         super().__init__(pos_start, pos_end, details, context)
         self.error_name = "DictKeyError"
+
+class ValueError(RunTimeError):
+    def __init__(self, pos_start, pos_end, details, context):
+        super().__init__(pos_start, pos_end, details, context)
+        self.error_name = "ValueError"
 
 class TypeError(RunTimeError):
     """
@@ -284,3 +364,14 @@ class AttributeError(RunTimeError):
     def __init__(self, pos_start, pos_end, details, context):
         super().__init__(pos_start, pos_end, details, context)
         self.error_name = "AttributeError"
+
+class ModuleError(RunTimeError):
+    """
+    Error raised when a module cannot be found or a name inside a module
+    cannot be resolved.
+    Example: summon nonexistent_module
+             summon foo from mymodule  # but 'foo' is not defined in mymodule
+    """
+    def __init__(self, pos_start, pos_end, details, context):
+        super().__init__(pos_start, pos_end, details, context)
+        self.error_name = "ModuleError"

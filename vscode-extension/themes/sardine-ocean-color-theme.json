@@ -1,0 +1,93 @@
+{
+  "name": "Sardine Ocean Dark",
+  "type": "dark",
+  "colors": {
+    "editor.background": "#0F1423",
+    "editor.foreground": "#E0E6ED",
+    "editorLineNumber.foreground": "#4B5563",
+    "editor.selectionBackground": "#253046",
+    "editorCursor.foreground": "#00E5FF",
+    "editor.lineHighlightBackground": "#171E30"
+  },
+  "tokenColors": [
+    {
+      "name": "Comments",
+      "scope": [
+        "comment",
+        "punctuation.definition.comment"
+      ],
+      "settings": {
+        "foreground": "#6B7280",
+        "fontStyle": "italic"
+      }
+    },
+    {
+      "name": "Keywords (Control Flow, etc)",
+      "scope": [
+        "keyword.control",
+        "keyword.other",
+        "storage.type"
+      ],
+      "settings": {
+        "foreground": "#FF4081",
+        "fontStyle": "bold"
+      }
+    },
+    {
+      "name": "Operators",
+      "scope": [
+        "keyword.operator"
+      ],
+      "settings": {
+        "foreground": "#FFD740"
+      }
+    },
+    {
+      "name": "Built-in Functions",
+      "scope": [
+        "support.function.builtin",
+        "support.function"
+      ],
+      "settings": {
+        "foreground": "#18FFFF"
+      }
+    },
+    {
+      "name": "Strings",
+      "scope": [
+        "string"
+      ],
+      "settings": {
+        "foreground": "#B2FF59"
+      }
+    },
+    {
+      "name": "Numbers",
+      "scope": [
+        "constant.numeric"
+      ],
+      "settings": {
+        "foreground": "#FFAB40"
+      }
+    },
+    {
+      "name": "Language Constants (True, False, None)",
+      "scope": [
+        "constant.language"
+      ],
+      "settings": {
+        "foreground": "#E040FB"
+      }
+    },
+    {
+      "name": "Exceptions",
+      "scope": [
+        "support.class.exception"
+      ],
+      "settings": {
+        "foreground": "#FF5252",
+        "fontStyle": "bold"
+      }
+    }
+  ]
+}

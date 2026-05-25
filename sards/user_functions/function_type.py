@@ -162,7 +162,7 @@ class Function(BaseFunction):
         self.param_nodes = param_nodes
         self.auto_return = auto_return
 
-    def execute(self, pos_args, kw_args):
+    def execute(self, pos_args, kw_args, call_context=None):
         from sards.core import RunTimeResult, Interpreter, Context
 
         res = RunTimeResult()
@@ -174,7 +174,9 @@ class Function(BaseFunction):
             exec_context = Context(f"method {self.name}", instance.context, self.pos_start, owner_class=method_owner)
             exec_context.symbol_table = SymbolTable(instance.symbol_table)
         else:
-            exec_context = self.generate_new_context()
+            traceback_parent = call_context if call_context is not None else self.context
+            exec_context = Context(self.name, traceback_parent, self.pos_start)
+            exec_context.symbol_table = SymbolTable(self.context.symbol_table)
 
         res.register(self.check_and_populate_args(self.param_nodes, pos_args, kw_args, exec_context))
         if res.should_return():
@@ -225,13 +227,15 @@ class BuiltInFunction(BaseFunction):
         """
         super().__init__(name)
 
-    def execute(self, pos_args, kw_args):
+    def execute(self, pos_args, kw_args, call_context=None):
         """
         Executes the built-in function with the given arguments.
 
         Args:
             pos_args: A list of positional arguments.
             kw_args: A dictionary of keyword arguments.
+            call_context: The call-site context (accepted for API compatibility
+                          with Function.execute; ignored for built-ins).
 
         Returns:
             res: The result of the function execution.
@@ -281,6 +285,7 @@ class BuiltInFunction(BaseFunction):
         Executes the 'show' built-in function with 'sep' and 'end' parameters.
         """
         from sards.core import RunTimeResult
+        from sards.data_types import String, Number, List, Dict
 
         res = RunTimeResult()
         separator = " "
@@ -302,7 +307,23 @@ class BuiltInFunction(BaseFunction):
                     ArgumentError(self.pos_start, self.pos_end, f"Unexpected keyword argument '{name}' for show",
                                   self.context))
 
-        output = separator.join([str(arg.value) for arg in pos_args])
+        def stringify(node, nested=False):
+            if isinstance(node, List):
+                elements = ", ".join(stringify(el, nested=True) for el in node.elements)
+                return f"[{elements}]"
+            if isinstance(node, Dict):
+                pairs = ", ".join(f"{stringify(k, nested=True)}: {stringify(v, nested=True)}" for k, v in node.elements.items())
+                return f"{{{pairs}}}"
+            if isinstance(node, String):
+                return f"'{node.value}'" if nested else str(node.value)
+            if hasattr(node, 'value'):
+                return str(node.value)
+            # if node is a python string (e.g. dict key) we should probably quote it
+            if isinstance(node, str):
+                return f"'{node}'" if nested else node
+            return str(node)
+
+        output = separator.join([stringify(arg) for arg in pos_args])
         print(output, end=end_char)
 
         return res.success(Number(0))
@@ -369,18 +390,143 @@ class BuiltInFunction(BaseFunction):
 
         data = pos_args[0]
         if isinstance(data, Number):
-            print("<type Number>")
+            output = "<type Number>"
         elif isinstance(data, String):
-            print("<type String>")
+            output = "<type String>"
         elif isinstance(data, List):
-            print("<type List>")
+            output = "<type List>"
         else:
-            print(f"<type {type(data).__name__}>")
+            output = f"<type {type(data).__name__}>"
 
-        return res.success(Number(0))
+        return res.success(String(output))
+
+    def execute_super(self, pos_args, kw_args, exec_context):
+        """
+        Executes the 'super()' built-in.
+
+        Must be called from inside a method body where 'this' is available and
+        the execution context has an owner_class set.  Returns a SuperProxy
+        bound to the current instance, allowing calls like super().method(args)
+        to resolve to the *parent* class's version of an overridden method.
+
+        Example (Sardine):
+            model Animal {
+                open method speak() { show("...") }
+            }
+            model Dog: Animal {
+                open method speak() {
+                    super().speak()   # calls Animal.speak()
+                    show("Woof!")
+                }
+            }
+        """
+        from sards.core import RunTimeResult
+        from sards.oops_types import SuperProxy
+
+        res = RunTimeResult()
+
+        if pos_args or kw_args:
+            return res.failure(
+                ArgumentError(
+                    self.pos_start, self.pos_end,
+                    "super() takes no arguments",
+                    exec_context
+                )
+            )
+
+        # Built-in exec_context is freshly generated; walk the parent chain to
+        # find the method context that carries 'this' and owner_class.
+        search_ctx = self.context   # self.context = the scope super() was called from
+        instance = None
+        owner_class = None
+        while search_ctx is not None:
+            if instance is None:
+                candidate = search_ctx.symbol_table.get("this") if search_ctx.symbol_table else None
+                if candidate is not None:
+                    instance = candidate
+            if owner_class is None and search_ctx.owner_class is not None:
+                owner_class = search_ctx.owner_class
+            if instance is not None and owner_class is not None:
+                break
+            search_ctx = search_ctx.parent
+
+        if instance is None:
+            return res.failure(
+                ArgumentError(
+                    self.pos_start, self.pos_end,
+                    "super() can only be called inside a method body",
+                    exec_context
+                )
+            )
+
+        if owner_class is None:
+            return res.failure(
+                ArgumentError(
+                    self.pos_start, self.pos_end,
+                    "super() could not determine the current class \u2014 "
+                    "make sure you are calling it inside a named method",
+                    exec_context
+                )
+            )
+
+        proxy = SuperProxy(instance, owner_class)
+        proxy.set_context(self.context)
+        proxy.set_pos(self.pos_start, self.pos_end)
+        return res.success(proxy)
+
+    def execute_is_a(self, pos_args, kw_args, exec_context):
+        """
+        Executes the 'is_a()' built-in.
+
+        Checks whether an object is an instance of the given model or any of
+        its ancestor models (polymorphic type check).
+
+        Signature:  is_a(obj, ModelClass) -> 1 (True) or 0 (False)
+
+        Example (Sardine):
+            d = Dog("Buddy", 3, "Woof", "Lab")
+            show(is_a(d, Dog))     # 1
+            show(is_a(d, Animal))  # 1  — Dog inherits from Animal
+            show(is_a(d, Person))  # 0
+        """
+        from sards.core import RunTimeResult
+        from sards.oops_types import ModelInstance, Model
+
+        res = RunTimeResult()
+
+        if len(pos_args) != 2 or kw_args:
+            return res.failure(
+                ArgumentError(
+                    self.pos_start, self.pos_end,
+                    "is_a() takes exactly 2 positional arguments: is_a(object, ModelClass)",
+                    exec_context
+                )
+            )
+
+        obj, model_class = pos_args
+
+        if not isinstance(model_class, Model):
+            return res.failure(
+                ArgumentError(
+                    self.pos_start, self.pos_end,
+                    "Second argument to is_a() must be a model class",
+                    exec_context
+                )
+            )
+
+        if not isinstance(obj, ModelInstance):
+            # Primitive types are never instances of any user-defined model
+            return res.success(Number(0))
+
+        # Use the existing is_descendant_of helper which already handles MRO
+        result = obj.model.is_descendant_of(model_class)
+        return res.success(Number(1 if result else 0))
+
 
 BuiltInFunction.show = BuiltInFunction('show')
 BuiltInFunction.listen = BuiltInFunction('listen')
 BuiltInFunction.Integer = BuiltInFunction('Integer')
 BuiltInFunction.String = BuiltInFunction('String')
-BuiltInFunction.typeof = BuiltInFunction('typeof')
+BuiltInFunction.type = BuiltInFunction('type')
+BuiltInFunction.super = BuiltInFunction('super')
+BuiltInFunction.is_a = BuiltInFunction('is_a')
