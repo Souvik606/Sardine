@@ -1,0 +1,65 @@
+show("--- linalg stdlib: vec and mat ---")
+
+summon linalg as la
+
+show("--- vec operations ---")
+v1 = la.vec([1, 2, 3])
+v2 = la.vec([4, 5, 6])
+show((v1 + v2).data)
+show((v2 - v1).data)
+show(v1 * v2)
+show((v1 * 2).data)
+show((v1 ** 2).data)
+show(v1.dot(v2))
+show(v1 == v2)
+show(v1 != v2)
+show((-v1).data)
+
+show("--- vec invalid ops ---")
+risk {
+	bad = v1 + la.vec([1, 2])
+	show(bad.data)
+} trap IllegalOperationError e {
+	show("Caught expected error:", e.traceback)
+}
+
+show("--- mat operations ---")
+m1 = la.mat([[1, 2, 3], [4, 5, 6]])
+m2 = la.mat([[7, 8], [9, 10], [11, 12]])
+show((m1 * m2).rows)
+show((m1 * 2).rows)
+
+v3 = la.vec([1, 2, 3])
+show((m1 * v3).data)
+
+show("--- mat methods ---")
+m3 = la.mat([[1, 2, 3], [0, 1, 4], [5, 6, 0]])
+show(m1.transpose().rows)
+show(m3.tr())
+show(m3.determinant())
+show(m3.identity(3).rows)
+
+inv = not m3
+show(inv.rows)
+
+show("--- mat invalid ops ---")
+risk {
+	bad = m1 + m2
+	show(bad.rows)
+} trap IllegalOperationError e {
+        show("Caught expected error:", e.traceback)
+}
+
+risk {
+        bad = m1 * la.vec([1, 2])
+        show(bad.data)
+} trap IllegalOperationError e {
+        show("Caught expected error:", e.traceback)
+}
+
+risk {
+        bad = not m1
+        show(bad.rows)
+} trap IllegalOperationError e {
+        show("Caught expected error:", e.traceback)
+}

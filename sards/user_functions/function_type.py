@@ -522,6 +522,32 @@ class BuiltInFunction(BaseFunction):
         result = obj.model.is_descendant_of(model_class)
         return res.success(Number(1 if result else 0))
 
+    def execute_error(self, pos_args, kw_args, exec_context):
+        from sards.core import RunTimeResult
+        from sards.core.error import IllegalOperationError
+        res = RunTimeResult()
+
+        if kw_args:
+            return res.failure(
+                ArgumentError(
+                    self.pos_start, self.pos_end,
+                    "error() takes no keyword arguments",
+                    exec_context
+                )
+            )
+
+        msg = "Illegal operation"
+        if len(pos_args) >= 1:
+            msg = pos_args[0].value
+
+        return res.failure(
+            IllegalOperationError(
+                self.pos_start, self.pos_end,
+                msg,
+                exec_context.parent
+            )
+        )
+
 
 BuiltInFunction.show = BuiltInFunction('show')
 BuiltInFunction.listen = BuiltInFunction('listen')
@@ -530,3 +556,4 @@ BuiltInFunction.String = BuiltInFunction('String')
 BuiltInFunction.type = BuiltInFunction('type')
 BuiltInFunction.super = BuiltInFunction('super')
 BuiltInFunction.is_a = BuiltInFunction('is_a')
+BuiltInFunction.error = BuiltInFunction('error')

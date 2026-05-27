@@ -13,15 +13,16 @@ Classes:
 import os
 
 from sards.ast_nodes import SymbolTable
-from sards.core import NameError, NotImplementedError, InvalidErrorTypeError, RunTimeError, IllegalOperationError, \
-    IndexOutOfBoundsError, ArgumentError, DivisionByZeroError,ValueError
 from sards.data_types import Number, String, List, Dict, Module
 
 from .constants import (T_PLUS, T_MINUS, T_MUL, T_DIVIDE, T_MODULUS, T_FLOOR, T_BITAND, T_BITXOR, T_BITOR, T_BITNOT, T_EXP, T_EE,
                         T_LSHIFT, T_RSHIFT, T_NEQ, T_GT, T_GTE, T_LT, T_LTE, T_KEYWORD, ERROR_TYPES)
-from .error import NameError, NotImplementedError, InvalidErrorTypeError, RunTimeError, IllegalOperationError, \
-    IndexOutOfBoundsError, ArgumentError, DivisionByZeroError, ModuleError
-from sards.ast_nodes import SymbolTable
+from .error import (
+    NameError, NotImplementedError, InvalidErrorTypeError, RunTimeError,
+    IllegalOperationError, IndexOutOfBoundsError, ArgumentError,
+    DivisionByZeroError, ModuleError, AttributeError, DictKeyError,
+    TypeError, ValueError
+)
 
 # Global module cache: abs_path -> Module instance
 _MODULE_CACHE = {}
@@ -39,6 +40,10 @@ ERROR_CLASS_MAP = {
     "NotImplementedError": NotImplementedError,
     "InvalidErrorTypeError": InvalidErrorTypeError,
     "ModuleError": ModuleError,
+    "AttributeError": AttributeError,
+    "DictKeyError": DictKeyError,
+    "TypeError": TypeError,
+    "ValueError": ValueError,
 }
 
 
@@ -221,6 +226,7 @@ class Interpreter:
 
     def visit_AttrAccessNode(self, node, context):
         from sards.user_functions import Function
+        from sards.oops_types import Model
 
         res = RunTimeResult()
 
@@ -230,6 +236,13 @@ class Interpreter:
 
         attr_name = node.attr_name_tok.value
 
+        if not hasattr(object_val, 'get_attr'):
+            return res.failure(AttributeError(
+                node.object_node.pos_start, node.object_node.pos_end,
+                f"'{type(object_val).__name__}' object has no attribute '{attr_name}'",
+                context
+            ))
+
         value, error = object_val.get_attr(attr_name, context)
 
         if error:
@@ -238,7 +251,7 @@ class Interpreter:
         value = value.copy()
         value.set_pos(node.pos_start, node.pos_end)
 
-        if not isinstance(value, Function):
+        if not isinstance(value, Function) and not isinstance(value, Model):
             value.set_context(context)
 
         return res.success(value)
@@ -612,6 +625,7 @@ class Interpreter:
 
     def visit_FunctionCallNode(self, node, context):
         from sards.user_functions import Function
+        from sards.oops_types import Model
 
         res = RunTimeResult()
         pos_args = []
@@ -646,7 +660,7 @@ class Interpreter:
             return res
 
         return_value = return_value.copy().set_pos(node.pos_start, node.pos_end)
-        if not isinstance(return_value, Function):
+        if not isinstance(return_value, Function) and not isinstance(return_value, Model):
             return_value.set_context(context)
 
         return res.success(return_value)
@@ -943,6 +957,7 @@ class Interpreter:
 
     def visit_VariableUseNode(self, node, context):
         from sards.user_functions import Function
+        from sards.oops_types import Model
 
         res = RunTimeResult()
         var_name = node.var_name_tok.value
@@ -977,7 +992,7 @@ class Interpreter:
         if not indexes:
             value = value.copy().set_pos(node.pos_start, node.pos_end)
     
-            if not isinstance(value, Function):
+            if not isinstance(value, Function) and not isinstance(value, Model):
                 value.set_context(context)
             return res.success(value)
         else:
@@ -985,7 +1000,7 @@ class Interpreter:
             if error:
                 return res.failure(error)
             value = value.copy().set_pos(node.pos_start, node.pos_end)
-            if not isinstance(value, Function):
+            if not isinstance(value, Function) and not isinstance(value, Model):
                 value.set_context(context)
             return res.success(value)
 

@@ -1,0 +1,571 @@
+model vec {
+    open attr <data>
+
+    init(values) {
+        data: values
+    }
+
+    method _len(list) {
+        count = 0
+        trace item <- list {
+            count = count + 1
+        }
+        yield count
+    }
+
+    method _is_number(value) {
+        yield type(value) == "<type Number>"
+    }
+
+    method size() {
+        yield _len(data)
+    }
+
+    method _same_size(other) {
+        yield _len(data) == _len(other.data)
+    }
+
+    method dot(other) {
+        when not is_a(other, vec) {
+            yield error("Dot product requires a Vector")
+        } otherwise {
+            when not _same_size(other) {
+                yield error("Vectors must have the same size")
+            } otherwise {
+                sum = 0
+                i = 0
+                n = _len(data)
+                whenever i < n {
+                    sum = sum + data[i] * other.data[i]
+                    i = i + 1
+                }
+                yield sum
+            }
+        }
+    }
+
+    method __add__(other) {
+        when not is_a(other, vec) {
+            yield error("Addition requires a Vector")
+        } otherwise {
+            when not _same_size(other) {
+                yield error("Vectors must have the same size")
+            } otherwise {
+                out = []
+                i = 0
+                n = _len(data)
+                whenever i < n {
+                    out = out + [data[i] + other.data[i]]
+                    i = i + 1
+                }
+                yield vec(out)
+            }
+        }
+    }
+
+    method __sub__(other) {
+        when not is_a(other, vec) {
+            yield error("Subtraction requires a Vector")
+        } otherwise {
+            when not _same_size(other) {
+                yield error("Vectors must have the same size")
+            } otherwise {
+                out = []
+                i = 0
+                n = _len(data)
+                whenever i < n {
+                    out = out + [data[i] - other.data[i]]
+                    i = i + 1
+                }
+                yield vec(out)
+            }
+        }
+    }
+
+    method __mul__(other) {
+        when _is_number(other) {
+            out = []
+            i = 0
+            n = _len(data)
+            whenever i < n {
+                out = out + [data[i] * other]
+                i = i + 1
+            }
+            yield vec(out)
+        } orwhen is_a(other, vec) {
+            yield dot(other)
+        } otherwise {
+            yield error("Multiplication requires a scalar or Vector")
+        }
+    }
+
+    method __pow__(power) {
+        when not _is_number(power) {
+            yield error("Power requires a scalar")
+        } otherwise {
+            out = []
+            i = 0
+            n = _len(data)
+            whenever i < n {
+                out = out + [data[i] ** power]
+                i = i + 1
+            }
+            yield vec(out)
+        }
+    }
+
+    method __neg__() {
+        out = []
+        i = 0
+        n = _len(data)
+        whenever i < n {
+            out = out + [-data[i]]
+            i = i + 1
+        }
+        yield vec(out)
+    }
+
+    method __eq__(other) {
+        when not is_a(other, vec) {
+            yield 0
+        } otherwise {
+            when not _same_size(other) {
+                yield 0
+            } otherwise {
+                same = 1
+                i = 0
+                n = _len(data)
+                whenever i < n {
+                    when data[i] != other.data[i] {
+                        same = 0
+                    }
+                    i = i + 1
+                }
+                yield same
+            }
+        }
+    }
+
+    method __neq__(other) {
+        yield not (__eq__(other))
+    }
+}
+
+model mat {
+    open attr <rows>
+
+    init(values) {
+        rows: values
+    }
+
+    method _len(list) {
+        count = 0
+        trace item <- list {
+            count = count + 1
+        }
+        yield count
+    }
+
+    method _is_number(value) {
+        yield type(value) == "<type Number>"
+    }
+
+    method _row_count() {
+        yield _len(rows)
+    }
+
+    method _col_count() {
+        when _row_count() == 0 {
+            yield 0
+        } otherwise {
+            yield _len(rows[0])
+        }
+    }
+
+    method _same_shape(other) {
+        yield _row_count() == other._row_count() and _col_count() == other._col_count()
+    }
+
+    method _dot_list(a, b) {
+        sum = 0
+        i = 0
+        n = _len(a)
+        whenever i < n {
+            sum = sum + a[i] * b[i]
+            i = i + 1
+        }
+        yield sum
+    }
+
+    method _column(idx) {
+        out = []
+        i = 0
+        r = _row_count()
+        whenever i < r {
+            out = out + [rows[i][idx]]
+            i = i + 1
+        }
+        yield out
+    }
+
+    method _minor(skip_r, skip_c) {
+        out = []
+        i = 0
+        r = _row_count()
+        c = _col_count()
+        whenever i < r {
+            when i != skip_r {
+                new_row = []
+                j = 0
+                whenever j < c {
+                    when j != skip_c {
+                        new_row = new_row + [rows[i][j]]
+                    }
+                    j = j + 1
+                }
+                out = out + [new_row]
+            }
+            i = i + 1
+        }
+        yield mat(out)
+    }
+
+    method transpose() {
+        out = []
+        r = _row_count()
+        c = _col_count()
+        j = 0
+        whenever j < c {
+            new_row = []
+            i = 0
+            whenever i < r {
+                new_row = new_row + [rows[i][j]]
+                i = i + 1
+            }
+            out = out + [new_row]
+            j = j + 1
+        }
+        yield mat(out)
+    }
+
+    method tr() {
+        when _row_count() != _col_count() {
+            yield error("Trace requires a square Matrix")
+        } otherwise {
+            sum = 0
+            i = 0
+            n = _row_count()
+            whenever i < n {
+                sum = sum + rows[i][i]
+                i = i + 1
+            }
+            yield sum
+        }
+    }
+
+    method determinant() {
+        r = _row_count()
+        c = _col_count()
+        when r != c {
+            yield error("Determinant requires a square Matrix")
+        } otherwise {
+            when r == 0 {
+                yield 0
+            } orwhen r == 1 {
+                yield rows[0][0]
+            } orwhen r == 2 {
+                yield rows[0][0] * rows[1][1] - rows[0][1] * rows[1][0]
+            } otherwise {
+                det = 0
+                j = 0
+                whenever j < c {
+                    sign = 1
+                    when j % 2 == 1 {
+                        sign = -1
+                    }
+                    det = det + sign * rows[0][j] * _minor(0, j).determinant()
+                    j = j + 1
+                }
+                yield det
+            }
+        }
+    }
+
+    method identity(n) {
+        when not _is_number(n) {
+            yield error("Identity requires a scalar size")
+        } otherwise {
+            out = []
+            i = 0
+            whenever i < n {
+                row = []
+                j = 0
+                whenever j < n {
+                    when i == j {
+                        row = row + [1]
+                    } otherwise {
+                        row = row + [0]
+                    }
+                    j = j + 1
+                }
+                out = out + [row]
+                i = i + 1
+            }
+            yield mat(out)
+        }
+    }
+
+    method inverse() {
+        n = _row_count()
+        when n != _col_count() {
+            yield error("Inverse requires a square Matrix")
+        } otherwise {
+            aug = []
+            i = 0
+            whenever i < n {
+                row = []
+                j = 0
+                whenever j < n {
+                    row = row + [rows[i][j]]
+                    j = j + 1
+                }
+                j = 0
+                whenever j < n {
+                    when i == j {
+                        row = row + [1]
+                    } otherwise {
+                        row = row + [0]
+                    }
+                    j = j + 1
+                }
+                aug = aug + [row]
+                i = i + 1
+            }
+
+            i = 0
+            total = n + n
+            whenever i < n {
+                pivot = aug[i][i]
+                when pivot == 0 {
+                    swap = -1
+                    k = i + 1
+                    whenever k < n {
+                        when aug[k][i] != 0 {
+                            swap = k
+                        }
+                        k = k + 1
+                    }
+                    when swap == -1 {
+                        yield error("Matrix is singular and cannot be inverted")
+                    } otherwise {
+                        temp = aug[i]
+                        aug[i] = aug[swap]
+                        aug[swap] = temp
+                        pivot = aug[i][i]
+                    }
+                }
+
+                j = 0
+                whenever j < total {
+                    aug[i][j] = aug[i][j] / pivot
+                    j = j + 1
+                }
+
+                r = 0
+                whenever r < n {
+                    when r != i {
+                        factor = aug[r][i]
+                        j = 0
+                        whenever j < total {
+                            aug[r][j] = aug[r][j] - factor * aug[i][j]
+                            j = j + 1
+                        }
+                    }
+                    r = r + 1
+                }
+
+                i = i + 1
+            }
+
+            inv = []
+            i = 0
+            whenever i < n {
+                row = []
+                j = 0
+                whenever j < n {
+                    row = row + [aug[i][j + n]]
+                    j = j + 1
+                }
+                inv = inv + [row]
+                i = i + 1
+            }
+            yield mat(inv)
+        }
+    }
+
+    method __not__() {
+        yield inverse()
+    }
+
+    method __add__(other) {
+        when not is_a(other, mat) {
+            yield error("Addition requires a Matrix")
+        } otherwise {
+            when not _same_shape(other) {
+                yield error("Matrices must have the same shape")
+            } otherwise {
+                out = []
+                r = _row_count()
+                c = _col_count()
+                i = 0
+                whenever i < r {
+                    row = []
+                    j = 0
+                    whenever j < c {
+                        row = row + [rows[i][j] + other.rows[i][j]]
+                        j = j + 1
+                    }
+                    out = out + [row]
+                    i = i + 1
+                }
+                yield mat(out)
+            }
+        }
+    }
+
+    method __sub__(other) {
+        when not is_a(other, mat) {
+            yield error("Subtraction requires a Matrix")
+        } otherwise {
+            when not _same_shape(other) {
+                yield error("Matrices must have the same shape")
+            } otherwise {
+                out = []
+                r = _row_count()
+                c = _col_count()
+                i = 0
+                whenever i < r {
+                    row = []
+                    j = 0
+                    whenever j < c {
+                        row = row + [rows[i][j] - other.rows[i][j]]
+                        j = j + 1
+                    }
+                    out = out + [row]
+                    i = i + 1
+                }
+                yield mat(out)
+            }
+        }
+    }
+
+    method __mul__(other) {
+        when _is_number(other) {
+            out = []
+            r = _row_count()
+            c = _col_count()
+            i = 0
+            whenever i < r {
+                row = []
+                j = 0
+                whenever j < c {
+                    row = row + [rows[i][j] * other]
+                    j = j + 1
+                }
+                out = out + [row]
+                i = i + 1
+            }
+            yield mat(out)
+        } orwhen is_a(other, vec) {
+            when _col_count() != other.size() {
+                yield error("Matrix column count must match Vector size")
+            } otherwise {
+                out = []
+                r = _row_count()
+                i = 0
+                whenever i < r {
+                    out = out + [_dot_list(rows[i], other.data)]
+                    i = i + 1
+                }
+                yield vec(out)
+            }
+        } orwhen is_a(other, mat) {
+            when _col_count() != other._row_count() {
+                yield error("Left Matrix column count must match right Matrix row count")
+            } otherwise {
+                out = []
+                r = _row_count()
+                c = other._col_count()
+                i = 0
+                whenever i < r {
+                    row = []
+                    j = 0
+                    whenever j < c {
+                        row = row + [_dot_list(rows[i], other._column(j))]
+                        j = j + 1
+                    }
+                    out = out + [row]
+                    i = i + 1
+                }
+                yield mat(out)
+            }
+        } otherwise {
+            yield error("Multiplication requires a scalar, Vector, or Matrix")
+        }
+    }
+
+    method __pow__(power) {
+        when not _is_number(power) {
+            yield error("Power requires a scalar")
+        } otherwise {
+            when _row_count() != _col_count() {
+                yield error("Power requires a square Matrix")
+            } otherwise {
+                power_int = Integer(power)
+                when power_int != power {
+                    yield error("Power must be an integer")
+                } orwhen power_int < 0 {
+                    yield error("Power cannot be negative")
+                } otherwise {
+                    result = identity(_row_count())
+                    i = 0
+                    whenever i < power_int {
+                        result = result * mat(rows)
+                        i = i + 1
+                    }
+                    yield result
+                }
+            }
+        }
+    }
+
+    method __eq__(other) {
+        when not is_a(other, mat) {
+            yield 0
+        } otherwise {
+            when not _same_shape(other) {
+                yield 0
+            } otherwise {
+                same = 1
+                r = _row_count()
+                c = _col_count()
+                i = 0
+                whenever i < r {
+                    j = 0
+                    whenever j < c {
+                        when rows[i][j] != other.rows[i][j] {
+                            same = 0
+                        }
+                        j = j + 1
+                    }
+                    i = i + 1
+                }
+                yield same
+            }
+        }
+    }
+
+    method __neq__(other) {
+        yield not (__eq__(other))
+    }
+}

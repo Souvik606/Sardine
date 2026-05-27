@@ -1,0 +1,55 @@
+--- linalg stdlib: vec and mat ---
+--- vec operations ---
+[5, 7, 9]
+[3, 3, 3]
+32
+[2, 4, 6]
+[1, 4, 9]
+32
+0
+1
+[-1, -2, -3]
+--- vec invalid ops ---
+Caught expected error: Traceback (most recent call last):
+  File sards/stdlib/linalg.sad, line 47, in <program>
+        method __add__(other) {
+               ^^^^^^^^^^^^^^^^
+  File sards/stdlib/linalg.sad, line 52, in method __add__
+                    yield error("Vectors must have the same size")
+                          ^
+IllegalOperationError: Vectors must have the same size
+--- mat operations ---
+[[58, 64], [139, 154]]
+[[2, 4, 6], [8, 10, 12]]
+[14, 32]
+--- mat methods ---
+[[1, 4], [2, 5], [3, 6]]
+2
+1
+[[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+[[-24.0, 18.0, 5.0], [20.0, -15.0, -4.0], [-5.0, 4.0, 1.0]]
+--- mat invalid ops ---
+Caught expected error: Traceback (most recent call last):
+  File sards/stdlib/linalg.sad, line 410, in <program>
+        method __add__(other) {
+               ^^^^^^^^^^^^^^^^
+  File sards/stdlib/linalg.sad, line 415, in method __add__
+                    yield error("Matrices must have the same shape")
+                          ^
+IllegalOperationError: Matrices must have the same shape
+Caught expected error: Traceback (most recent call last):
+  File sards/stdlib/linalg.sad, line 462, in <program>
+        method __mul__(other) {
+               ^^^^^^^^^^^^^^^^
+  File sards/stdlib/linalg.sad, line 481, in method __mul__
+                    yield error("Matrix column count must match Vector size")
+                          ^
+IllegalOperationError: Matrix column count must match Vector size
+Caught expected error: Traceback (most recent call last):
+  File sards/stdlib/linalg.sad, line 407, in <program>
+            yield inverse()
+                  ^^^^^^^^^
+  File sards/stdlib/linalg.sad, line 321, in method inverse
+                yield error("Inverse requires a square Matrix")
+                      ^
+IllegalOperationError: Inverse requires a square Matrix

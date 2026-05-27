@@ -73,4 +73,5 @@ KEYWORDS = ['define', 'and', 'or', 'not', 'when', 'orwhen', 'otherwise', 'Cycle'
             'summon', 'from', 'as']
 
 ERROR_TYPES=['RunTimeError','IllegalOperationError','DivisionByZeroError','IndexOutOfBoundsError',
-             'NameError','ArgumentError','InvalidErrorTypeError','ModuleError']
+             'NameError','ArgumentError','InvalidErrorTypeError','ModuleError',
+             'AttributeError','DictKeyError','TypeError','ValueError']

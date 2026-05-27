@@ -40,6 +40,7 @@ global_symbol_table.set("String", BuiltInFunction.String)
 global_symbol_table.set("type", BuiltInFunction.type)
 global_symbol_table.set("super", BuiltInFunction.super)
 global_symbol_table.set("is_a", BuiltInFunction.is_a)
+global_symbol_table.set("error", BuiltInFunction.error)
 
 
 def run(filename, input_text):
