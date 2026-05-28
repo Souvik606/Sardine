@@ -41,6 +41,9 @@ global_symbol_table.set("type", BuiltInFunction.type)
 global_symbol_table.set("super", BuiltInFunction.super)
 global_symbol_table.set("is_a", BuiltInFunction.is_a)
 global_symbol_table.set("error", BuiltInFunction.error)
+global_symbol_table.set("len", BuiltInFunction.len)
+global_symbol_table.set("range", BuiltInFunction.range)
+global_symbol_table.set("exit", BuiltInFunction.exit)
 
 
 def run(filename, input_text):

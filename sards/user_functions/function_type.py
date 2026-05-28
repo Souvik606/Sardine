@@ -548,6 +548,151 @@ class BuiltInFunction(BaseFunction):
             )
         )
 
+    def execute_len(self, pos_args, kw_args, exec_context):
+        from sards.core import RunTimeResult
+        from sards.data_types import Number, List, String, Dict
+        from sards.core.error import IllegalOperationError
+        res = RunTimeResult()
+
+        if len(pos_args) != 1 or kw_args:
+            return res.failure(
+                ArgumentError(
+                    self.pos_start, self.pos_end,
+                    "len() takes exactly 1 argument",
+                    exec_context
+                )
+            )
+
+        arg = pos_args[0]
+        if isinstance(arg, List):
+            val = len(arg.elements)
+        elif isinstance(arg, String):
+            val = len(arg.value)
+        elif isinstance(arg, Dict):
+            val = len(arg.elements)
+        else:
+            return res.failure(
+                IllegalOperationError(
+                    self.pos_start, self.pos_end,
+                    f"Type '{type(arg).__name__}' has no length",
+                    exec_context
+                )
+            )
+
+        return res.success(Number(val))
+
+    def execute_range(self, pos_args, kw_args, exec_context):
+        from sards.core import RunTimeResult
+        from sards.data_types import Number, List
+        from sards.core.error import IllegalOperationError
+        res = RunTimeResult()
+
+        if len(pos_args) < 1 or len(pos_args) > 3 or kw_args:
+            return res.failure(
+                ArgumentError(
+                    self.pos_start, self.pos_end,
+                    "range() takes 1, 2, or 3 arguments",
+                    exec_context
+                )
+            )
+
+        for idx, arg in enumerate(pos_args):
+            if not isinstance(arg, Number) or isinstance(arg.value, float):
+                return res.failure(
+                    IllegalOperationError(
+                        arg.pos_start, arg.pos_end,
+                        f"Argument {idx + 1} to range() must be an integer Number",
+                        exec_context
+                    )
+                )
+
+        vals = [arg.value for arg in pos_args]
+        if len(vals) == 1:
+            start = 0
+            end = vals[0]
+            step = 1
+        elif len(vals) == 2:
+            start = vals[0]
+            end = vals[1]
+            step = 1
+        else:
+            start = vals[0]
+            end = vals[1]
+            step = vals[2]
+
+        if step == 0:
+            return res.failure(
+                IllegalOperationError(
+                    pos_args[-1].pos_start, pos_args[-1].pos_end,
+                    "range() step cannot be 0",
+                    exec_context
+                )
+            )
+
+        elements = []
+        for i in range(start, end, step):
+            elements.append(Number(i).set_context(exec_context))
+
+        return res.success(
+            List(elements)
+            .set_context(exec_context)
+            .set_pos(self.pos_start, self.pos_end)
+        )
+
+    def execute_exit(self, pos_args, kw_args, exec_context):
+        from sards.core import RunTimeResult
+        res = RunTimeResult()
+        if pos_args or kw_args:
+            return res.failure(
+                ArgumentError(
+                    self.pos_start, self.pos_end,
+                    "exit() takes no arguments",
+                    exec_context
+                )
+            )
+        import sys
+        sys.exit(0)
+
+
+class BoundMethod:
+    """
+    Wraps a Python function and binds it to a primitive instance.
+    When executed, it passes the instance as the first argument.
+    """
+    def __init__(self, name, instance, python_func):
+        self.name = name
+        self.instance = instance
+        self.python_func = python_func
+        self.pos_start = None
+        self.pos_end = None
+        self.context = None
+
+    def set_pos(self, pos_start=None, pos_end=None):
+        self.pos_start = pos_start
+        self.pos_end = pos_end
+        return self
+
+    def set_context(self, context=None):
+        self.context = context
+        return self
+
+    def execute(self, pos_args, kw_args, call_context=None):
+        from sards.core import RunTimeResult
+        res = RunTimeResult()
+        val = res.register(self.python_func(self.instance, pos_args, kw_args, call_context))
+        if res.should_return():
+            return res
+        return res.success(val)
+
+    def copy(self):
+        copy = BoundMethod(self.name, self.instance, self.python_func)
+        copy.set_context(self.context)
+        copy.set_pos(self.pos_start, self.pos_end)
+        return copy
+
+    def __repr__(self):
+        return f"<bound method {self.name} of {self.instance}>"
+
 
 BuiltInFunction.show = BuiltInFunction('show')
 BuiltInFunction.listen = BuiltInFunction('listen')
@@ -557,3 +702,6 @@ BuiltInFunction.type = BuiltInFunction('type')
 BuiltInFunction.super = BuiltInFunction('super')
 BuiltInFunction.is_a = BuiltInFunction('is_a')
 BuiltInFunction.error = BuiltInFunction('error')
+BuiltInFunction.len = BuiltInFunction('len')
+BuiltInFunction.range = BuiltInFunction('range')
+BuiltInFunction.exit = BuiltInFunction('exit')

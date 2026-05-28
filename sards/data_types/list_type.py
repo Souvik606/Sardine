@@ -309,3 +309,215 @@ class List:
         copy.set_pos(self.pos_start, self.pos_end)
         copy.set_context(self.context)
         return copy
+
+    def get_attr(self, name, calling_context):
+        from sards.user_functions import BoundMethod
+        from sards.core.error import AttributeError, ArgumentError, IllegalOperationError, IndexOutOfBoundsError
+        from sards.core import RunTimeResult
+        from sards.data_types import Number, String
+
+        def method_append(instance, pos_args, kw_args, exec_context):
+            res = RunTimeResult()
+            if len(pos_args) != 1 or kw_args:
+                return res.failure(ArgumentError(instance.pos_start, instance.pos_end, "append() takes exactly 1 argument", exec_context))
+            instance.elements.append(pos_args[0])
+            return res.success(instance)
+
+        def method_prepend(instance, pos_args, kw_args, exec_context):
+            res = RunTimeResult()
+            if len(pos_args) != 1 or kw_args:
+                return res.failure(ArgumentError(instance.pos_start, instance.pos_end, "prepend() takes exactly 1 argument", exec_context))
+            instance.elements.insert(0, pos_args[0])
+            return res.success(instance)
+
+        def method_insert(instance, pos_args, kw_args, exec_context):
+            res = RunTimeResult()
+            if len(pos_args) != 2 or kw_args:
+                return res.failure(ArgumentError(instance.pos_start, instance.pos_end, "insert() takes exactly 2 arguments: (index, item)", exec_context))
+            idx = pos_args[0]
+            if not isinstance(idx, Number) or isinstance(idx.value, float):
+                return res.failure(IllegalOperationError(idx.pos_start, idx.pos_end, "Index must be an integer Number", exec_context))
+            
+            instance.elements.insert(idx.value, pos_args[1])
+            return res.success(instance)
+
+        def method_pop(instance, pos_args, kw_args, exec_context):
+            res = RunTimeResult()
+            if len(pos_args) > 1 or kw_args:
+                return res.failure(ArgumentError(instance.pos_start, instance.pos_end, "pop() takes at most 1 argument: [index]", exec_context))
+            
+            if len(pos_args) == 1:
+                idx = pos_args[0]
+                if not isinstance(idx, Number) or isinstance(idx.value, float):
+                    return res.failure(IllegalOperationError(idx.pos_start, idx.pos_end, "Index must be an integer Number", exec_context))
+                index_val = idx.value
+            else:
+                index_val = -1
+
+            try:
+                popped = instance.elements.pop(index_val)
+                return res.success(popped)
+            except IndexError:
+                return res.failure(IndexOutOfBoundsError(instance.pos_start, instance.pos_end, "Index out of bounds", exec_context))
+
+        def method_remove(instance, pos_args, kw_args, exec_context):
+            res = RunTimeResult()
+            if len(pos_args) != 1 or kw_args:
+                return res.failure(ArgumentError(instance.pos_start, instance.pos_end, "remove() takes exactly 1 argument", exec_context))
+            
+            target = pos_args[0]
+            found_idx = -1
+            for i, el in enumerate(instance.elements):
+                eq_node, err = el.get_comparison_eq(target) if hasattr(el, 'get_comparison_eq') else (None, None)
+                if eq_node and eq_node.value == 1:
+                    found_idx = i
+                    break
+                elif not hasattr(el, 'get_comparison_eq') and hasattr(el, 'value') and hasattr(target, 'value') and el.value == target.value:
+                    found_idx = i
+                    break
+            
+            if found_idx == -1:
+                return res.failure(IllegalOperationError(target.pos_start, target.pos_end, "Element not found in list", exec_context))
+            
+            instance.elements.pop(found_idx)
+            return res.success(instance)
+
+        def method_clear(instance, pos_args, kw_args, exec_context):
+            res = RunTimeResult()
+            if pos_args or kw_args:
+                return res.failure(ArgumentError(instance.pos_start, instance.pos_end, "clear() takes no arguments", exec_context))
+            instance.elements.clear()
+            return res.success(instance)
+
+        def method_sort(instance, pos_args, kw_args, exec_context):
+            res = RunTimeResult()
+            descending = False
+            if len(pos_args) > 1 or kw_args:
+                return res.failure(ArgumentError(instance.pos_start, instance.pos_end, "sort() takes at most 1 argument: [descending]", exec_context))
+            if len(pos_args) == 1:
+                desc = pos_args[0]
+                if not isinstance(desc, Number) or isinstance(desc.value, float):
+                    return res.failure(IllegalOperationError(desc.pos_start, desc.pos_end, "descending argument must be a Boolean Number (0 or 1)", exec_context))
+                descending = bool(desc.value)
+
+            import builtins
+            try:
+                sorted_elements = sorted(instance.elements, key=lambda x: x.value, reverse=descending)
+                new_list = List([el.copy() for el in sorted_elements]).set_context(calling_context)
+                return res.success(new_list)
+            except (builtins.TypeError, builtins.AttributeError):
+                return res.failure(IllegalOperationError(instance.pos_start, instance.pos_end, "List elements are not comparable for sorting", exec_context))
+
+        def method_reverse(instance, pos_args, kw_args, exec_context):
+            res = RunTimeResult()
+            if pos_args or kw_args:
+                return res.failure(ArgumentError(instance.pos_start, instance.pos_end, "reverse() takes no arguments", exec_context))
+            reversed_elements = [el.copy() for el in reversed(instance.elements)]
+            new_list = List(reversed_elements).set_context(calling_context)
+            return res.success(new_list)
+
+        def method_slice(instance, pos_args, kw_args, exec_context):
+            res = RunTimeResult()
+            if len(pos_args) != 2 or kw_args:
+                return res.failure(ArgumentError(instance.pos_start, instance.pos_end, "slice() takes exactly 2 arguments: (start, end)", exec_context))
+            
+            start_arg = pos_args[0]
+            end_arg = pos_args[1]
+            if not isinstance(start_arg, Number) or isinstance(start_arg.value, float) or not isinstance(end_arg, Number) or isinstance(end_arg.value, float):
+                return res.failure(IllegalOperationError(instance.pos_start, instance.pos_end, "Slice bounds must be integer Numbers", exec_context))
+            
+            sliced_elements = [el.copy() for el in instance.elements[start_arg.value:end_arg.value]]
+            return res.success(List(sliced_elements).set_context(calling_context))
+
+        def method_join(instance, pos_args, kw_args, exec_context):
+            res = RunTimeResult()
+            if len(pos_args) != 1 or kw_args:
+                return res.failure(ArgumentError(instance.pos_start, instance.pos_end, "join() takes exactly 1 argument: (separator)", exec_context))
+            
+            sep = pos_args[0]
+            if not isinstance(sep, String):
+                return res.failure(IllegalOperationError(sep.pos_start, sep.pos_end, "Separator must be a String", exec_context))
+            
+            joined_str = sep.value.join(str(el.value if hasattr(el, 'value') else el) for el in instance.elements)
+            return res.success(String(joined_str).set_context(calling_context))
+
+        def method_index_of(instance, pos_args, kw_args, exec_context):
+            res = RunTimeResult()
+            if len(pos_args) != 1 or kw_args:
+                return res.failure(ArgumentError(instance.pos_start, instance.pos_end, "index_of() takes exactly 1 argument", exec_context))
+            
+            target = pos_args[0]
+            found_idx = -1
+            for i, el in enumerate(instance.elements):
+                eq_node, err = el.get_comparison_eq(target) if hasattr(el, 'get_comparison_eq') else (None, None)
+                if eq_node and eq_node.value == 1:
+                    found_idx = i
+                    break
+                elif not hasattr(el, 'get_comparison_eq') and hasattr(el, 'value') and hasattr(target, 'value') and el.value == target.value:
+                    found_idx = i
+                    break
+            
+            return res.success(Number(found_idx))
+
+        def method_contains(instance, pos_args, kw_args, exec_context):
+            res = RunTimeResult()
+            if len(pos_args) != 1 or kw_args:
+                return res.failure(ArgumentError(instance.pos_start, instance.pos_end, "contains() takes exactly 1 argument", exec_context))
+            
+            target = pos_args[0]
+            found = 0
+            for el in instance.elements:
+                eq_node, err = el.get_comparison_eq(target) if hasattr(el, 'get_comparison_eq') else (None, None)
+                if eq_node and eq_node.value == 1:
+                    found = 1
+                    break
+                elif not hasattr(el, 'get_comparison_eq') and hasattr(el, 'value') and hasattr(target, 'value') and el.value == target.value:
+                    found = 1
+                    break
+            
+            return res.success(Number(found))
+
+        def method_extend(instance, pos_args, kw_args, exec_context):
+            res = RunTimeResult()
+            if len(pos_args) != 1 or kw_args:
+                return res.failure(ArgumentError(instance.pos_start, instance.pos_end, "extend() takes exactly 1 argument", exec_context))
+            
+            other = pos_args[0]
+            if not isinstance(other, List):
+                return res.failure(IllegalOperationError(other.pos_start, other.pos_end, "Argument to extend() must be a List", exec_context))
+            
+            instance.elements.extend([el.copy() for el in other.elements])
+            return res.success(instance)
+
+        def method_copy(instance, pos_args, kw_args, exec_context):
+            res = RunTimeResult()
+            if pos_args or kw_args:
+                return res.failure(ArgumentError(instance.pos_start, instance.pos_end, "copy() takes no arguments", exec_context))
+            return res.success(instance.copy())
+
+        methods = {
+            "append": method_append,
+            "prepend": method_prepend,
+            "insert": method_insert,
+            "pop": method_pop,
+            "remove": method_remove,
+            "clear": method_clear,
+            "sort": method_sort,
+            "reverse": method_reverse,
+            "slice": method_slice,
+            "join": method_join,
+            "index_of": method_index_of,
+            "contains": method_contains,
+            "extend": method_extend,
+            "copy": method_copy
+        }
+
+        if name in methods:
+            bound = BoundMethod(name, self, methods[name])
+            return bound.set_context(calling_context).set_pos(self.pos_start, self.pos_end), None
+
+        return None, AttributeError(
+            self.pos_start, self.pos_end,
+            f"'{type(self).__name__}' has no attribute '{name}'",
+            calling_context
+        )
