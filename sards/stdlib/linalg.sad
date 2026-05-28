@@ -114,6 +114,7 @@ model vec {
         # acos via atan: acos(x) = atan(sqrt(1-x^2)/x) with quadrant correction
         when x == 1 { yield 0 }
         orwhen x == -1 { yield 3.14159265358979 }
+        orwhen x == 0 { yield 1.5707963267948966 }
         otherwise {
             arg = _sqrt(1 - x * x) / x
             r = _atan(arg)
@@ -291,7 +292,7 @@ model vec {
     }
 
     method scale(scalar) {
-        yield vec.__mul__(scalar)
+        yield __mul__(scalar)
     }
 
     # ── Static-style constructors (call on any vec instance) ──
