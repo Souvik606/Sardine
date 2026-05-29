@@ -1016,6 +1016,8 @@ class Interpreter:
                 value.set_context(context)
             return res.success(value)
         else:
+            if not hasattr(value, 'getByIndex'):
+                return res.failure(RunTimeError(node.pos_start, node.pos_end, f"Type '{type(value).__name__}' is not scriptable/indexable", context))
             value, error = value.getByIndex(indexes)
             if error:
                 return res.failure(error)
