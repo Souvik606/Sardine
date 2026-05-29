@@ -361,6 +361,10 @@ class BuiltInFunction(BaseFunction):
             return res.failure(
                 ArgumentError(self.pos_start, self.pos_end, "Integer() takes exactly one argument", self.context))
 
+        if not hasattr(pos_args[0], 'value'):
+            return res.failure(
+                ArgumentError(self.pos_start, self.pos_end, "Argument must be a primitive value (Number or String)", self.context))
+
         try:
             number = int(pos_args[0].value)
         except (ValueError, TypeError) as exc:
@@ -379,6 +383,10 @@ class BuiltInFunction(BaseFunction):
         if len(pos_args) != 1 or len(kw_args) > 0:
             return res.failure(
                 ArgumentError(self.pos_start, self.pos_end, "String() takes exactly one argument", self.context))
+
+        if not hasattr(pos_args[0], 'value'):
+            return res.failure(
+                ArgumentError(self.pos_start, self.pos_end, "Argument must be a primitive value (Number or String)", self.context))
 
         try:
             string = str(pos_args[0].value)
@@ -549,6 +557,9 @@ class BuiltInFunction(BaseFunction):
 
         msg = "Illegal operation"
         if len(pos_args) >= 1:
+            if not hasattr(pos_args[0], 'value'):
+                return res.failure(
+                    ArgumentError(self.pos_start, self.pos_end, "Error message must be a String value", exec_context))
             msg = pos_args[0].value
 
         return res.failure(

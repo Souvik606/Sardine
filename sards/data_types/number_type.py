@@ -187,6 +187,9 @@ class Number:
             if isinstance(self.value, float) or isinstance(operand.value, float):
                 return None, IllegalOperationError(
                     operand.pos_start, operand.pos_end, 'Bitwise operations require integer Numbers', self.context)
+            if operand.value < 0:
+                return None, IllegalOperationError(
+                    operand.pos_start, operand.pos_end, 'Negative shift count', self.context)
             return Number(self.value << operand.value).set_context(self.context), None
         else: return None, IllegalOperationError(
                     operand.pos_start, operand.pos_end, 'Expected a Number type', self.context)
@@ -196,6 +199,9 @@ class Number:
             if isinstance(self.value, float) or isinstance(operand.value, float):
                 return None, IllegalOperationError(
                     operand.pos_start, operand.pos_end, 'Bitwise operations require integer Numbers', self.context)
+            if operand.value < 0:
+                return None, IllegalOperationError(
+                    operand.pos_start, operand.pos_end, 'Negative shift count', self.context)
             return Number(self.value >> operand.value).set_context(self.context), None
         else: return None, IllegalOperationError(
                     operand.pos_start, operand.pos_end, 'Expected a Number type', self.context)
@@ -212,7 +218,16 @@ class Number:
 
     def exponent(self, operand):
         if isinstance(operand, Number):
-            return Number(self.value ** operand.value).set_context(self.context), None
+            try:
+                return Number(self.value ** operand.value).set_context(self.context), None
+            except ZeroDivisionError:
+                return None, DivisionByZeroError(
+                    operand.pos_start, operand.pos_end, 'Division by zero: 0.0 cannot be raised to a negative power', self.context
+                )
+            except OverflowError:
+                return None, IllegalOperationError(
+                    operand.pos_start, operand.pos_end, 'Result too large (overflow)', self.context
+                )
         else: return None, IllegalOperationError(
                     operand.pos_start, operand.pos_end, 'Expected a Number type', self.context)
 
