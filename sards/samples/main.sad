@@ -1,266 +1,94 @@
 # ============================================================
-# main.sad — Testing stat.sad and random.sad standard libraries
+# main.sad — Testing newline handling in lists and arguments
 # ============================================================
 
-summon stat
-summon random
+show("=== TESTING NEWLINES IN CLASS ATTRIBUTES AND METHODS ===")
 
-show("=== STAT LIBRARY TESTS ===")
+model Point {
+    open attr <
+        x = 0,
+        y = 0
+    >
 
-data = [4, 8, 15, 16, 23, 42, 7, 3, 9, 11]
-show("Data:")
-show(data)
-show("")
+    init(
+        x,
+        y
+    ) {
+    }
 
-# ── Measures of dispersion ─────────────────────────────────
-show("Range         :")
-show(stat.range(data))
-show("")
-
-# ── Measures of central tendency ─────────────────────────
-show("--- Central Tendency ---")
-show("Mean          :")
-show(stat.mean(data))
-show("Median        :")
-show(stat.median(data))
-show("Mode of [1,2,2,3,3,3,4]:")
-show(stat.mode([1, 2, 2, 3, 3, 3, 4]))
-show("Geometric Mean of [1,2,4,8]:")
-show(stat.geometric_mean([1, 2, 4, 8]))
-show("Harmonic Mean of [1,2,4]:")
-show(stat.harmonic_mean([1, 2, 4]))
-show("")
-
-# ── Measures of spread ───────────────────────────────────
-show("--- Spread / Dispersion ---")
-show("Pop. Variance :")
-show(stat.variance(data))
-show("Samp. Variance:")
-show(stat.variance_s(data))
-show("Pop. Std Dev  :")
-show(stat.stddev(data))
-show("Samp. Std Dev :")
-show(stat.stddev_s(data))
-show("")
-
-# ── Normalization / Z-scores ─────────────────────────────
-show("--- Normalization ---")
-show("Z-scores      :")
-show(stat.zscore(data))
-show("Min-max norm  :")
-show(stat.normalize(data))
-show("")
-
-# ── Percentiles and Quartiles ────────────────────────────
-show("--- Percentiles & Quartiles ---")
-show("10th percentile:")
-show(stat.percentile(data, 10))
-show("25th percentile:")
-show(stat.percentile(data, 25))
-show("50th percentile:")
-show(stat.percentile(data, 50))
-show("75th percentile:")
-show(stat.percentile(data, 75))
-show("90th percentile:")
-show(stat.percentile(data, 90))
-qs = stat.quartiles(data)
-show("Quartiles [Q1, Q2, Q3]:")
-show(qs)
-show("IQR           :")
-show(stat.iqr(data))
-show("")
-
-# ── Correlation ──────────────────────────────────────────
-show("--- Correlation ---")
-xs = [1, 2, 3, 4, 5]
-ys = [2, 4, 5, 4, 5]
-show("X:")
-show(xs)
-show("Y:")
-show(ys)
-show("Covariance    :")
-show(stat.covariance(xs, ys))
-show("Sample Cov.   :")
-show(stat.covariance_s(xs, ys))
-show("Correlation   :")
-show(stat.correlation(xs, ys))
-show("")
-
-# ── Time Series ────────────────────────────────────────────
-show("--- Time Series / Rolling ---")
-small = [1, 2, 3, 4, 5]
-show("Data:")
-show(small)
-show("Moving Avg w=3:")
-show(stat.moving_average(small, 3))
-show("")
-
-# ── Frequency & Counting ─────────────────────────────────
-show("--- Frequency Analysis ---")
-samples = [1, 2, 2, 3, 3, 3, 4, 4, 4, 4]
-show("Data:")
-show(samples)
-show("Frequency dict:")
-show(stat.frequency(samples))
-show("")
-
-
-
-show("=== RANDOM LIBRARY TESTS ===")
-
-# Create a seeded generator for reproducibility
-r = random.rng(42)
-show("Created RNG with seed 42")
-show("")
-
-# ── Basic random floats ───────────────────────────────────
-show("--- Random Floats ---")
-f1 = r.rand()
-f2 = r.rand()
-f3 = r.rand()
-u1 = r.uniform(5, 10)
-show("rand() calls 1,2,3:")
-show(f1)
-show(f2)
-show(f3)
-show("uniform(5,10):")
-show(u1)
-show("")
-
-# ── Random integers ───────────────────────────────────────
-show("--- Random Integers ---")
-d1 = r.randint(1, 6)
-d2 = r.randint(1, 6)
-d3 = r.randint(1, 6)
-show("Three randint(1,6) rolls:")
-show(d1)
-show(d2)
-show(d3)
-ints = r.randlist(8, 1, 100)
-show("randlist(8, 1, 100):")
-show(ints)
-show("")
-
-# ── Coin flip & Dice ──────────────────────────────────────
-show("--- Coin Flip & Dice ---")
-c1 = r.coin_flip()
-c2 = r.coin_flip()
-c3 = r.coin_flip()
-show("Three coin flips:")
-show(c1)
-show(c2)
-show(c3)
-show("roll_dice(6):")
-show(r.roll_dice(6))
-show("roll_dice(20):")
-show(r.roll_dice(20))
-five_dice = r.roll_dice_n(6, 5)
-show("roll_dice_n(6, 5):")
-show(five_dice)
-show("")
-
-# ── Choice, Choices, Sample ───────────────────────────────
-show("--- Selections ---")
-fruits = ["apple", "banana", "cherry", "date", "elderberry"]
-show("Items:")
-show(fruits)
-ch1 = r.pick(fruits)
-ch2 = r.pick(fruits)
-show("pick() calls:")
-show(ch1)
-show(ch2)
-ch3 = r.picks(fruits, 3)
-show("picks(fruits, 3):")
-show(ch3)
-sm3 = r.draw(fruits, 3)
-show("draw(fruits, 3):")
-show(sm3)
-show("")
-
-# ── Shuffle ───────────────────────────────────────────────
-show("--- Shuffle ---")
-nums = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-show("Original:")
-show(nums)
-sh1 = r.shuffle(nums)
-show("Shuffled once:")
-show(sh1)
-sh2 = r.shuffle(nums)
-show("Shuffled again:")
-show(sh2)
-show("")
-
-# ── Weighted choice ───────────────────────────────────────
-show("--- Weighted Choice ---")
-prizes = ["jackpot", "gold", "silver", "nothing"]
-weights = [1, 5, 20, 74]
-show("Items:")
-show(prizes)
-show("Weights:")
-show(weights)
-results = []
-i = 0
-whenever i < 10 {
-    pick = r.weighted_pick(prizes, weights)
-    results = results + [pick]
-    i = i + 1
+    open method display(
+        prefix
+    ) {
+        show(prefix + "Point(...)")
+    }
 }
-show("10 weighted spins:")
-show(results)
-show("")
 
-# ── Probability distributions ─────────────────────────────
-show("--- Probability Distributions ---")
-heads = 0
-i = 0
-whenever i < 20 {
-    heads = heads + r.bernoulli(0.5)
-    i = i + 1
+p1 = Point(
+    10,
+    20
+)
+p1.display(
+    "Created: "
+)
+
+
+show("=== TESTING NEWLINES IN FUNCTIONS ===")
+
+method complex_math(
+    a,
+    b,
+    c=10,
+    d=20
+) {
+    yield a + b + c + d
 }
-show("Bernoulli(0.5) x20 — heads count (expect ~10):")
-show(heads)
 
-geom_samples = []
-i = 0
-whenever i < 5 {
-    geom_samples = geom_samples + [r.geometric(0.3)]
-    i = i + 1
+result = complex_math(
+    1,
+    2,
+    c = 3,
+    d = 4
+)
+show("Result (expected 10):")
+show(result)
+
+
+show("=== TESTING NEWLINES IN LISTS AND DICTS ===")
+
+my_list = [
+    1,
+    2,
+    3,
+    4,
+    5
+]
+show("List:")
+show(my_list)
+
+my_dict = {
+    "a": 1,
+    "b": 2,
+    "c": 3
 }
-show("Geometric(0.3) x5 samples:")
-show(geom_samples)
-show("")
+show("Dict:")
+show(my_dict)
 
-# ── Re-seed and reproducibility ───────────────────────────
-show("--- Reproducibility ---")
-r.reseed(42)
-first_run = r.randlist(5, 1, 100)
-r.reseed(42)
-second_run = r.randlist(5, 1, 100)
-show("Run 1 (seed=42):")
-show(first_run)
-show("Run 2 (seed=42):")
-show(second_run)
-show("Both equal:")
-show(first_run == second_run)
-show("")
 
-# ── Combining stat + random ───────────────────────────────
-show("=== COMBINED: stat + random ===")
-r.reseed(999)
-population = r.randlist(20, 1, 100)
-show("Random population (n=20):")
-show(population)
-show("Mean    :")
-show(stat.mean(population))
-show("Std Dev :")
-show(stat.stddev(population))
-show("Median  :")
-show(stat.median(population))
-show("IQR     :")
-show(stat.iqr(population))
-show("Mode    :")
-show(stat.mode(population))
-show("Freq    :")
-show(stat.frequency(population))
-show("")
-show("All tests complete!")
+show("=== TESTING ANONYMOUS FUNCTIONS WITH NEWLINES ===")
+
+my_func = method(
+    x,
+    y
+) {
+    yield x * y
+}
+
+func_result = my_func(
+    5,
+    6
+)
+show("Anonymous func result (expected 30):")
+show(func_result)
+
+
+show("=== ALL NEWLINE TESTS PASSED! ===")

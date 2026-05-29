@@ -2,7 +2,6 @@ from sards.data_types import Number
 from sards.oops_types import ModelInstance
 from sards.user_functions import Function
 
-
 class Model:
     """
     Represents a class blueprint at runtime.

@@ -34,15 +34,15 @@ class-definition: KEYWORD:model IDENTIFIER (COLON IDENTIFIER (COMMA IDENTIFIER)*
 
 class-member: attr-declaration | constructor-definition | method-definition
 
-attr-declaration: (KEYWORD:open | KEYWORD:guarded | KEYWORD:secret)? KEYWORD:attr LT attr-list GT
+attr-declaration: (KEYWORD:open | KEYWORD:guarded | KEYWORD:secret)? KEYWORD:attr LT NEWLINE* attr-list NEWLINE* GT
 
-attr-list: attr-item (COMMA attr-item)*
+attr-list: attr-item (COMMA NEWLINE* attr-item)*
 
 attr-item: IDENTIFIER (EQUAL expression)?
 
-method-definition: (KEYWORD:open | KEYWORD:guarded | KEYWORD:secret)? KEYWORD:method IDENTIFIER? LPAREN (param-list)? RPAREN LPAREN2 (multiline |jump-statements)* RPAREN2
+method-definition: (KEYWORD:open | KEYWORD:guarded | KEYWORD:secret)? KEYWORD:method IDENTIFIER? LPAREN NEWLINE* (param-list)? NEWLINE* RPAREN LPAREN2 (multiline |jump-statements)* RPAREN2
 
-constructor-definition: KEYWORD:init LPAREN (param-list)? RPAREN LPAREN2 NEWLINE* (initializer-list)? (multiline | jump-statements)* NEWLINE* RPAREN2
+constructor-definition: KEYWORD:init LPAREN NEWLINE* (param-list)? NEWLINE* RPAREN LPAREN2 NEWLINE* (initializer-list)? (multiline | jump-statements)* NEWLINE* RPAREN2
 
 initializer-list: initializer-item ((COMMA NEWLINE* | NEWLINE+) initializer-item)*
 
@@ -58,7 +58,7 @@ case-statement: KEYWORD:choice ternary-expression LPAREN2 NEWLINE* (multiline | 
 
 KEYWORD:fallback LPAREN2 NEWLINE* (multiline | jump-statements)* RPAREN2
 
-param-list: param-item (COMMA param-item)*
+param-list: param-item (COMMA NEWLINE* param-item)*
 
 param-item: IDENTIFIER (EQUAL expression)?
 
@@ -86,15 +86,15 @@ unary: (PLUS | MINUS | BITNOT) unary | exponent
 
 exponent: call (EXP unary)*
 
-argument-list: positional-list (COMMA keyword-list)? | keyword-list
+argument-list: positional-list (COMMA NEWLINE* keyword-list)? | keyword-list
 
-positional-list: expression (COMMA expression)*
+positional-list: expression (COMMA NEWLINE* expression)*
 
-keyword-list: keyword-item (COMMA keyword-item)*
+keyword-list: keyword-item (COMMA NEWLINE* keyword-item)*
 
 keyword-item: IDENTIFIER EQUAL expression
 
-call: factor ( (LPAREN (argument-list)? RPAREN) | (DOT IDENTIFIER) | (LPAREN3 expression RPAREN3) )*
+call: factor ( (LPAREN NEWLINE* (argument-list)? NEWLINE* RPAREN) | (DOT IDENTIFIER) | (LPAREN3 expression RPAREN3) )*
 
 factor: INT | FLOAT | STRING | IDENTIFIER (LPAREN3 expression RPAREN3)* | LPAREN expression RPAREN | list-expression | dict-expression | anonymous-func-expr
 
@@ -118,9 +118,9 @@ for-expression: KEYWORD:Cycle IDENTIFIER EQUAL expression COLON expression (COLO
 
 foreach-expression:KEYWORD:trace IDENTIFIER (COMMA IDENTIFIER)* LARROW expression NEWLINE* LPAREN2 (multiline | jump-statements)* RPAREN2
 
-function-definition: KEYWORD:method IDENTIFIER LPAREN (param-list)? RPAREN LPAREN2 (multiline |jump-statements)* RPAREN2
+function-definition: KEYWORD:method IDENTIFIER LPAREN NEWLINE* (param-list)? NEWLINE* RPAREN LPAREN2 (multiline |jump-statements)* RPAREN2
 
-anonymous-func-expr: KEYWORD:method LPAREN (param-list)? RPAREN LPAREN2 (multiline |jump-statements)* RPAREN2
+anonymous-func-expr: KEYWORD:method LPAREN NEWLINE* (param-list)? NEWLINE* RPAREN LPAREN2 (multiline |jump-statements)* RPAREN2
 
 if-expression: KEYWORD:when expression LPAREN2 (multiline | jump-statements)* RPAREN2 NEWLINE* (elif-expression | else-expression)?
 

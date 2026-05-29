@@ -178,6 +178,16 @@ class Function(BaseFunction):
             exec_context = Context(self.name, traceback_parent, self.pos_start)
             exec_context.symbol_table = SymbolTable(self.context.symbol_table)
 
+        from sards.core.constants import MAX_RECURSION_DEPTH
+        from sards.core.error import StackDepthExceededError
+
+        if exec_context.depth > MAX_RECURSION_DEPTH:
+            return res.failure(StackDepthExceededError(
+                self.pos_start, self.pos_end,
+                f"Maximum recursion depth exceeded ({MAX_RECURSION_DEPTH})",
+                exec_context
+            ))
+
         res.register(self.check_and_populate_args(self.param_nodes, pos_args, kw_args, exec_context))
         if res.should_return():
             return res

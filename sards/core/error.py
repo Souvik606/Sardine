@@ -375,3 +375,11 @@ class ModuleError(RunTimeError):
     def __init__(self, pos_start, pos_end, details, context):
         super().__init__(pos_start, pos_end, details, context)
         self.error_name = "ModuleError"
+
+class StackDepthExceededError(RunTimeError):
+    """
+    Error raised when the runtime recursion depth exceeds the maximum allowed limit.
+    """
+    def __init__(self, pos_start, pos_end, details, context):
+        super().__init__(pos_start, pos_end, details, context)
+        self.error_name = "StackDepthExceededError"

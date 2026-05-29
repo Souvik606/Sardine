@@ -21,7 +21,7 @@ from .error import (
     NameError, NotImplementedError, InvalidErrorTypeError, RunTimeError,
     IllegalOperationError, IndexOutOfBoundsError, ArgumentError,
     DivisionByZeroError, ModuleError, AttributeError, DictKeyError,
-    TypeError, ValueError
+    TypeError, ValueError, StackDepthExceededError
 )
 
 # Global module cache: abs_path -> Module instance
@@ -44,6 +44,7 @@ ERROR_CLASS_MAP = {
     "DictKeyError": DictKeyError,
     "TypeError": TypeError,
     "ValueError": ValueError,
+    "StackDepthExceededError": StackDepthExceededError,
 }
 
 
@@ -71,6 +72,7 @@ class Context: # pylint: disable=R0903
         self.parent_entry_pos = parent_entry_pos
         self.symbol_table = None
         self.owner_class=owner_class
+        self.depth = (parent.depth + 1) if parent else 1
 
 
 class RunTimeResult:

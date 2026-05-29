@@ -136,6 +136,7 @@ class Parser: # pylint: disable=R0904
         self.tokens = tokens
         self.current_tok = None
         self.tok_index = -1
+        self.current_depth = 0
         self.advance()
 
     def advance(self):
@@ -149,6 +150,19 @@ class Parser: # pylint: disable=R0904
         self.tok_index -= amount
         self.update_current_tok()
         return self.current_tok
+
+    def _enter_depth(self):
+        from sards.core.constants import MAX_AST_DEPTH
+        self.current_depth += 1
+        if self.current_depth > MAX_AST_DEPTH:
+            return InvalidSyntaxError(
+                self.current_tok.pos_start, self.current_tok.pos_end,
+                f"Expression is too complex (maximum nesting depth of {MAX_AST_DEPTH} exceeded)"
+            )
+        return None
+
+    def _exit_depth(self):
+        self.current_depth -= 1
 
     def update_current_tok(self):
         """Updates current token in the token sequence."""
@@ -450,8 +464,16 @@ class Parser: # pylint: disable=R0904
         res.register_advancement()
         self.advance()
 
+        while self.current_tok.type == T_NEWLINE:
+            res.register_advancement()
+            self.advance()
+
         declarations = res.register(self.attr_list())
         if res.error: return res
+
+        while self.current_tok.type == T_NEWLINE:
+            res.register_advancement()
+            self.advance()
 
         if self.current_tok.type != T_GT:
             return res.failure(InvalidSyntaxError(
@@ -480,6 +502,10 @@ class Parser: # pylint: disable=R0904
         while self.current_tok.type == T_COMMA:
             res.register_advancement()
             self.advance()
+
+            while self.current_tok.type == T_NEWLINE:
+                res.register_advancement()
+                self.advance()
 
             item = res.register(self.attr_item())
             if res.error:
@@ -543,9 +569,17 @@ class Parser: # pylint: disable=R0904
         res.register_advancement()
         self.advance()
 
+        while self.current_tok.type == T_NEWLINE:
+            res.register_advancement()
+            self.advance()
+
         param_nodes = res.register(self.param_list())
         if res.error:
             return res
+
+        while self.current_tok.type == T_NEWLINE:
+            res.register_advancement()
+            self.advance()
 
         if self.current_tok.type != T_RPAREN:
             return res.failure(InvalidSyntaxError(
@@ -649,9 +683,17 @@ class Parser: # pylint: disable=R0904
         res.register_advancement()
         self.advance()
 
+        while self.current_tok.type == T_NEWLINE:
+            res.register_advancement()
+            self.advance()
+
         param_nodes = res.register(self.param_list())
         if res.error:
             return res
+
+        while self.current_tok.type == T_NEWLINE:
+            res.register_advancement()
+            self.advance()
 
         if self.current_tok.type != T_RPAREN:
             return res.failure(InvalidSyntaxError(
@@ -1509,6 +1551,10 @@ class Parser: # pylint: disable=R0904
             res.register_advancement()
             self.advance()
 
+            while self.current_tok.type == T_NEWLINE:
+                res.register_advancement()
+                self.advance()
+
             item = res.register(self.param_item())
             if res.error: return res
             params.append(item)
@@ -1551,9 +1597,17 @@ class Parser: # pylint: disable=R0904
         res.register_advancement()
         self.advance()
 
+        while self.current_tok.type == T_NEWLINE:
+            res.register_advancement()
+            self.advance()
+
         arg_nodes = res.register(self.param_list())
         if res.error:
             return res
+
+        while self.current_tok.type == T_NEWLINE:
+            res.register_advancement()
+            self.advance()
 
         if self.current_tok.type != T_RPAREN:
             return res.failure(
@@ -1629,9 +1683,17 @@ class Parser: # pylint: disable=R0904
         res.register_advancement()
         self.advance()
 
+        while self.current_tok.type == T_NEWLINE:
+            res.register_advancement()
+            self.advance()
+
         arg_nodes = res.register(self.param_list())
         if res.error:
             return res
+
+        while self.current_tok.type == T_NEWLINE:
+            res.register_advancement()
+            self.advance()
 
         if self.current_tok.type != T_RPAREN:
             return res.failure(
@@ -2636,6 +2698,10 @@ class Parser: # pylint: disable=R0904
             res.register_advancement()
             self.advance()
 
+            while self.current_tok.type == T_NEWLINE:
+                res.register_advancement()
+                self.advance()
+
             item = res.register(self.keyword_item())
             if res.error: return res
             keywords.append(item)
@@ -2654,12 +2720,21 @@ class Parser: # pylint: disable=R0904
         positional_args.append(expr)
 
         while self.current_tok.type == T_COMMA:
+            peek_idx = 1
+            while self.tok_index + peek_idx < len(self.tokens) and self.tokens[self.tok_index + peek_idx].type == T_NEWLINE:
+                peek_idx += 1
+            next_tok = self.tokens[self.tok_index + peek_idx] if self.tok_index + peek_idx < len(self.tokens) else None
+            next_next_tok = self.tokens[self.tok_index + peek_idx + 1] if self.tok_index + peek_idx + 1 < len(self.tokens) else None
+            
+            if next_tok and next_tok.type == T_IDENTIFIER and next_next_tok and next_next_tok.type == T_EQ:
+                break
+
             res.register_advancement()
             self.advance()
 
-            if self.current_tok.type == T_IDENTIFIER and self.peek() and self.peek().type == T_EQ:
-                self.reverse()
-                break
+            while self.current_tok.type == T_NEWLINE:
+                res.register_advancement()
+                self.advance()
 
             expr = res.register(self.expression())
             if res.error: return res
@@ -2687,6 +2762,10 @@ class Parser: # pylint: disable=R0904
                 res.register_advancement()
                 self.advance()
 
+                while self.current_tok.type == T_NEWLINE:
+                    res.register_advancement()
+                    self.advance()
+
                 if not (self.current_tok.type == T_IDENTIFIER and self.peek() and self.peek().type == T_EQ):
                     return res.failure(InvalidSyntaxError(
                         self.current_tok.pos_start, self.current_tok.pos_end,
@@ -2713,11 +2792,19 @@ class Parser: # pylint: disable=R0904
                 self.advance()
                 positional_args, keyword_args = [], []
 
+                while self.current_tok.type == T_NEWLINE:
+                    res.register_advancement()
+                    self.advance()
+
                 if self.current_tok.type != T_RPAREN:
                     args = res.register(self.argument_list())
                     if res.error:
                         return res
                     positional_args, keyword_args = args
+
+                while self.current_tok.type == T_NEWLINE:
+                    res.register_advancement()
+                    self.advance()
 
                 if self.current_tok.type != T_RPAREN:
                     return res.failure(InvalidSyntaxError(
@@ -3040,9 +3127,15 @@ class Parser: # pylint: disable=R0904
         """
         res = ParseResult()
 
+        depth_error = self._enter_depth()
+        if depth_error: return res.failure(depth_error)
+
         ternary_node = res.register(self.ternary_expression())
         if res.error:
+            self._exit_depth()
             return res
+            
+        self._exit_depth()
         return res.success(ternary_node)
 
     def logical_expression(self):

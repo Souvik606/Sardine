@@ -11,6 +11,10 @@ DIGITS = '0123456789'
 LETTERS = string.ascii_letters
 LETTERS_DIGITS = DIGITS + LETTERS
 
+# Depth and recursion limits
+MAX_AST_DEPTH = 60
+MAX_RECURSION_DEPTH = 100
+
 # Token Types for mathematical operations and symbols
 T_INT = 'INT'  # Integer number token
 T_FLOAT = 'FLOAT'  # Floating-point number token
@@ -74,4 +78,4 @@ KEYWORDS = ['define', 'and', 'or', 'not', 'when', 'orwhen', 'otherwise', 'Cycle'
 
 ERROR_TYPES=['RunTimeError','IllegalOperationError','DivisionByZeroError','IndexOutOfBoundsError',
              'NameError','ArgumentError','InvalidErrorTypeError','ModuleError',
-             'AttributeError','DictKeyError','TypeError','ValueError']
+             'AttributeError','DictKeyError','TypeError','ValueError', 'StackDepthExceededError']
