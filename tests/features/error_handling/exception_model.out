@@ -49,3 +49,21 @@ DivisionByZeroError: Division by zero
 C7 inner clean
 C7 outer after
 C7 outer clean
+--- Stress Test: Trapping IllegalOperationError ---
+Caught IllegalOperationError:
+  Expected a Number type
+--- Stress Test: Trapping TypeError ---
+Caught TypeError:
+  'not_a_model' is not a class and cannot be inherited from
+--- Stress Test: Trapping ValueError ---
+Caught ValueError:
+  Expected 2 values to unpack, but got 1
+--- Stress Test: Trapping IndexOutOfBoundsError ---
+Caught IndexOutOfBoundsError:
+  Index out of bounds
+--- Stress Test: Trapping DictKeyError ---
+Caught DictKeyError:
+  Key does not exist
+--- Stress Test: Manual exception trigger via error() ---
+Caught manual error via error() as IllegalOperationError:
+  This is a manual failure trigger!
