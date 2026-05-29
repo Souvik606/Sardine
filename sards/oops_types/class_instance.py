@@ -125,17 +125,17 @@ class ModelInstance:
                 attr_owner = self.model.find_attribute_owner(name)
 
                 if access_level == "secret":
-                    current_instance = self.context.symbol_table.get("this")
+                    current_instance = calling_context.symbol_table.get("this") if (calling_context and getattr(calling_context, 'symbol_table', None)) else None
                     if not current_instance or current_instance.model != attr_owner:
                         return None, AttributeError(self.pos_start, self.pos_end,
-                                                    f"Cannot access secret attribute '{name}'", self.context,
+                                                    f"Cannot access secret attribute '{name}'", calling_context,
                                                     hint="'secret' attributes can only be accessed within the model that defines them.")
 
                 if access_level == "guarded":
-                    current_instance = self.context.symbol_table.get("this")
+                    current_instance = calling_context.symbol_table.get("this") if (calling_context and getattr(calling_context, 'symbol_table', None)) else None
                     if not current_instance or not current_instance.model.is_descendant_of(attr_owner):
                         return None, AttributeError(self.pos_start, self.pos_end,
-                                                    f"Cannot access guarded attribute '{name}'", self.context,
+                                                    f"Cannot access guarded attribute '{name}'", calling_context,
                                                     hint="'guarded' attributes can only be accessed within the model or its subclasses.")
 
             return value, None

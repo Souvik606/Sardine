@@ -178,12 +178,14 @@ class List:
                         if temp is None:
                             return None, DictKeyError(
                                 idx.pos_start, idx.pos_end,
-                                "Key does not exist"
+                                "Key does not exist",
+                                self.context
                             )
                     else:
                         return None, DictKeyError(
                             idx.pos_start, idx.pos_end,
-                            "Dictionary keys must be numbers or strings"
+                            "Dictionary keys must be numbers or strings",
+                            self.context
                         )
                 elif isinstance(idx, Number) and not isinstance(idx.value, float):
                     if isinstance(temp, List):
@@ -225,12 +227,14 @@ class List:
                         if temp is None:
                             return None, DictKeyError(
                                 idx.pos_start, idx.pos_end,
-                                "Key does not exist"
+                                "Key does not exist",
+                                self.context
                             )
                     else:
                         return None, DictKeyError(
                             idx.pos_start, idx.pos_end,
-                            "Dictionary keys must be numbers or strings"
+                            "Dictionary keys must be numbers or strings",
+                            self.context
                         )
                 elif isinstance(idx, Number) and not isinstance(idx.value, float):
                     if isinstance(temp, List):
@@ -265,6 +269,7 @@ class List:
                     return None, DictKeyError(
                         last_idx.pos_start, last_idx.pos_end,
                         "Dictionary keys must be numbers or strings",
+                        self.context
                     )
 
             if not isinstance(last_idx, Number) or isinstance(last_idx.value, float):

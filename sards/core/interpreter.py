@@ -1497,53 +1497,71 @@ class Interpreter:
         # ── 2. Check cache ───────────────────────────────────────────────
         if resolved_path in _MODULE_CACHE:
             module_obj = _MODULE_CACHE[resolved_path]
+            if module_obj == "loading":
+                return res.failure(ModuleError(
+                    node.pos_start, node.pos_end,
+                    f"Circular dependency detected: module '{module_name}' is already being loaded",
+                    context
+                ))
         else:
             # ── 3. Read & execute the module ─────────────────────────────
-            with open(resolved_path, 'r', encoding='utf-8') as f:
-                source = f.read()
+            _MODULE_CACHE[resolved_path] = "loading"
+            try:
+                with open(resolved_path, 'r', encoding='utf-8') as f:
+                    source = f.read()
 
-            from .lexer import Lexer
-            from .parser import Parser
+                from .lexer import Lexer
+                from .parser import Parser
 
-            lexer = Lexer(resolved_path, source)
-            tokens, lex_error = lexer.enumerate_tokens()
-            if lex_error:
-                return res.failure(ModuleError(
-                    node.pos_start, node.pos_end,
-                    f"Lexer error in module '{module_name}': {lex_error.details}",
-                    context
-                ))
+                lexer = Lexer(resolved_path, source)
+                tokens, lex_error = lexer.enumerate_tokens()
+                if lex_error:
+                    if _MODULE_CACHE.get(resolved_path) == "loading":
+                        del _MODULE_CACHE[resolved_path]
+                    return res.failure(ModuleError(
+                        node.pos_start, node.pos_end,
+                        f"Lexer error in module '{module_name}': {lex_error.details}",
+                        context
+                    ))
 
-            parser = Parser(tokens)
-            parse_result = parser.parse()
-            if parse_result.error:
-                return res.failure(ModuleError(
-                    node.pos_start, node.pos_end,
-                    f"Syntax error in module '{module_name}': {parse_result.error.details}",
-                    context
-                ))
+                parser = Parser(tokens)
+                parse_result = parser.parse()
+                if parse_result.error:
+                    if _MODULE_CACHE.get(resolved_path) == "loading":
+                        del _MODULE_CACHE[resolved_path]
+                    return res.failure(ModuleError(
+                        node.pos_start, node.pos_end,
+                        f"Syntax error in module '{module_name}': {parse_result.error.details}",
+                        context
+                    ))
 
-            # Build a fresh context for the module, inheriting global builtins
-            mod_symbol_table = SymbolTable(parent=context.symbol_table)
-            mod_context = Context(f"<module '{module_name}'>",
-                                  parent=context,
-                                  parent_entry_pos=node.pos_start)
-            mod_context.symbol_table = mod_symbol_table
-            mod_context.source_dir = os.path.dirname(resolved_path)
+                # Build a fresh context for the module, inheriting global builtins
+                mod_symbol_table = SymbolTable(parent=context.symbol_table)
+                mod_context = Context(f"<module '{module_name}'>",
+                                      parent=context,
+                                      parent_entry_pos=node.pos_start)
+                mod_context.symbol_table = mod_symbol_table
+                mod_context.source_dir = os.path.dirname(resolved_path)
 
-            mod_interpreter = Interpreter()
-            mod_res = mod_interpreter.visit(parse_result.node, mod_context)
-            if mod_res.error:
-                return res.failure(ModuleError(
-                    node.pos_start, node.pos_end,
-                    f"Runtime error in module '{module_name}': {mod_res.error.details}",
-                    context
-                ))
+                mod_interpreter = Interpreter()
+                mod_res = mod_interpreter.visit(parse_result.node, mod_context)
+                if mod_res.error:
+                    if _MODULE_CACHE.get(resolved_path) == "loading":
+                        del _MODULE_CACHE[resolved_path]
+                    return res.failure(ModuleError(
+                        node.pos_start, node.pos_end,
+                        f"Runtime error in module '{module_name}': {mod_res.error.details}",
+                        context
+                    ))
 
-            module_obj = Module(module_name, mod_symbol_table)
-            module_obj.set_pos(node.pos_start, node.pos_end)
-            module_obj.set_context(context)
-            _MODULE_CACHE[resolved_path] = module_obj
+                module_obj = Module(module_name, mod_symbol_table)
+                module_obj.set_pos(node.pos_start, node.pos_end)
+                module_obj.set_context(context)
+                _MODULE_CACHE[resolved_path] = module_obj
+            except Exception as e:
+                if _MODULE_CACHE.get(resolved_path) == "loading":
+                    del _MODULE_CACHE[resolved_path]
+                raise e
 
         # ── 4. Bind names into current scope ────────────────────────────
 
