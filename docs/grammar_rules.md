@@ -26,7 +26,7 @@ This grammar defines a language that supports:
 Below is the complete grammar definition:
 
 ```grammar
-multiline: NEWLINE* (singleline)* (NEWLINE* (singleline))* NEWLINE*
+multiline: NEWLINE* (singleline (NEWLINE+ singleline)*)? NEWLINE*
 
 singleline: call | statements | if-expression | for-expression | while-expression | switch-statement | function-definition | exception-handling | class-definition | foreach-expression
 

@@ -39,7 +39,7 @@ class Token:
             self.pos_end.advance()
 
         if pos_end:
-            self.pos_end = pos_end
+            self.pos_end = pos_end.copy()
 
     def __repr__(self):
         """
