@@ -21,7 +21,8 @@ from .error import (
     NameError, NotImplementedError, InvalidErrorTypeError, RunTimeError,
     IllegalOperationError, IndexOutOfBoundsError, ArgumentError,
     DivisionByZeroError, ModuleError, AttributeError, DictKeyError,
-    TypeError, ValueError, StackDepthExceededError
+    TypeError, ValueError, StackDepthExceededError,
+    fuzzy_match
 )
 
 # Global module cache: abs_path -> Module instance
@@ -185,14 +186,19 @@ class Interpreter:
                 parent_name = parent_tok.value
                 parent = context.symbol_table.get(parent_name)
                 if not parent:
+                    _candidates = list(context.symbol_table.symbols.keys())
+                    _suggestion = fuzzy_match(parent_name, _candidates)
+                    _hint = f"Did you mean '{_suggestion}'?" if _suggestion else "Make sure the parent model is defined before this model."
                     return res.failure(NameError(
                         parent_tok.pos_start, parent_tok.pos_end,
-                        f"Parent class '{parent_name}' is not defined", context
+                        f"Parent class '{parent_name}' is not defined", context,
+                        hint=_hint
                     ))
                 if not isinstance(parent, Model):
                     return res.failure(TypeError(
                         parent_tok.pos_start, parent_tok.pos_end,
-                        f"'{parent_name}' is not a class and cannot be inherited from", context
+                        f"'{parent_name}' is not a class and cannot be inherited from", context,
+                        hint=f"Only values defined with 'model' can be inherited from."
                     ))
 
                 parent_models.append(parent)
@@ -242,7 +248,8 @@ class Interpreter:
             return res.failure(AttributeError(
                 node.object_node.pos_start, node.object_node.pos_end,
                 f"'{type(object_val).__name__}' object has no attribute '{attr_name}'",
-                context
+                context,
+                hint=f"Only model instances and modules support attribute access with '.'"
             ))
 
         value, error = object_val.get_attr(attr_name, context)
@@ -642,7 +649,8 @@ class Interpreter:
             return res.failure(IllegalOperationError(
                 node.pos_start, node.pos_end,
                 f"'{type(call_value).__name__}' object is not callable",
-                context
+                context,
+                hint="Only functions and models (constructors) can be called with '()'."
             ))
 
         for arg_node in node.positional_param_nodes:
@@ -876,7 +884,8 @@ class Interpreter:
                 IllegalOperationError(
                     collection.pos_start, collection.pos_end,
                     f"'{type(collection).__name__}' object is not iterable",
-                    context
+                    context,
+                    hint="Only List, String, and Dict values can be iterated with 'trace'."
                 )
             )
 
@@ -975,12 +984,21 @@ class Interpreter:
                     return res.failure(error)
 
         if value is None:
+            _all_names = list(context.symbol_table.symbols.keys())
+            # walk up the scope chain for more candidates
+            _scope = context.symbol_table.parent
+            while _scope:
+                _all_names.extend(_scope.symbols.keys())
+                _scope = _scope.parent
+            _suggestion = fuzzy_match(var_name, _all_names)
+            _hint = f"Did you mean '{_suggestion}'?" if _suggestion else "Check for typos or make sure the variable is assigned before use."
             return res.failure(
                 NameError(
                     node.pos_start,
                     node.pos_end,
                     f"'{var_name}' is not defined",
-                    context
+                    context,
+                    hint=_hint
                 )
             )
 
@@ -1125,8 +1143,11 @@ class Interpreter:
 
                         list_value = context.symbol_table.get(var_name)
                         if list_value is None:
+                            _all_names2 = list(context.symbol_table.symbols.keys())
+                            _sug2 = fuzzy_match(var_name, _all_names2)
+                            _hint2 = f"Did you mean '{_sug2}'?" if _sug2 else "Check for typos or make sure the variable is assigned before use."
                             return res.failure(
-                                NameError(left_node.pos_start, value_node.pos_end, f"'{var_name}' is not defined", context)
+                                NameError(left_node.pos_start, value_node.pos_end, f"'{var_name}' is not defined", context, hint=_hint2)
                             )
                         list_value, error = list_value.assignIndex(indexes_vals, value)
                         if error:
@@ -1423,10 +1444,14 @@ class Interpreter:
             orig_name = orig_tok.value
             value = module_obj.symbol_table.get(orig_name)
             if value is None:
+                _mod_members = list(module_obj.symbol_table.symbols.keys())
+                _mod_suggestion = fuzzy_match(orig_name, _mod_members)
+                _mod_hint = f"Did you mean '{_mod_suggestion}'?" if _mod_suggestion else f"Available members: {', '.join(_mod_members[:8])}"
                 return res.failure(ModuleError(
                     orig_tok.pos_start, orig_tok.pos_end,
                     f"Module '{module_name}' has no member '{orig_name}'",
-                    context
+                    context,
+                    hint=_mod_hint
                 ))
             bind_name = alias_tok.value if alias_tok else orig_name
             context.symbol_table.set(bind_name, value)

@@ -3,6 +3,18 @@ Module: Position and Error Tracking
 
 This module provides utility classes for tracking the position of characters in an input text
 and handling errors encountered during tokenization, parsing, or runtime execution.
+
+Error Code Scheme
+-----------------
+E1001–E1099 : Lexer / Illegal character errors
+E2001–E2099 : Syntax / parse errors
+E3001–E3099 : Name / scope errors
+E4001–E4099 : Type errors
+E5001–E5099 : Operation / arithmetic errors
+E6001–E6099 : Argument / call errors
+E7001–E7099 : Index / attribute / key access errors
+E8001–E8099 : Module / import errors
+E9001–E9099 : Runtime / general errors
 """
 
 import os
@@ -39,7 +51,7 @@ class Position:
         """
         Move the position forward by one character.
         - Always increments `index` and `col`.
-        - If the character is a newline (`\n`) or statement terminator (`;`),
+        - If the character is a newline (`\\n`) or statement terminator (`;`),
           resets column to 0 and increments line.
 
         Returns:
@@ -63,6 +75,48 @@ class Position:
         - Position: new object with same values.
         """
         return Position(self.index, self.line, self.col, self.file_name, self.file_text)
+
+
+def _levenshtein(a, b):
+    """
+    Compute the Levenshtein edit distance between two strings.
+    Used for 'Did you mean ...?' suggestions.
+    """
+    m, n = len(a), len(b)
+    dp = list(range(n + 1))
+    for i in range(1, m + 1):
+        prev = dp[0]
+        dp[0] = i
+        for j in range(1, n + 1):
+            temp = dp[j]
+            if a[i - 1] == b[j - 1]:
+                dp[j] = prev
+            else:
+                dp[j] = 1 + min(prev, dp[j], dp[j - 1])
+            prev = temp
+    return dp[n]
+
+
+def fuzzy_match(name, candidates, max_distance=3):
+    """
+    Find the closest candidate to *name* using Levenshtein distance.
+
+    Parameters:
+    - name (str): The name that was not found.
+    - candidates (iterable): Known names to search through.
+    - max_distance (int): Maximum edit distance to consider a match.
+
+    Returns:
+    - str or None: The closest match within max_distance, or None.
+    """
+    best = None
+    best_dist = max_distance + 1
+    for c in candidates:
+        d = _levenshtein(name.lower(), c.lower())
+        if d < best_dist:
+            best_dist = d
+            best = c
+    return best if best_dist <= max_distance else None
 
 
 # ------------------------------
@@ -115,9 +169,16 @@ class BaseError:
     """
     Base class for all errors (both compile-time and runtime).
     Stores where the error occurred and what it was.
+
+    Attributes:
+    - error_code (str): Short code like 'E2001' shown in the header.
+    - hint (str | None): Optional resolution suggestion shown after the message.
     """
 
-    def __init__(self, pos_start, pos_end, error_name, details):
+    # Default code — subclasses override this as a class attribute
+    error_code = 'E0000'
+
+    def __init__(self, pos_start, pos_end, error_name, details, hint=None):
         """
         Initialize a BaseError.
 
@@ -126,22 +187,20 @@ class BaseError:
         - pos_end (Position): End of error.
         - error_name (str): Short name of error type (e.g. "SyntaxError").
         - details (str): Human-readable description of what went wrong.
+        - hint (str, optional): A resolution suggestion to display after the message.
         """
         self.pos_start = pos_start
         self.pos_end = pos_end
         self.error_name = error_name
         self.details = details
+        self.hint = hint
 
     def to_string(self):
         """
-        Create a formatted error message with file, line, source snippet and details.
+        Create a formatted error message with error code, file, line,
+        source snippet, details, and optional hint.
 
-        Returns a Python-style error block, e.g.:
-
-            File test.sard, line 3
-                switch x {
-                ^^^^^^
-            Invalid Syntax Error: Invalid keyword 'switch'
+        Returns a Python-style error block
         """
         try:
             relative_path = os.path.relpath(
@@ -151,15 +210,18 @@ class BaseError:
             # relpath can fail across drives on Windows
             relative_path = self.pos_start.file_name
 
-        header  = f"  File {relative_path}, line {self.pos_start.line + 1}"
+        header  = f"  [{self.error_code}] File {relative_path}, line {self.pos_start.line + 1}"
         snippet = string_with_arrows(
             self.pos_start.file_text, self.pos_start, self.pos_end
         )
-        return (
+        result = (
             f"{header}\n"
             f"{snippet}\n"
             f"{self.error_name}: {self.details}"
         )
+        if self.hint:
+            result += f"\n  Hint: {self.hint}"
+        return result
 
 
 # ------------------------------
@@ -168,29 +230,38 @@ class BaseError:
 
 class IllegalCharError(BaseError):
     """
-    Error for encountering a character not in the language alphabet.
-    Example: "$" if not allowed.
+    [E1001] Error for encountering a character not in the language alphabet.
+    Example: an unsupported symbol like '@'.
     """
-    def __init__(self, pos_start, pos_end, details=''):
-        super().__init__(pos_start, pos_end, "Illegal Character Error", details)
+    error_code = 'E1001'
 
-
-class InvalidSyntaxError(BaseError):
-    """
-    Error for invalid grammar or sequence of tokens.
-    Example: `1 + * 2`
-    """
-    def __init__(self, pos_start, pos_end, details=''):
-        super().__init__(pos_start, pos_end, "Invalid Syntax Error", details)
+    def __init__(self, pos_start, pos_end, details='', hint=None):
+        if hint is None:
+            hint = "Remove or replace the unrecognised character."
+        super().__init__(pos_start, pos_end, "Illegal Character Error", details, hint)
 
 
 class ExpectedCharError(BaseError):
     """
-    Error when a particular character was expected but not found.
+    [E1002] Error when a particular character was expected but not found.
     Example: missing closing parenthesis `(` without `)`.
     """
-    def __init__(self, pos_start, pos_end, details=''):
-        super().__init__(pos_start, pos_end, "Expected Character", details)
+    error_code = 'E1002'
+
+    def __init__(self, pos_start, pos_end, details='', hint=None):
+        super().__init__(pos_start, pos_end, "Expected Character", details, hint)
+
+
+class InvalidSyntaxError(BaseError):
+    """
+    [E2001] Error for invalid grammar or sequence of tokens.
+    Example: `1 + * 2`
+    """
+    error_code = 'E2001'
+
+    def __init__(self, pos_start, pos_end, details='', hint=None):
+        super().__init__(pos_start, pos_end, "Invalid Syntax Error", details, hint)
+
 
 # ------------------------------
 # RUNTIME ERRORS
@@ -198,11 +269,12 @@ class ExpectedCharError(BaseError):
 
 class RunTimeError(BaseError):
     """
-    Base class for all runtime errors.
+    [E9001] Base class for all runtime errors.
     Stores execution context so traceback can be generated.
     """
+    error_code = 'E9001'
 
-    def __init__(self, pos_start, pos_end, details, context):
+    def __init__(self, pos_start, pos_end, details, context, hint=None):
         """
         Initialize a RunTimeError.
 
@@ -211,8 +283,9 @@ class RunTimeError(BaseError):
         - pos_end (Position): Where runtime error ended.
         - details (str): Error explanation.
         - context (Context): Current execution context (call stack info).
+        - hint (str, optional): Resolution suggestion.
         """
-        super().__init__(pos_start, pos_end, "RunTimeError", details)
+        super().__init__(pos_start, pos_end, "RunTimeError", details, hint)
         self.context = context
 
     def generate_traceback(self):
@@ -252,11 +325,14 @@ class RunTimeError(BaseError):
         frames.reverse()
         traceback_body = '\n'.join(frames)
 
-        return (
-            "Traceback (most recent call last):\n"
+        result = (
+            f"[{self.error_code}] Traceback (most recent call last):\n"
             + traceback_body + '\n'
             + f"{self.error_name}: {self.details}"
         )
+        if self.hint:
+            result += f"\n  Hint: {self.hint}"
+        return result
 
     def to_string(self):
         """
@@ -272,114 +348,169 @@ class RunTimeError(BaseError):
 
 class IllegalOperationError(RunTimeError):
     """
-    Error for invalid operations (e.g. adding string to number if not allowed).
+    [E5001] Error for invalid operations (e.g. adding string to number if not allowed).
     """
-    def __init__(self, pos_start, pos_end, details, context):
-        super().__init__(pos_start, pos_end, details, context)
+    error_code = 'E5001'
+
+    def __init__(self, pos_start, pos_end, details, context, hint=None):
+        super().__init__(pos_start, pos_end, details, context, hint)
         self.error_name = "IllegalOperationError"
 
 
 class DivisionByZeroError(RunTimeError):
     """
-    Error for division by zero (runtime math exception).
+    [E5002] Error for division by zero (runtime math exception).
     """
-    def __init__(self, pos_start, pos_end, details, context):
-        super().__init__(pos_start, pos_end, "Division by zero", context)
+    error_code = 'E5002'
+
+    def __init__(self, pos_start, pos_end, details, context, hint=None):
+        if hint is None:
+            hint = "Check that the divisor is not zero before dividing. Example: `when b != 0 { result = a / b }`"
+        super().__init__(pos_start, pos_end, "Division by zero", context, hint)
         self.error_name = "DivisionByZeroError"
 
 
 class IndexOutOfBoundsError(RunTimeError):
     """
-    Error for invalid list/array indexing.
+    [E7001] Error for invalid list/array indexing.
     Example: arr[10] when len(arr) == 3.
     """
-    def __init__(self, pos_start, pos_end, details, context):
-        super().__init__(pos_start, pos_end, details, context)
+    error_code = 'E7001'
+
+    def __init__(self, pos_start, pos_end, details, context, hint=None):
+        if hint is None:
+            hint = "Use `len(collection) - 1` to find the last valid index, or check bounds before accessing."
+        super().__init__(pos_start, pos_end, details, context, hint)
         self.error_name = "IndexOutOfBoundsError"
 
 
 class NameError(RunTimeError):
     """
-    Error for using an undefined variable/function name.
-    Example: print(x) when x is not defined.
+    [E3001] Error for using an undefined variable/function name.
+    Example: show(x) when x is not defined.
     """
-    def __init__(self, pos_start, pos_end, details, context):
-        super().__init__(pos_start, pos_end, details, context)
+    error_code = 'E3001'
+
+    def __init__(self, pos_start, pos_end, details, context, hint=None):
+        super().__init__(pos_start, pos_end, details, context, hint)
         self.error_name = "NameError"
 
 
 class ArgumentError(RunTimeError):
     """
-    Error for function call argument mismatches.
+    [E6001] Error for function call argument mismatches.
     Example: myFunc(1, 2, 3) when definition is myFunc(a, b).
     """
-    def __init__(self, pos_start, pos_end, details, context):
-        super().__init__(pos_start, pos_end, details, context)
+    error_code = 'E6001'
+
+    def __init__(self, pos_start, pos_end, details, context, hint=None):
+        super().__init__(pos_start, pos_end, details, context, hint)
         self.error_name = "ArgumentError"
+
 
 class NotImplementedError(RunTimeError):
     """
-    Error for unimplemented features.
+    [E9004] Error for unimplemented features.
     """
-    def __init__(self, pos_start, pos_end, details, context):
-        super().__init__(pos_start, pos_end, details, context)
+    error_code = 'E9004'
+
+    def __init__(self, pos_start, pos_end, details, context, hint=None):
+        super().__init__(pos_start, pos_end, details, context, hint)
         self.error_name = "NotImplementedError"
+
 
 class InvalidErrorTypeError(RunTimeError):
     """
-    Error raised when a 'trap' block specifies an invalid or unsupported error type.
+    [E9003] Error raised when a 'trap' block specifies an invalid or unsupported error type.
     Example: trap UnknownError e { ... }
     """
-    def __init__(self, pos_start, pos_end, details, context):
-        super().__init__(pos_start, pos_end, details, context)
+    error_code = 'E9003'
+
+    def __init__(self, pos_start, pos_end, details, context, hint=None):
+        if hint is None:
+            hint = (
+                "Valid error types are: RunTimeError, IllegalOperationError, "
+                "DivisionByZeroError, IndexOutOfBoundsError, NameError, ArgumentError, "
+                "TypeError, AttributeError, DictKeyError, ValueError, ModuleError, "
+                "StackDepthExceededError."
+            )
+        super().__init__(pos_start, pos_end, details, context, hint)
         self.error_name = "InvalidErrorTypeError"
+
 
 class DictKeyError(RunTimeError):
     """
-    Error raised when a dictionary key is not found.
+    [E7003] Error raised when a dictionary key is not found.
     """
-    def __init__(self, pos_start, pos_end, details, context):
-        super().__init__(pos_start, pos_end, details, context)
+    error_code = 'E7003'
+
+    def __init__(self, pos_start, pos_end, details, context, hint=None):
+        if hint is None:
+            hint = "Check whether the key exists before accessing it."
+        super().__init__(pos_start, pos_end, details, context, hint)
         self.error_name = "DictKeyError"
 
+
 class ValueError(RunTimeError):
-    def __init__(self, pos_start, pos_end, details, context):
-        super().__init__(pos_start, pos_end, details, context)
+    """
+    [E9005] Error for invalid values.
+    """
+    error_code = 'E9005'
+
+    def __init__(self, pos_start, pos_end, details, context, hint=None):
+        super().__init__(pos_start, pos_end, details, context, hint)
         self.error_name = "ValueError"
+
 
 class TypeError(RunTimeError):
     """
-    Error for performing an operation on an inappropriate type.
+    [E4001] Error for performing an operation on an inappropriate type.
     Example: calling an attribute that is not a method, like my_obj.age()
     """
-    def __init__(self, pos_start, pos_end, details, context):
-        super().__init__(pos_start, pos_end, details, context)
+    error_code = 'E4001'
+
+    def __init__(self, pos_start, pos_end, details, context, hint=None):
+        super().__init__(pos_start, pos_end, details, context, hint)
         self.error_name = "TypeError"
+
 
 class AttributeError(RunTimeError):
     """
-    Error for accessing a non-existent attribute or method on an object.
+    [E7002] Error for accessing a non-existent attribute or method on an object.
     Example: my_obj.fake_property
     """
-    def __init__(self, pos_start, pos_end, details, context):
-        super().__init__(pos_start, pos_end, details, context)
+    error_code = 'E7002'
+
+    def __init__(self, pos_start, pos_end, details, context, hint=None):
+        super().__init__(pos_start, pos_end, details, context, hint)
         self.error_name = "AttributeError"
+
 
 class ModuleError(RunTimeError):
     """
-    Error raised when a module cannot be found or a name inside a module
+    [E8001] Error raised when a module cannot be found or a name inside a module
     cannot be resolved.
     Example: summon nonexistent_module
              summon foo from mymodule  # but 'foo' is not defined in mymodule
     """
-    def __init__(self, pos_start, pos_end, details, context):
-        super().__init__(pos_start, pos_end, details, context)
+    error_code = 'E8001'
+
+    def __init__(self, pos_start, pos_end, details, context, hint=None):
+        super().__init__(pos_start, pos_end, details, context, hint)
         self.error_name = "ModuleError"
+
 
 class StackDepthExceededError(RunTimeError):
     """
-    Error raised when the runtime recursion depth exceeds the maximum allowed limit.
+    [E9002] Error raised when the runtime recursion depth exceeds the maximum allowed limit.
     """
-    def __init__(self, pos_start, pos_end, details, context):
-        super().__init__(pos_start, pos_end, details, context)
+    error_code = 'E9002'
+
+    def __init__(self, pos_start, pos_end, details, context, hint=None):
+        if hint is None:
+            hint = (
+                "This usually means a function is calling itself infinitely. "
+                "Check your recursive functions for a proper base case."
+            )
+        super().__init__(pos_start, pos_end, details, context, hint)
         self.error_name = "StackDepthExceededError"

@@ -25,7 +25,7 @@ va project vb: [0, 0, 0]
 vec.zeros(4) : [0, 0, 0, 0]
 vec.ones(3)  : [1, 1, 1]
 --- vec invalid ops ---
-Caught expected error: Traceback (most recent call last):
+Caught expected error: [E5001] Traceback (most recent call last):
   File sards/stdlib/linalg.sad, line 316, in <program>
         method __add__(other) {
                ^^^^^^^^^^^^^^^^
@@ -62,7 +62,7 @@ mat.diagonal   : [[2, 0, 0], [0, 5, 0], [0, 0, 9]]
 m3 ** 0        : [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
 m3 ** 2        : [[16, 22, 11], [20, 25, 4], [5, 16, 39]]
 --- mat invalid ops ---
-Caught expected error: Traceback (most recent call last):
+Caught expected error: [E5001] Traceback (most recent call last):
   File sards/stdlib/linalg.sad, line 809, in <program>
         method __add__(other) {
                ^^^^^^^^^^^^^^^^
@@ -70,7 +70,7 @@ Caught expected error: Traceback (most recent call last):
                     yield error("mat +: matrices must have the same shape")
                           ^
 IllegalOperationError: mat +: matrices must have the same shape
-Caught expected error: Traceback (most recent call last):
+Caught expected error: [E5001] Traceback (most recent call last):
   File sards/stdlib/linalg.sad, line 861, in <program>
         method __mul__(other) {
                ^^^^^^^^^^^^^^^^
@@ -78,7 +78,7 @@ Caught expected error: Traceback (most recent call last):
                     yield error("mat * vec: column count must match vector size")
                           ^
 IllegalOperationError: mat * vec: column count must match vector size
-Caught expected error: Traceback (most recent call last):
+Caught expected error: [E5001] Traceback (most recent call last):
   File sards/stdlib/linalg.sad, line 806, in <program>
             yield inverse()
                   ^^^^^^^^^
