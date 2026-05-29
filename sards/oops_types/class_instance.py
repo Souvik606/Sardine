@@ -165,7 +165,8 @@ class ModelInstance:
                 method_node.body_node,
                 method_node.param_nodes,
                 False,
-                self
+                self,
+                owner_class=method_owner
             ).set_context(self.context)
             method.set_pos(method_node.pos_start, method_node.pos_end)
             return method, None

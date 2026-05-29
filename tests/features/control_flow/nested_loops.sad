@@ -1,0 +1,41 @@
+show("--- Test: Nested Loops ---")
+
+show("--- Cycle inside whenever with escape ---")
+outer = 1
+whenever outer <= 3 {
+    show("Outer whenever:", outer)
+    Cycle inner = 1:5 {
+        when inner == 3 {
+            show("Escaping inner cycle loop")
+            escape
+        }
+        show("  Inner cycle:", inner)
+    }
+    outer = outer + 1
+}
+
+show("--- trace inside Cycle with proceed ---")
+names = ["Alice", "Bob"]
+Cycle i = 1:2 {
+    show("Cycle i:", i)
+    trace name <- names {
+        when name == "Bob" {
+            proceed
+        }
+        show("  trace name:", name)
+    }
+}
+
+show("--- Nesting menu inside loop with escape ---")
+Cycle k = 1:4 {
+    show("Loop k:", k)
+    menu k {
+        choice 2 {
+            show("  Choice 2 matched, escaping loop")
+            escape
+        }
+        fallback {
+            show("  Fallback matched, k =", k)
+        }
+    }
+}

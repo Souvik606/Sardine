@@ -1,0 +1,14 @@
+--- Test: Proceed Loop Jumps ---
+--- whenever Loop with proceed ---
+Odd i: 1
+Odd i: 3
+Odd i: 5
+--- Cycle Loop with proceed ---
+Cycle j: 1
+Cycle j: 2
+Cycle j: 4
+Cycle j: 5
+--- trace Loop with proceed ---
+trace item: 10
+trace item: 20
+trace item: 40

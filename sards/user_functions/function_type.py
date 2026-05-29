@@ -146,7 +146,7 @@ class Function(BaseFunction):
         evaluated expression.
     """
 
-    def __init__(self, name, body_node, param_nodes, auto_return, instance=None):
+    def __init__(self, name, body_node, param_nodes, auto_return, instance=None, owner_class=None):
         """
         Initializes a Function instance.
 
@@ -161,6 +161,7 @@ class Function(BaseFunction):
         self.body_node = body_node
         self.param_nodes = param_nodes
         self.auto_return = auto_return
+        self.owner_class = owner_class
 
     def execute(self, pos_args, kw_args, call_context=None):
         from sards.core import RunTimeResult, Interpreter, Context
@@ -170,7 +171,7 @@ class Function(BaseFunction):
 
         if self.instance:
             instance = self.instance
-            method_owner = instance.model.find_method_owner(self.name)
+            method_owner = self.owner_class or instance.model.find_method_owner(self.name)
             exec_context = Context(f"method {self.name}", instance.context, self.pos_start, owner_class=method_owner)
             exec_context.symbol_table = SymbolTable(instance.symbol_table)
         else:
@@ -208,7 +209,7 @@ class Function(BaseFunction):
         Returns:
             copy: The copy of the function.
         """
-        copy = Function(self.name, self.body_node, self.param_nodes, self.auto_return, self.instance)
+        copy = Function(self.name, self.body_node, self.param_nodes, self.auto_return, self.instance, self.owner_class)
         copy.set_context(self.context)
         copy.set_pos(self.pos_start, self.pos_end)
         return copy
