@@ -39,6 +39,12 @@ class List:
             for i in operand.elements:
                 new_list.elements.append(i)
             return new_list, None
+        else:
+            return None, IllegalOperationError(
+                operand.pos_start, operand.pos_end,
+                f"Cannot add '{type(operand).__name__}' to a List",
+                self.context
+            )
 
     def subtract(self, operand):
         if isinstance(operand, Number) and not isinstance(operand.value, float):
@@ -74,7 +80,7 @@ class List:
                 if el.get_comparison_eq(operand):
                     del new_list.elements[i]
                     break
-            elif not isinstance(el,List) and not isinstance(operand,List) and el.value == operand.value:
+            elif not isinstance(el,List) and not isinstance(operand,List) and hasattr(el, 'value') and hasattr(operand, 'value') and el.value == operand.value:
                 del new_list.elements[i]
                 break
         return new_list, None
@@ -403,7 +409,7 @@ class List:
             import builtins
             try:
                 sorted_elements = sorted(instance.elements, key=lambda x: x.value, reverse=descending)
-                new_list = List([el.copy() for el in sorted_elements]).set_context(calling_context)
+                new_list = List([el.copy() if hasattr(el, 'copy') else el for el in sorted_elements]).set_context(calling_context)
                 return res.success(new_list)
             except (builtins.TypeError, builtins.AttributeError):
                 return res.failure(IllegalOperationError(instance.pos_start, instance.pos_end, "List elements are not comparable for sorting", exec_context))
@@ -412,7 +418,7 @@ class List:
             res = RunTimeResult()
             if pos_args or kw_args:
                 return res.failure(ArgumentError(instance.pos_start, instance.pos_end, "reverse() takes no arguments", exec_context))
-            reversed_elements = [el.copy() for el in reversed(instance.elements)]
+            reversed_elements = [el.copy() if hasattr(el, 'copy') else el for el in reversed(instance.elements)]
             new_list = List(reversed_elements).set_context(calling_context)
             return res.success(new_list)
 
@@ -426,7 +432,7 @@ class List:
             if not isinstance(start_arg, Number) or isinstance(start_arg.value, float) or not isinstance(end_arg, Number) or isinstance(end_arg.value, float):
                 return res.failure(IllegalOperationError(instance.pos_start, instance.pos_end, "Slice bounds must be integer Numbers", exec_context))
             
-            sliced_elements = [el.copy() for el in instance.elements[start_arg.value:end_arg.value]]
+            sliced_elements = [el.copy() if hasattr(el, 'copy') else el for el in instance.elements[start_arg.value:end_arg.value]]
             return res.success(List(sliced_elements).set_context(calling_context))
 
         def method_join(instance, pos_args, kw_args, exec_context):
