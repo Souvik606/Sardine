@@ -1,6 +1,6 @@
-Error in tests/errors/function_call_violations.sad:
+Error in tests/errors/classes_and_functions/function_call_violations.sad:
 [E5001] Traceback (most recent call last):
-  File tests/errors/function_call_violations.sad, line 2, in <program>
+  File tests/errors/classes_and_functions/function_call_violations.sad, line 2, in <program>
     x()
     ^
 IllegalOperationError: 'Number' object is not callable

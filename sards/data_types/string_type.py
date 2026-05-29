@@ -121,14 +121,14 @@ class String:
 
     def and_by(self, operand):
         if isinstance(operand, String):
-            return (Number(int(self.value and operand.value)).set_context(self.context),
+            return (Number(int(bool(self.value) and bool(operand.value))).set_context(self.context),
                     None)
         else: return None, IllegalOperationError(
                     operand.pos_start, operand.pos_end, 'Expected a String type', self.context)
 
     def or_by(self, operand):
         if isinstance(operand, String):
-            return (Number(int(self.value or operand.value)).set_context(self.context),
+            return (Number(int(bool(self.value) or bool(operand.value))).set_context(self.context),
                     None)
         else: return None, IllegalOperationError(
                     operand.pos_start, operand.pos_end, 'Expected a String type', self.context)

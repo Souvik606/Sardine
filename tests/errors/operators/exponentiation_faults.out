@@ -1,6 +1,6 @@
-Error in tests/errors/exponentiation_faults.sad:
+Error in tests/errors/operators/exponentiation_faults.sad:
 [E5002] Traceback (most recent call last):
-  File tests/errors/exponentiation_faults.sad, line 2, in <program>
+  File tests/errors/operators/exponentiation_faults.sad, line 2, in <program>
     show(0 ** -1)
               ^^
 DivisionByZeroError: Division by zero

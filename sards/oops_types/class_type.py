@@ -136,5 +136,8 @@ class Model:
         copy.set_pos(self.pos_start, self.pos_end)
         return copy
 
+    def is_true(self):
+        return Number(1), None
+
     def __repr__(self):
         return f"<model {self.name}>"

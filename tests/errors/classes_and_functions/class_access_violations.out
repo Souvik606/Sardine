@@ -1,6 +1,6 @@
-Error in tests/errors/class_access_violations.sad:
+Error in tests/errors/classes_and_functions/class_access_violations.sad:
 [E7002] Traceback (most recent call last):
-  File tests/errors/class_access_violations.sad, line 8, in <program>
+  File tests/errors/classes_and_functions/class_access_violations.sad, line 8, in <program>
     show(a.balance)
          ^
 AttributeError: Cannot access secret attribute 'balance'

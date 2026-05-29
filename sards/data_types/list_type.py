@@ -63,12 +63,16 @@ class List:
             if operand.value < 0:
                 return None, IllegalOperationError(
                     operand.pos_start, operand.pos_end, 'List repetition cannot be negative', self.context)
-            temp_list=list(self.elements)
+            new_list = self.copy()
+            if operand.value == 0:
+                new_list.elements = []
+                return new_list, None
+            temp_list = list(new_list.elements)
 
-            for i in range(operand.value-1):
+            for i in range(operand.value - 1):
                 for ele in temp_list:
-                    self.elements.append(ele)
-            return self, None
+                    new_list.elements.append(ele)
+            return new_list, None
         else:
             return None, IllegalOperationError(
                 operand.pos_start, operand.pos_end, 'Expected an integer Number type', self.context)
@@ -100,8 +104,29 @@ class List:
     def get_comparison_eq(self, operand):
         if isinstance(operand, List):
             new_list = self.copy()
-            if len(new_list.elements)==len(operand.elements):
-                return Number(int(all(a.value==b.value for a, b in zip(new_list.elements, operand.elements)))).set_context(self.context), None
+            if len(new_list.elements) == len(operand.elements):
+                try:
+                    all_eq = True
+                    for a, b in zip(new_list.elements, operand.elements):
+                        if hasattr(a, 'get_comparison_eq') and hasattr(b, 'get_comparison_eq'):
+                            eq_node, err = a.get_comparison_eq(b)
+                            if err or eq_node.value == 0:
+                                all_eq = False
+                                break
+                        elif hasattr(a, 'value') and hasattr(b, 'value'):
+                            if a.value != b.value:
+                                all_eq = False
+                                break
+                        elif not hasattr(a, 'value') and not hasattr(b, 'value'):
+                            if a != b:
+                                all_eq = False
+                                break
+                        else:
+                            all_eq = False
+                            break
+                    return Number(1 if all_eq else 0).set_context(self.context), None
+                except Exception:
+                    return Number(0).set_context(self.context), None
             else:
                 return Number(0).set_context(self.context), None
         else: return None, IllegalOperationError(

@@ -1,6 +1,0 @@
-Error in tests/errors/negative_shifts.sad:
-[E5001] Traceback (most recent call last):
-  File tests/errors/negative_shifts.sad, line 2, in <program>
-    show(1 << -1)
-              ^^
-IllegalOperationError: Negative shift count

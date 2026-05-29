@@ -446,6 +446,36 @@ class Interpreter:
             else:
                 step_val = Number(1)
 
+            if not isinstance(start_val, Number):
+                return res.failure(TypeError(
+                    node.start_node.pos_start, node.start_node.pos_end,
+                    f"Comprehension loop start value must be a Number, not '{type(start_val).__name__}'",
+                    context
+                ))
+
+            if not isinstance(end_val, Number):
+                return res.failure(TypeError(
+                    node.end_node.pos_start, node.end_node.pos_end,
+                    f"Comprehension loop end value must be a Number, not '{type(end_val).__name__}'",
+                    context
+                ))
+
+            if not isinstance(step_val, Number):
+                return res.failure(TypeError(
+                    node.step_node.pos_start if node.step_node else node.pos_start,
+                    node.step_node.pos_end if node.step_node else node.pos_end,
+                    f"Comprehension loop step value must be a Number, not '{type(step_val).__name__}'",
+                    context
+                ))
+
+            if step_val.value == 0:
+                return res.failure(IllegalOperationError(
+                    node.step_node.pos_start if node.step_node else node.pos_start,
+                    node.step_node.pos_end if node.step_node else node.pos_end,
+                    "Comprehension loop step cannot be 0",
+                    context
+                ))
+
             i = start_val.value
             var_name = node.var_name_tok.value
 
@@ -543,6 +573,36 @@ class Interpreter:
                 if res.should_return(): return res
             else:
                 step_val = Number(1)
+
+            if not isinstance(start_val, Number):
+                return res.failure(TypeError(
+                    node.start_node.pos_start, node.start_node.pos_end,
+                    f"Comprehension loop start value must be a Number, not '{type(start_val).__name__}'",
+                    context
+                ))
+
+            if not isinstance(end_val, Number):
+                return res.failure(TypeError(
+                    node.end_node.pos_start, node.end_node.pos_end,
+                    f"Comprehension loop end value must be a Number, not '{type(end_val).__name__}'",
+                    context
+                ))
+
+            if not isinstance(step_val, Number):
+                return res.failure(TypeError(
+                    node.step_node.pos_start if node.step_node else node.pos_start,
+                    node.step_node.pos_end if node.step_node else node.pos_end,
+                    f"Comprehension loop step value must be a Number, not '{type(step_val).__name__}'",
+                    context
+                ))
+
+            if step_val.value == 0:
+                return res.failure(IllegalOperationError(
+                    node.step_node.pos_start if node.step_node else node.pos_start,
+                    node.step_node.pos_end if node.step_node else node.pos_end,
+                    "Comprehension loop step cannot be 0",
+                    context
+                ))
 
             i = start_val.value
             var_name = node.var_name_tok.value
@@ -723,6 +783,36 @@ class Interpreter:
         else:
             step_value = Number(1)
 
+        if not isinstance(start_value, Number):
+            return res.failure(TypeError(
+                node.start_value_node.pos_start, node.start_value_node.pos_end,
+                f"Loop start value must be a Number, not '{type(start_value).__name__}'",
+                context
+            ))
+
+        if not isinstance(end_value, Number):
+            return res.failure(TypeError(
+                node.end_value_node.pos_start, node.end_value_node.pos_end,
+                f"Loop end value must be a Number, not '{type(end_value).__name__}'",
+                context
+            ))
+
+        if not isinstance(step_value, Number):
+            return res.failure(TypeError(
+                node.step_value_node.pos_start if node.step_value_node else node.pos_start,
+                node.step_value_node.pos_end if node.step_value_node else node.pos_end,
+                f"Loop step value must be a Number, not '{type(step_value).__name__}'",
+                context
+            ))
+
+        if step_value.value == 0:
+            return res.failure(IllegalOperationError(
+                node.step_value_node.pos_start if node.step_value_node else node.pos_start,
+                node.step_value_node.pos_end if node.step_value_node else node.pos_end,
+                "Loop step cannot be 0",
+                context
+            ))
+
         i = start_value.value
 
         if step_value.value >= 0:
@@ -901,6 +991,13 @@ class Interpreter:
         if res.should_return():
             return res
 
+        if not hasattr(selection_val, 'value'):
+            return res.failure(IllegalOperationError(
+                node.select.pos_start, node.select.pos_end,
+                f"Menu selection value must be a primitive value, not '{type(selection_val).__name__}'",
+                context
+            ))
+
         seen_choices = []
         for choice, _, _ in node.cases:
             if choice is None:
@@ -910,6 +1007,13 @@ class Interpreter:
             choice_val = res.register(self.visit(choice, context))
             if res.should_return():
                 return res
+
+            if not hasattr(choice_val, 'value'):
+                return res.failure(IllegalOperationError(
+                    choice.pos_start, choice.pos_end,
+                    f"Menu choices must be primitive values, not '{type(choice_val).__name__}'",
+                    context
+                ))
             
             for seen in seen_choices:
                 if choice_val.value == seen:
@@ -1245,47 +1349,44 @@ class Interpreter:
         if res.should_return():
             return res
 
-        error = None
-        if node.operator.type == T_PLUS:
-            result, error = left_node.add(right_node)
-        elif node.operator.type == T_MINUS:
-            result, error = left_node.subtract(right_node)
-        elif node.operator.type == T_MUL:
-            result, error = left_node.multiply(right_node)
-        elif node.operator.type == T_DIVIDE:
-            result, error = left_node.divide(right_node)
-        elif node.operator.type == T_MODULUS:
-            result, error = left_node.modulus(right_node)
-        elif node.operator.type == T_FLOOR:
-            result, error = left_node.floor_divide(right_node)
-        elif node.operator.type == T_BITAND:
-            result, error = left_node.bitwise_and(right_node)
-        elif node.operator.type == T_BITXOR:
-            result, error = left_node.bitwise_xor(right_node)
-        elif node.operator.type == T_BITOR:
-            result, error = left_node.bitwise_or(right_node)
-        elif node.operator.type == T_LSHIFT:
-            result, error = left_node.lshift(right_node)
-        elif node.operator.type == T_RSHIFT:
-            result, error = left_node.rshift(right_node)
-        elif node.operator.type == T_EXP:
-            result, error = left_node.exponent(right_node)
-        elif node.operator.type == T_EE:
-            result, error = left_node.get_comparison_eq(right_node)
-        elif node.operator.type == T_NEQ:
-            result, error = left_node.get_comparison_neq(right_node)
-        elif node.operator.type == T_GT:
-            result, error = left_node.get_comparison_gt(right_node)
-        elif node.operator.type == T_GTE:
-            result, error = left_node.get_comparison_gte(right_node)
-        elif node.operator.type == T_LT:
-            result, error = left_node.get_comparison_lt(right_node)
-        elif node.operator.type == T_LTE:
-            result, error = left_node.get_comparison_lte(right_node)
-        elif node.operator.type == T_KEYWORD and node.operator.value == 'and':
-            result, error = left_node.and_by(right_node)
-        elif node.operator.type == T_KEYWORD and node.operator.value == 'or':
-            result, error = left_node.or_by(right_node)
+        method_name = None
+        op_symbol = node.operator.value or str(node.operator.type)
+        if node.operator.type == T_PLUS: method_name = 'add'
+        elif node.operator.type == T_MINUS: method_name = 'subtract'
+        elif node.operator.type == T_MUL: method_name = 'multiply'
+        elif node.operator.type == T_DIVIDE: method_name = 'divide'
+        elif node.operator.type == T_MODULUS: method_name = 'modulus'
+        elif node.operator.type == T_FLOOR: method_name = 'floor_divide'
+        elif node.operator.type == T_BITAND: method_name = 'bitwise_and'
+        elif node.operator.type == T_BITXOR: method_name = 'bitwise_xor'
+        elif node.operator.type == T_BITOR: method_name = 'bitwise_or'
+        elif node.operator.type == T_LSHIFT: method_name = 'lshift'
+        elif node.operator.type == T_RSHIFT: method_name = 'rshift'
+        elif node.operator.type == T_EXP: method_name = 'exponent'
+        elif node.operator.type == T_EE: method_name = 'get_comparison_eq'
+        elif node.operator.type == T_NEQ: method_name = 'get_comparison_neq'
+        elif node.operator.type == T_GT: method_name = 'get_comparison_gt'
+        elif node.operator.type == T_GTE: method_name = 'get_comparison_gte'
+        elif node.operator.type == T_LT: method_name = 'get_comparison_lt'
+        elif node.operator.type == T_LTE: method_name = 'get_comparison_lte'
+        elif node.operator.type == T_KEYWORD and node.operator.value == 'and': method_name = 'and_by'
+        elif node.operator.type == T_KEYWORD and node.operator.value == 'or': method_name = 'or_by'
+
+        if method_name:
+            if not hasattr(left_node, method_name):
+                return res.failure(IllegalOperationError(
+                    node.pos_start, node.pos_end,
+                    f"Operator '{op_symbol}' is not supported by type '{type(left_node).__name__}'",
+                    context
+                ))
+            method = getattr(left_node, method_name)
+            result, error = method(right_node)
+        else:
+            return res.failure(IllegalOperationError(
+                node.pos_start, node.pos_end,
+                f"Unsupported operator '{op_symbol}'",
+                context
+            ))
 
         if error:
             return res.failure(error)
@@ -1320,15 +1421,33 @@ class Interpreter:
         if res.should_return():
             return res
 
-        error = None
+        method_name = None
+        op_symbol = node.operator.value or str(node.operator.type)
         if node.operator.type == T_MINUS:
-            number, error = number.multiply(Number(-1))
-
+            method_name = 'multiply'
         elif node.operator.type == T_KEYWORD and node.operator.value == 'not':
-            number, error = number.not_by()
-
+            method_name = 'not_by'
         elif node.operator.type == T_BITNOT:
-            number, error = number.bitwise_not()
+            method_name = 'bitwise_not'
+
+        if method_name:
+            if not hasattr(number, method_name):
+                return res.failure(IllegalOperationError(
+                    node.pos_start, node.pos_end,
+                    f"Operator '{op_symbol}' is not supported by type '{type(number).__name__}'",
+                    context
+                ))
+            if method_name == 'multiply':
+                number, error = number.multiply(Number(-1))
+            else:
+                method = getattr(number, method_name)
+                number, error = method()
+        else:
+            return res.failure(IllegalOperationError(
+                node.pos_start, node.pos_end,
+                f"Unsupported unary operator '{op_symbol}'",
+                context
+            ))
 
         if error:
             return res.failure(error)

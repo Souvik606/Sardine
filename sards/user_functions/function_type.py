@@ -69,6 +69,10 @@ class BaseFunction:
         new_context.symbol_table = SymbolTable(new_context.parent.symbol_table)
         return new_context
 
+    def is_true(self):
+        from sards.data_types import Number
+        return Number(1), None
+
     def check_and_populate_args(self, param_nodes, pos_args, kw_args, exec_context):
         """
         Checks and populates arguments, now handling positional, keyword, and default arguments.
@@ -711,6 +715,10 @@ class BoundMethod:
         copy.set_context(self.context)
         copy.set_pos(self.pos_start, self.pos_end)
         return copy
+
+    def is_true(self):
+        from sards.data_types import Number
+        return Number(1), None
 
     def __repr__(self):
         return f"<bound method {self.name} of {self.instance}>"
