@@ -1088,14 +1088,18 @@ class Interpreter:
                     return res.failure(error)
 
         if value is None:
+            _STDLIB_MODULES = {"math", "random", "stat", "linalg", "test_utils"}
             _all_names = list(context.symbol_table.symbols.keys())
             # walk up the scope chain for more candidates
             _scope = context.symbol_table.parent
             while _scope:
                 _all_names.extend(_scope.symbols.keys())
                 _scope = _scope.parent
-            _suggestion = fuzzy_match(var_name, _all_names)
-            _hint = f"Did you mean '{_suggestion}'?" if _suggestion else "Check for typos or make sure the variable is assigned before use."
+            if var_name in _STDLIB_MODULES:
+                _hint = f"'{var_name}' is a standard library module. Did you forget to 'summon {var_name}'?"
+            else:
+                _suggestion = fuzzy_match(var_name, _all_names)
+                _hint = f"Did you mean '{_suggestion}'?" if _suggestion else "Check for typos or make sure the variable is assigned before use."
             return res.failure(
                 NameError(
                     node.pos_start,

@@ -720,6 +720,7 @@ class Parser: # pylint: disable=R0904
         self.advance()
 
         body_nodes, pos_start = [], self.current_tok.pos_start
+        brace_open_line = pos_start.line + 1
         while self.current_tok.type != T_RPAREN2 and self.current_tok.type != T_EOF:
             if self.current_tok.type == T_KEYWORD and (self.current_tok.value in ("yield", "proceed", "escape")):
                 jump_node = res.register(self.jump_statements())
@@ -905,7 +906,8 @@ class Parser: # pylint: disable=R0904
             return res.failure(
                 InvalidSyntaxError(self.current_tok.pos_start,
                                    self.current_tok.pos_end,
-                                   "Expected ',' or ']"))
+                                   "Expected ',' or ']",
+                                   hint="Did you forget a comma ',' between list elements?"))
 
         res.register_advancement()
         self.advance()
@@ -1122,7 +1124,8 @@ class Parser: # pylint: disable=R0904
             return res.failure(
                 InvalidSyntaxError(self.current_tok.pos_start,
                                    self.current_tok.pos_end,
-                                   "Expected ',' or '}'"))
+                                   "Expected ',' or '}'",
+                                   hint="Did you forget a comma ',' between dictionary entries?"))
 
         res.register_advancement()
         self.advance()
@@ -1623,7 +1626,8 @@ class Parser: # pylint: disable=R0904
             return res.failure(
                 InvalidSyntaxError(self.current_tok.pos_start,
                                    self.current_tok.pos_end,
-                                   "Expected ',' or ')'"))
+                                   "Expected ',' or ')'",
+                                   hint="Did you forget a comma ',' between parameters?"))
 
         res.register_advancement()
         self.advance()
@@ -1981,17 +1985,28 @@ class Parser: # pylint: disable=R0904
         condition = res.register(self.expression())
         if res.error: return res
 
+        if isinstance(condition, AssignNode):
+            return res.failure(
+                InvalidSyntaxError(condition.pos_start, condition.pos_end,
+                                   "Assignment is not allowed in a 'whenever' condition",
+                                   hint="Did you mean '==' for comparison instead of '=' for assignment?"))
+
         # '{'
         if not self.current_tok.type == T_LPAREN2:
+            _hint = None
+            if self.current_tok.type == T_EQ:
+                _hint = "Did you mean '==' for comparison instead of '=' for assignment?"
             return res.failure(
                 InvalidSyntaxError(self.current_tok.pos_start,
                                    self.current_tok.pos_end,
-                                   "Expected '{'"))
+                                   "Expected '{'",
+                                   hint=_hint))
         res.register_advancement()
         self.advance()
 
         # body
         body_nodes, pos_start = [], self.current_tok.pos_start
+        brace_open_line = pos_start.line + 1
         while self.current_tok.type != T_RPAREN2 and self.current_tok.type != T_EOF:
             if self.current_tok.type == T_KEYWORD and (self.current_tok.value in ("escape", "proceed","yield")):
                 jump_node = res.register(self.jump_statements())
@@ -2018,7 +2033,8 @@ class Parser: # pylint: disable=R0904
             return res.failure(
                 InvalidSyntaxError(self.current_tok.pos_start,
                                    self.current_tok.pos_end,
-                                   "Expected '}'"))
+                                   "Expected '}'",
+                                   hint=f"Unexpected end of file. You opened a block '{{' on line {brace_open_line} that was never closed."))
         res.register_advancement()
         self.advance()
 
@@ -2390,17 +2406,28 @@ class Parser: # pylint: disable=R0904
         condition = res.register(self.expression())
         if res.error: return res
 
+        if isinstance(condition, AssignNode):
+            return res.failure(
+                InvalidSyntaxError(condition.pos_start, condition.pos_end,
+                                   "Assignment is not allowed in a 'when' condition",
+                                   hint="Did you mean '==' for comparison instead of '=' for assignment?"))
+
         # '{'
         if not self.current_tok.type == T_LPAREN2:
+            _hint = None
+            if self.current_tok.type == T_EQ:
+                _hint = "Did you mean '==' for comparison instead of '=' for assignment?"
             return res.failure(
                 InvalidSyntaxError(self.current_tok.pos_start,
                                    self.current_tok.pos_end,
-                                   "Expected '{'"))
+                                   "Expected '{'",
+                                   hint=_hint))
         res.register_advancement()
         self.advance()
 
         # body
         body_nodes, pos_start = [], self.current_tok.pos_start
+        brace_open_line = pos_start.line + 1
         while self.current_tok.type not in (T_RPAREN2, T_EOF):
             if self.current_tok.type == T_KEYWORD and (self.current_tok.value in ("escape", "proceed","yield")):
                 jump_node = res.register(self.jump_statements())
@@ -2427,7 +2454,8 @@ class Parser: # pylint: disable=R0904
             return res.failure(
                 InvalidSyntaxError(self.current_tok.pos_start,
                                    self.current_tok.pos_end,
-                                   "Expected '}'"))
+                                   "Expected '}'",
+                                   hint=f"Unexpected end of file. You opened a block '{{' on line {brace_open_line} that was never closed."))
         res.register_advancement()
         self.advance()
 
@@ -2483,17 +2511,28 @@ class Parser: # pylint: disable=R0904
         condition = res.register(self.expression())
         if res.error: return res
 
+        if isinstance(condition, AssignNode):
+            return res.failure(
+                InvalidSyntaxError(condition.pos_start, condition.pos_end,
+                                   "Assignment is not allowed in an 'orwhen' condition",
+                                   hint="Did you mean '==' for comparison instead of '=' for assignment?"))
+
         # '{'
         if not self.current_tok.type == T_LPAREN2:
+            _hint = None
+            if self.current_tok.type == T_EQ:
+                _hint = "Did you mean '==' for comparison instead of '=' for assignment?"
             return res.failure(
                 InvalidSyntaxError(self.current_tok.pos_start,
                                    self.current_tok.pos_end,
-                                   "Expected '{'"))
+                                   "Expected '{'",
+                                   hint=_hint))
         res.register_advancement()
         self.advance()
 
         # body
         body_nodes, pos_start = [], self.current_tok.pos_start
+        brace_open_line = pos_start.line + 1
         while self.current_tok.type not in (T_RPAREN2, T_EOF):
             if self.current_tok.type == T_KEYWORD and (self.current_tok.value in ("escape", "proceed","yield")):
                 jump_node = res.register(self.jump_statements())
@@ -2520,7 +2559,8 @@ class Parser: # pylint: disable=R0904
             return res.failure(
                 InvalidSyntaxError(self.current_tok.pos_start,
                                    self.current_tok.pos_end,
-                                   "Expected '}'"))
+                                   "Expected '}'",
+                                   hint=f"Unexpected end of file. You opened a block '{{' on line {brace_open_line} that was never closed."))
         res.register_advancement()
         self.advance()
 

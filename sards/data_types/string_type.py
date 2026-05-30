@@ -30,8 +30,13 @@ class String:
     def add(self, operand):
         if isinstance(operand, String):
             return String(self.value + operand.value).set_context(self.context), None
-        else: return None, IllegalOperationError(
-                    operand.pos_start, operand.pos_end, 'Expected a String type', self.context)
+        else:
+            _hint = None
+            if isinstance(operand, Number):
+                _hint = f"Cannot concatenate String and Number. Try converting with 'String({operand.value})' or wrap in an f-string."
+            return None, IllegalOperationError(
+                    operand.pos_start, operand.pos_end, 'Expected a String type', self.context,
+                    hint=_hint)
 
     def subtract(self, operand):
         return None, IllegalOperationError(

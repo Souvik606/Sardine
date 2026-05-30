@@ -19,3 +19,4 @@ Caught expected error: [E5001] Traceback (most recent call last):
         show("string" + 123)
                         ^^^
 IllegalOperationError: Expected a String type
+  Hint: Cannot concatenate String and Number. Try converting with 'String(123)' or wrap in an f-string.

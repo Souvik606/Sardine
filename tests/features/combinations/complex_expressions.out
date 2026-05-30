@@ -13,3 +13,4 @@ Caught expected error: [E5001] Traceback (most recent call last):
         y = x + 5
                 ^
 IllegalOperationError: Expected a String type
+  Hint: Cannot concatenate String and Number. Try converting with 'String(5)' or wrap in an f-string.
