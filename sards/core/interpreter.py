@@ -409,7 +409,14 @@ class Interpreter:
                 value = res.register(self.visit(part, context))
                 if res.should_return():
                     return res
-                result_str += str(value)
+                try:
+                    str_val = str(value)
+                except (ValueError, OverflowError, MemoryError):
+                    try:
+                        str_val = f"{float(value.value):.4e}" if hasattr(value, 'value') else "INF"
+                    except:
+                        str_val = "INF"
+                result_str += str_val
 
         return res.success(
             String(result_str).set_context(context).set_pos(node.pos_start, node.pos_end)
@@ -485,6 +492,9 @@ class Interpreter:
                 condition = lambda: i >= end_val.value
 
             while condition():
+                if len(elements) >= 100000:
+                    from sards.core.error import ValueError as SardineValueError
+                    return res.failure(SardineValueError(node.pos_start, node.pos_end, "Comprehension execution limit exceeded (max 100,000 items)", context))
                 comp_context.symbol_table.set(var_name, Number(i))
                 i += step_val.value
 
@@ -519,6 +529,9 @@ class Interpreter:
                     context))
 
             for item in items:
+                if len(elements) >= 100000:
+                    from sards.core.error import ValueError as SardineValueError
+                    return res.failure(SardineValueError(node.pos_start, node.pos_end, "Comprehension execution limit exceeded (max 100,000 items)", context))
                 if num_vars == 1:
                     comp_context.symbol_table.set(node.var_name_tokens[0].value, item)
                 else:
@@ -613,6 +626,9 @@ class Interpreter:
                 condition = lambda: i >= end_val.value
 
             while condition():
+                if len(pairs) >= 100000:
+                    from sards.core.error import ValueError as SardineValueError
+                    return res.failure(SardineValueError(node.pos_start, node.pos_end, "Comprehension execution limit exceeded (max 100,000 items)", context))
                 comp_context.symbol_table.set(var_name, Number(i))
                 i += step_val.value
 
@@ -647,6 +663,9 @@ class Interpreter:
                     context))
 
             for item in items:
+                if len(pairs) >= 100000:
+                    from sards.core.error import ValueError as SardineValueError
+                    return res.failure(SardineValueError(node.pos_start, node.pos_end, "Comprehension execution limit exceeded (max 100,000 items)", context))
                 if num_vars == 1:
                     comp_context.symbol_table.set(node.var_name_tokens[0].value, item)
                 else:
@@ -758,7 +777,11 @@ class Interpreter:
             if res.loop_or_switch_break:
                 break
 
-            elements.append(value)
+            if not node.return_null:
+                if len(elements) >= 100000:
+                    from sards.core.error import ValueError as SardineValueError
+                    return res.failure(SardineValueError(node.pos_start, node.pos_end, "Loop execution result accumulation limit exceeded (max 100,000 items)", context))
+                elements.append(value)
 
         return res.success(
             Number(0) if node.return_null else (List(elements).set_context(context)
@@ -835,7 +858,11 @@ class Interpreter:
             if res.loop_or_switch_break:
                 break
 
-            elements.append(value)
+            if not node.return_null:
+                if len(elements) >= 100000:
+                    from sards.core.error import ValueError as SardineValueError
+                    return res.failure(SardineValueError(node.pos_start, node.pos_end, "Loop execution result accumulation limit exceeded (max 100,000 items)", context))
+                elements.append(value)
 
         return res.success(
             Number(0) if node.return_null else (List(elements)
@@ -1384,7 +1411,14 @@ class Interpreter:
                     context
                 ))
             method = getattr(left_node, method_name)
-            result, error = method(right_node)
+            try:
+                result, error = method(right_node)
+            except (ValueError, TypeError, OverflowError, MemoryError) as e:
+                return res.failure(IllegalOperationError(
+                    node.pos_start, node.pos_end,
+                    f"Error during binary operation '{op_symbol}': {str(e)}",
+                    context
+                ))
         else:
             return res.failure(IllegalOperationError(
                 node.pos_start, node.pos_end,
@@ -1441,11 +1475,18 @@ class Interpreter:
                     f"Operator '{op_symbol}' is not supported by type '{type(number).__name__}'",
                     context
                 ))
-            if method_name == 'multiply':
-                number, error = number.multiply(Number(-1))
-            else:
-                method = getattr(number, method_name)
-                number, error = method()
+            try:
+                if method_name == 'multiply':
+                    number, error = number.multiply(Number(-1))
+                else:
+                    method = getattr(number, method_name)
+                    number, error = method()
+            except (ValueError, TypeError, OverflowError, MemoryError) as e:
+                return res.failure(IllegalOperationError(
+                    node.pos_start, node.pos_end,
+                    f"Error during unary operation '{op_symbol}': {str(e)}",
+                    context
+                ))
         else:
             return res.failure(IllegalOperationError(
                 node.pos_start, node.pos_end,
@@ -1511,8 +1552,17 @@ class Interpreter:
             # ── 3. Read & execute the module ─────────────────────────────
             _MODULE_CACHE[resolved_path] = "loading"
             try:
-                with open(resolved_path, 'r', encoding='utf-8') as f:
-                    source = f.read()
+                try:
+                    with open(resolved_path, 'r', encoding='utf-8') as f:
+                        source = f.read()
+                except Exception as file_err:
+                    if _MODULE_CACHE.get(resolved_path) == "loading":
+                        del _MODULE_CACHE[resolved_path]
+                    return res.failure(ModuleError(
+                        node.pos_start, node.pos_end,
+                        f"Failed to read module '{module_name}': {str(file_err)}",
+                        context
+                    ))
 
                 from .lexer import Lexer
                 from .parser import Parser
@@ -1565,7 +1615,11 @@ class Interpreter:
             except Exception as e:
                 if _MODULE_CACHE.get(resolved_path) == "loading":
                     del _MODULE_CACHE[resolved_path]
-                raise e
+                return res.failure(ModuleError(
+                    node.pos_start, node.pos_end,
+                    f"Unexpected error loading module '{module_name}': {str(e)}",
+                    context
+                ))
 
         # ── 4. Bind names into current scope ────────────────────────────
 

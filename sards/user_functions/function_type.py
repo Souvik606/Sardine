@@ -322,21 +322,41 @@ class BuiltInFunction(BaseFunction):
                     ArgumentError(self.pos_start, self.pos_end, f"Unexpected keyword argument '{name}' for show",
                                   self.context))
 
+        import threading
+        _stringify_state = threading.local()
+
         def stringify(node, nested=False):
-            if isinstance(node, List):
-                elements = ", ".join(stringify(el, nested=True) for el in node.elements)
-                return f"[{elements}]"
-            if isinstance(node, Dict):
-                pairs = ", ".join(f"{stringify(k, nested=True)}: {stringify(v, nested=True)}" for k, v in node.elements.items())
-                return f"{{{pairs}}}"
-            if isinstance(node, String):
-                return f"'{node.value}'" if nested else str(node.value)
-            if hasattr(node, 'value'):
-                return str(node.value)
-            # if node is a python string (e.g. dict key) we should probably quote it
-            if isinstance(node, str):
-                return f"'{node}'" if nested else node
-            return str(node)
+            if not hasattr(_stringify_state, 'visited'):
+                _stringify_state.visited = set()
+            if id(node) in _stringify_state.visited:
+                return "[...]" if isinstance(node, List) else "{...}"
+            _stringify_state.visited.add(id(node))
+            try:
+                if isinstance(node, List):
+                    elements = ", ".join(stringify(el, nested=True) for el in node.elements)
+                    return f"[{elements}]"
+                if isinstance(node, Dict):
+                    pairs = ", ".join(f"{stringify(k, nested=True)}: {stringify(v, nested=True)}" for k, v in node.elements.items())
+                    return f"{{{pairs}}}"
+                if isinstance(node, String):
+                    return f"'{node.value}'" if nested else str(node.value)
+                if hasattr(node, 'value'):
+                    try:
+                        return str(node.value)
+                    except ValueError:
+                        try:
+                            return f"{float(node.value):.4e}"
+                        except OverflowError:
+                            return "INF"
+                # if node is a python string (e.g. dict key) we should probably quote it
+                if isinstance(node, str):
+                    return f"'{node}'" if nested else node
+                try:
+                    return str(node)
+                except ValueError:
+                    return "INF"
+            finally:
+                _stringify_state.visited.remove(id(node))
 
         output = separator.join([stringify(arg) for arg in pos_args])
         print(output, end=end_char)
@@ -655,9 +675,47 @@ class BuiltInFunction(BaseFunction):
                 )
             )
 
-        elements = []
-        for i in range(start, end, step):
-            elements.append(Number(i).set_context(exec_context))
+        # Calculate count of elements in range
+        try:
+            if (step > 0 and start >= end) or (step < 0 and start <= end):
+                num_elements = 0
+            else:
+                num_elements = abs(end - start) // abs(step)
+                if abs(end - start) % abs(step) != 0:
+                    num_elements += 1
+        except OverflowError:
+            from sards.core.error import ValueError as SardineValueError
+            return res.failure(
+                SardineValueError(
+                    pos_args[0].pos_start, pos_args[-1].pos_end,
+                    "range() boundary overflow",
+                    exec_context
+                )
+            )
+
+        if num_elements > 1000000:
+            from sards.core.error import ValueError as SardineValueError
+            return res.failure(
+                SardineValueError(
+                    pos_args[0].pos_start, pos_args[-1].pos_end,
+                    f"range() limit exceeded (size {num_elements} > 1,000,000 limit)",
+                    exec_context
+                )
+            )
+
+        try:
+            elements = []
+            for i in range(start, end, step):
+                elements.append(Number(i).set_context(exec_context))
+        except (MemoryError, OverflowError):
+            from sards.core.error import ValueError as SardineValueError
+            return res.failure(
+                SardineValueError(
+                    self.pos_start, self.pos_end,
+                    "Memory error or overflow during range list generation",
+                    exec_context
+                )
+            )
 
         return res.success(
             List(elements)

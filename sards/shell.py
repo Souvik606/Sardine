@@ -81,26 +81,33 @@ def run(filename, input_text):
     # For debugging lexer's output
     # print(tokens)
 
-    # Pass the tokens to the parser
-    parser = Parser(tokens)
-    syntax_tree = parser.parse()# Generate AST
+    try:
+        # Pass the tokens to the parser
+        parser = Parser(tokens)
+        syntax_tree = parser.parse()# Generate AST
 
-    # Return the parsed AST and any errors encountered
-    if syntax_tree.error:
-        return None, syntax_tree.error
+        # Return the parsed AST and any errors encountered
+        if syntax_tree.error:
+            return None, syntax_tree.error
 
+        # For debugging parser's output
+        # print(syntax_tree.node)
 
-    # For debugging parser's output
-    # print(syntax_tree.node)
+        interpreter = Interpreter()
+        context = Context('<program>')
+        context.symbol_table = global_symbol_table
+        # Store the directory of the source file so 'summon' can find sibling modules
+        context.source_dir = os.path.dirname(os.path.abspath(filename)) if filename != '<stdin>' else os.getcwd()
+        res = interpreter.visit(syntax_tree.node, context)
 
-    interpreter = Interpreter()
-    context = Context('<program>')
-    context.symbol_table = global_symbol_table
-    # Store the directory of the source file so 'summon' can find sibling modules
-    context.source_dir = os.path.dirname(os.path.abspath(filename)) if filename != '<stdin>' else os.getcwd()
-    res = interpreter.visit(syntax_tree.node, context)
-
-    return res.value, res.error
+        return res.value, res.error
+    except RecursionError:
+        from sards.core.error import StackDepthExceededError, Position
+        pos = Position(0, 0, 0, filename, input_text)
+        dummy_context = Context('<program>')
+        dummy_context.symbol_table = global_symbol_table
+        err = StackDepthExceededError(pos, pos, "Compiler/Interpreter recursion limit exceeded due to deeply nested brackets or calls", dummy_context)
+        return None, err
 
 def run_file(filepath):
     """

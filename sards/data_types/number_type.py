@@ -190,7 +190,11 @@ class Number:
             if operand.value < 0:
                 return None, IllegalOperationError(
                     operand.pos_start, operand.pos_end, 'Negative shift count', self.context)
-            return Number(self.value << operand.value).set_context(self.context), None
+            try:
+                return Number(self.value << operand.value).set_context(self.context), None
+            except (ValueError, OverflowError, MemoryError):
+                return None, IllegalOperationError(
+                    operand.pos_start, operand.pos_end, 'Shift count too large or result overflow', self.context)
         else: return None, IllegalOperationError(
                     operand.pos_start, operand.pos_end, 'Expected a Number type', self.context)
         
@@ -202,7 +206,11 @@ class Number:
             if operand.value < 0:
                 return None, IllegalOperationError(
                     operand.pos_start, operand.pos_end, 'Negative shift count', self.context)
-            return Number(self.value >> operand.value).set_context(self.context), None
+            try:
+                return Number(self.value >> operand.value).set_context(self.context), None
+            except (ValueError, OverflowError, MemoryError):
+                return None, IllegalOperationError(
+                    operand.pos_start, operand.pos_end, 'Shift count too large or result overflow', self.context)
         else: return None, IllegalOperationError(
                     operand.pos_start, operand.pos_end, 'Expected a Number type', self.context)
 
@@ -224,9 +232,9 @@ class Number:
                 return None, DivisionByZeroError(
                     operand.pos_start, operand.pos_end, 'Division by zero: 0.0 cannot be raised to a negative power', self.context
                 )
-            except OverflowError:
+            except (OverflowError, MemoryError, ValueError):
                 return None, IllegalOperationError(
-                    operand.pos_start, operand.pos_end, 'Result too large (overflow)', self.context
+                    operand.pos_start, operand.pos_end, 'Result too large or invalid exponentiation', self.context
                 )
         else: return None, IllegalOperationError(
                     operand.pos_start, operand.pos_end, 'Expected a Number type', self.context)
@@ -300,4 +308,10 @@ class Number:
         Returns:
         - str: The string representation of the numerical value.
         """
-        return str(self.value)
+        try:
+            return str(self.value)
+        except ValueError:
+            try:
+                return f"{float(self.value):.4e}"
+            except OverflowError:
+                return "INF"

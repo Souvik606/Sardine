@@ -150,7 +150,7 @@ class ModelInstance:
                 access_level = access_modifier_tok
 
             method_owner = self.model.find_method_owner(name)
-            caller_class = calling_context.owner_class
+            caller_class = calling_context.owner_class if calling_context else None
 
             if access_level == "secret":
                 if not caller_class or caller_class != method_owner:

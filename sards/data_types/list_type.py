@@ -1,6 +1,8 @@
 from .number_type import Number
 from .string_type import String
 from sards.core.error import RunTimeError, IllegalOperationError, DictKeyError, IndexOutOfBoundsError
+import threading
+_repr_state = threading.local()
 
 class ListNode:
     def __init__(self, element_nodes, pos_start, pos_end):
@@ -63,16 +65,30 @@ class List:
             if operand.value < 0:
                 return None, IllegalOperationError(
                     operand.pos_start, operand.pos_end, 'List repetition cannot be negative', self.context)
+            
+            if len(self.elements) * operand.value > 100000:
+                from sards.core.error import ValueError as SardineValueError
+                return None, SardineValueError(
+                    operand.pos_start, operand.pos_end,
+                    f"List repetition limit exceeded (size {len(self.elements) * operand.value} > 100,000 elements limit)",
+                    self.context
+                )
+
             new_list = self.copy()
             if operand.value == 0:
                 new_list.elements = []
                 return new_list, None
-            temp_list = list(new_list.elements)
-
-            for i in range(operand.value - 1):
-                for ele in temp_list:
-                    new_list.elements.append(ele)
-            return new_list, None
+            
+            try:
+                temp_list = list(new_list.elements)
+                for i in range(operand.value - 1):
+                    for ele in temp_list:
+                        new_list.elements.append(ele)
+                return new_list, None
+            except (MemoryError, OverflowError):
+                from sards.core.error import ValueError as SardineValueError
+                return None, SardineValueError(
+                    operand.pos_start, operand.pos_end, 'Memory error or overflow during list repetition', self.context)
         else:
             return None, IllegalOperationError(
                 operand.pos_start, operand.pos_end, 'Expected an integer Number type', self.context)
@@ -103,32 +119,41 @@ class List:
 
     def get_comparison_eq(self, operand):
         if isinstance(operand, List):
-            new_list = self.copy()
-            if len(new_list.elements) == len(operand.elements):
-                try:
-                    all_eq = True
-                    for a, b in zip(new_list.elements, operand.elements):
-                        if hasattr(a, 'get_comparison_eq') and hasattr(b, 'get_comparison_eq'):
-                            eq_node, err = a.get_comparison_eq(b)
-                            if err or eq_node.value == 0:
+            if not hasattr(_repr_state, 'comparing'):
+                _repr_state.comparing = set()
+            pair = (id(self), id(operand))
+            if pair in _repr_state.comparing:
+                return Number(1).set_context(self.context), None
+            _repr_state.comparing.add(pair)
+            try:
+                new_list = self.copy()
+                if len(new_list.elements) == len(operand.elements):
+                    try:
+                        all_eq = True
+                        for a, b in zip(new_list.elements, operand.elements):
+                            if hasattr(a, 'get_comparison_eq') and hasattr(b, 'get_comparison_eq'):
+                                eq_node, err = a.get_comparison_eq(b)
+                                if err or eq_node.value == 0:
+                                    all_eq = False
+                                    break
+                            elif hasattr(a, 'value') and hasattr(b, 'value'):
+                                if a.value != b.value:
+                                    all_eq = False
+                                    break
+                            elif not hasattr(a, 'value') and not hasattr(b, 'value'):
+                                if a != b:
+                                    all_eq = False
+                                    break
+                            else:
                                 all_eq = False
                                 break
-                        elif hasattr(a, 'value') and hasattr(b, 'value'):
-                            if a.value != b.value:
-                                all_eq = False
-                                break
-                        elif not hasattr(a, 'value') and not hasattr(b, 'value'):
-                            if a != b:
-                                all_eq = False
-                                break
-                        else:
-                            all_eq = False
-                            break
-                    return Number(1 if all_eq else 0).set_context(self.context), None
-                except Exception:
+                        return Number(1 if all_eq else 0).set_context(self.context), None
+                    except Exception:
+                        return Number(0).set_context(self.context), None
+                else:
                     return Number(0).set_context(self.context), None
-            else:
-                return Number(0).set_context(self.context), None
+            finally:
+                _repr_state.comparing.remove(pair)
         else: return None, IllegalOperationError(
                     operand.pos_start, operand.pos_end, 'Expected a List', self.context)
 
@@ -212,6 +237,13 @@ class List:
             return None, IndexOutOfBoundsError(
                 bad_idx.pos_start, bad_idx.pos_end,
                 "Index out of bounds",
+                self.context
+            )
+        except OverflowError:
+            bad_idx = indexes[-1]
+            return None, IndexOutOfBoundsError(
+                bad_idx.pos_start, bad_idx.pos_end,
+                "Index too large (overflow)",
                 self.context
             )
 
@@ -327,12 +359,28 @@ class List:
                 "Index out of bounds",
                 self.context
             )
+        except OverflowError:
+            bad_idx = indexes[-1]
+            return None, IndexOutOfBoundsError(
+                bad_idx.pos_start, bad_idx.pos_end,
+                "Index too large (overflow)",
+                self.context
+            )
 
     def is_true(self):
         return Number(len(self.elements)).set_context(self.context), None
 
     def __repr__(self):
-        return f'[{", ".join([str(x) for x in self.elements])}]'
+        if not hasattr(_repr_state, 'visited'):
+            _repr_state.visited = set()
+        if id(self) in _repr_state.visited:
+            return "[...]"
+        _repr_state.visited.add(id(self))
+        try:
+            res = f'[{", ".join([str(x) for x in self.elements])}]'
+        finally:
+            _repr_state.visited.remove(id(self))
+        return res
 
     def copy(self):
         copy_elements = []
@@ -395,6 +443,8 @@ class List:
                 return res.success(popped)
             except IndexError:
                 return res.failure(IndexOutOfBoundsError(instance.pos_start, instance.pos_end, "Index out of bounds", exec_context))
+            except OverflowError:
+                return res.failure(IndexOutOfBoundsError(instance.pos_start, instance.pos_end, "Index too large (overflow)", exec_context))
 
         def method_remove(instance, pos_args, kw_args, exec_context):
             res = RunTimeResult()
@@ -462,8 +512,11 @@ class List:
             if not isinstance(start_arg, Number) or isinstance(start_arg.value, float) or not isinstance(end_arg, Number) or isinstance(end_arg.value, float):
                 return res.failure(IllegalOperationError(instance.pos_start, instance.pos_end, "Slice bounds must be integer Numbers", exec_context))
             
-            sliced_elements = [el.copy() if hasattr(el, 'copy') else el for el in instance.elements[start_arg.value:end_arg.value]]
-            return res.success(List(sliced_elements).set_context(calling_context))
+            try:
+                sliced_elements = [el.copy() if hasattr(el, 'copy') else el for el in instance.elements[start_arg.value:end_arg.value]]
+                return res.success(List(sliced_elements).set_context(calling_context))
+            except (OverflowError, ValueError):
+                return res.failure(IndexOutOfBoundsError(instance.pos_start, instance.pos_end, "Slice index too large (overflow)", exec_context))
 
         def method_join(instance, pos_args, kw_args, exec_context):
             res = RunTimeResult()
@@ -474,8 +527,22 @@ class List:
             if not isinstance(sep, String):
                 return res.failure(IllegalOperationError(sep.pos_start, sep.pos_end, "Separator must be a String", exec_context))
             
-            joined_str = sep.value.join(str(el.value if hasattr(el, 'value') else el) for el in instance.elements)
-            return res.success(String(joined_str).set_context(calling_context))
+            parts = []
+            for el in instance.elements:
+                val = el.value if hasattr(el, 'value') else el
+                try:
+                    parts.append(str(val))
+                except ValueError:
+                    try:
+                        parts.append(f"{float(val):.4e}")
+                    except OverflowError:
+                        parts.append("INF")
+            try:
+                joined_str = sep.value.join(parts)
+                return res.success(String(joined_str).set_context(calling_context))
+            except (MemoryError, OverflowError):
+                from sards.core.error import ValueError as SardineValueError
+                return res.failure(SardineValueError(instance.pos_start, instance.pos_end, "Memory error or overflow during list join", exec_context))
 
         def method_index_of(instance, pos_args, kw_args, exec_context):
             res = RunTimeResult()

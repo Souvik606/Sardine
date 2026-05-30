@@ -44,7 +44,24 @@ class String:
 
     def multiply(self, operand):
         if isinstance(operand, Number) and not isinstance(operand.value, float):
-            return String(self.value * operand.value).set_context(self.context), None
+            if operand.value < 0:
+                return None, IllegalOperationError(
+                    operand.pos_start, operand.pos_end, 'String repetition cannot be negative', self.context)
+            
+            if len(self.value) * operand.value > 100000:
+                from sards.core.error import ValueError as SardineValueError
+                return None, SardineValueError(
+                    operand.pos_start, operand.pos_end,
+                    f"String repetition limit exceeded (size {len(self.value) * operand.value} > 100,000 characters limit)",
+                    self.context
+                )
+            
+            try:
+                return String(self.value * operand.value).set_context(self.context), None
+            except (OverflowError, MemoryError):
+                from sards.core.error import ValueError as SardineValueError
+                return None, SardineValueError(
+                    operand.pos_start, operand.pos_end, 'Memory error or overflow during string repetition', self.context)
         else: return None, IllegalOperationError(
                     operand.pos_start, operand.pos_end, 'Expected an integer Number type', self.context)
 
@@ -170,6 +187,13 @@ class String:
                 "Index out of bounds",
                 self.context
             )
+        except OverflowError:
+            bad_idx = indexes[-1]
+            return None, IndexOutOfBoundsError(
+                bad_idx.pos_start, bad_idx.pos_end,
+                "Index too large (overflow)",
+                self.context
+            )
 
     def assignIndex(self, indexes, val):
         if not isinstance(val, String) or len(val.value) != 1:
@@ -213,8 +237,21 @@ class String:
                     "Index out of bounds",
                     self.context
                 )
+            except OverflowError:
+                return None, IndexOutOfBoundsError(
+                    last_idx.pos_start, last_idx.pos_end,
+                    "Index too large (overflow)",
+                    self.context
+                )
 
-        except Exception:
+        except Exception as e:
+            if isinstance(e, OverflowError):
+                bad_idx = indexes[-1]
+                return None, IndexOutOfBoundsError(
+                    bad_idx.pos_start, bad_idx.pos_end,
+                    "Index too large (overflow)",
+                    self.context
+                )
             bad_idx = indexes[-1]
             return None, RunTimeError(
                 bad_idx.pos_start, bad_idx.pos_end,
@@ -243,9 +280,17 @@ class String:
             if not isinstance(delim, String):
                 return res.failure(IllegalOperationError(delim.pos_start, delim.pos_end, "Delimiter must be a String", exec_context))
             
-            parts = instance.value.split(delim.value)
-            list_parts = [String(p).set_context(calling_context) for p in parts]
-            return res.success(List(list_parts).set_context(calling_context))
+            if not delim.value:
+                from sards.core.error import ValueError as SardineValueError
+                return res.failure(SardineValueError(delim.pos_start, delim.pos_end, "split delimiter cannot be empty", exec_context))
+
+            try:
+                parts = instance.value.split(delim.value)
+                list_parts = [String(p).set_context(calling_context) for p in parts]
+                return res.success(List(list_parts).set_context(calling_context))
+            except (MemoryError, OverflowError):
+                from sards.core.error import ValueError as SardineValueError
+                return res.failure(SardineValueError(delim.pos_start, delim.pos_end, "Memory error or overflow during string split", exec_context))
 
         def method_upper(instance, pos_args, kw_args, exec_context):
             res = RunTimeResult()
@@ -289,7 +334,6 @@ class String:
             
             ans = 1 if instance.value.endswith(suffix.value) else 0
             return res.success(Number(ans))
-
         def method_replace(instance, pos_args, kw_args, exec_context):
             res = RunTimeResult()
             if len(pos_args) != 2 or kw_args:
@@ -300,9 +344,12 @@ class String:
             if not isinstance(old, String) or not isinstance(new, String):
                 return res.failure(IllegalOperationError(instance.pos_start, instance.pos_end, "Both old and new arguments must be Strings", exec_context))
             
-            replaced = instance.value.replace(old.value, new.value)
-            return res.success(String(replaced).set_context(calling_context))
-
+            try:
+                replaced = instance.value.replace(old.value, new.value)
+                return res.success(String(replaced).set_context(calling_context))
+            except (MemoryError, OverflowError):
+                from sards.core.error import ValueError as SardineValueError
+                return res.failure(SardineValueError(instance.pos_start, instance.pos_end, "Memory error or overflow during string replace", exec_context))
         def method_find(instance, pos_args, kw_args, exec_context):
             res = RunTimeResult()
             if len(pos_args) != 1 or kw_args:

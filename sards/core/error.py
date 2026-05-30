@@ -140,6 +140,13 @@ def string_with_arrows(text, pos_start, pos_end):
     Returns:
     - str: Two lines — the source line, then the caret underline.
     """
+    if text is None or not isinstance(text, str):
+        return ""
+    if pos_start is None or getattr(pos_start, 'line', None) is None or getattr(pos_start, 'col', None) is None:
+        return ""
+    if pos_end is None or getattr(pos_end, 'line', None) is None or getattr(pos_end, 'col', None) is None:
+        pos_end = pos_start
+
     lines = text.splitlines()
 
     # Only show the line where the error *starts*
@@ -301,20 +308,26 @@ class RunTimeError(BaseError):
         context  = self.context
 
         while context:
-            try:
-                relative_path = os.path.relpath(
-                    position.file_name, start=os.curdir
-                ).replace('\\', '/')
-            except ValueError:
-                relative_path = position.file_name
+            if position is None or getattr(position, 'file_name', None) is None or getattr(position, 'file_text', None) is None:
+                relative_path = "<unknown>"
+                snippet = ""
+                line_str = "?"
+            else:
+                try:
+                    relative_path = os.path.relpath(
+                        position.file_name, start=os.curdir
+                    ).replace('\\', '/')
+                except ValueError:
+                    relative_path = position.file_name
 
-            snippet = string_with_arrows(
-                position.file_text, position, self.pos_end
-                if context.parent is None else position
-            )
+                snippet = string_with_arrows(
+                    position.file_text, position, self.pos_end
+                    if context.parent is None else position
+                )
+                line_str = str(position.line + 1)
 
             frames.append(
-                f"  File {relative_path}, line {position.line + 1}, "
+                f"  File {relative_path}, line {line_str}, "
                 f"in {context.display_name}\n"
                 f"{snippet}"
             )

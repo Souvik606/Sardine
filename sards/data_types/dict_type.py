@@ -1,6 +1,8 @@
 from .number_type import Number
 from .string_type import String
 from sards.core.error import RunTimeError, IllegalOperationError, DictKeyError
+import threading
+_repr_state = threading.local()
 
 class DictNode:
     def __init__(self, keyval_nodes, pos_start, pos_end):
@@ -46,9 +48,18 @@ class Dict:
         return copy
     
     def __repr__(self):
-        def format_key(k):
-            return f"'{k}'" if isinstance(k, str) else str(k)
-        return f'{{{", ".join([f"{format_key(k)}: {repr(v)}" for k, v in self.elements.items()])}}}'
+        if not hasattr(_repr_state, 'visited'):
+            _repr_state.visited = set()
+        if id(self) in _repr_state.visited:
+            return "{...}"
+        _repr_state.visited.add(id(self))
+        try:
+            def format_key(k):
+                return f"'{k}'" if isinstance(k, str) else str(k)
+            res = f'{{{", ".join([f"{format_key(k)}: {repr(v)}" for k, v in self.elements.items()])}}}'
+        finally:
+            _repr_state.visited.remove(id(self))
+        return res
     
     def is_true(self):
         return Number(len(self.elements)).set_context(self.context), None    
@@ -258,19 +269,28 @@ class Dict:
                 self.context
             )
             
-        if len(self.elements) != len(operand.elements):
-            return Number(0).set_context(self.context), None
-            
-        try:
-            for k, v in self.elements.items():
-                if k not in operand.elements:
-                    return Number(0).set_context(self.context), None
-                if str(v) != str(operand.elements[k]):
-                    return Number(0).set_context(self.context), None
-                    
+        if not hasattr(_repr_state, 'comparing'):
+            _repr_state.comparing = set()
+        pair = (id(self), id(operand))
+        if pair in _repr_state.comparing:
             return Number(1).set_context(self.context), None
-        except:
-            return Number(0).set_context(self.context), None
+        _repr_state.comparing.add(pair)
+        try:
+            if len(self.elements) != len(operand.elements):
+                return Number(0).set_context(self.context), None
+                
+            try:
+                for k, v in self.elements.items():
+                    if k not in operand.elements:
+                        return Number(0).set_context(self.context), None
+                    if str(v) != str(operand.elements[k]):
+                        return Number(0).set_context(self.context), None
+                        
+                return Number(1).set_context(self.context), None
+            except:
+                return Number(0).set_context(self.context), None
+        finally:
+            _repr_state.comparing.remove(pair)
 
     def get_comparison_neq(self, operand):
         """Returns opposite of eq comparison"""
