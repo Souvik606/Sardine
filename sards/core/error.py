@@ -109,13 +109,20 @@ def fuzzy_match(name, candidates, max_distance=3):
     Returns:
     - str or None: The closest match within max_distance, or None.
     """
+    if not isinstance(name, str):
+        return None
     best = None
     best_dist = max_distance + 1
     for c in candidates:
-        d = _levenshtein(name.lower(), c.lower())
-        if d < best_dist:
-            best_dist = d
-            best = c
+        if not isinstance(c, str):
+            continue
+        try:
+            d = _levenshtein(name.lower(), c.lower())
+            if d < best_dist:
+                best_dist = d
+                best = c
+        except Exception:
+            continue
     return best if best_dist <= max_distance else None
 
 
@@ -306,8 +313,12 @@ class RunTimeError(BaseError):
         frames = []
         position = self.pos_start
         context  = self.context
+        visited = set()
 
-        while context:
+        while context and len(frames) < 1000:
+            if id(context) in visited:
+                break
+            visited.add(id(context))
             if position is None or getattr(position, 'file_name', None) is None or getattr(position, 'file_text', None) is None:
                 relative_path = "<unknown>"
                 snippet = ""

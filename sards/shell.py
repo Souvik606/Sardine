@@ -125,8 +125,12 @@ def run_file(filepath):
         return
 
     # Read the file content
-    with open(filepath, 'r', encoding='utf-8') as file:
-        file_content = file.read()
+    try:
+        with open(filepath, 'r', encoding='utf-8') as file:
+            file_content = file.read()
+    except Exception as exc:
+        print(f"Error: Could not read file '{filepath}': {exc}")
+        return
 
     # Execute the file content
     result, errors = run(filepath, file_content)
@@ -141,6 +145,11 @@ def run_file(filepath):
     #         print(result)
 
 if __name__ == "__main__":
+    if "--unbounded" in sys.argv:
+        from sards.core import constants
+        constants.UNBOUNDED_MODE = True
+        sys.argv.remove("--unbounded")
+
     if len(sys.argv) > 1:
         run_file(sys.argv[1])
     else:

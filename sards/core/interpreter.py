@@ -491,7 +491,13 @@ class Interpreter:
             else:
                 condition = lambda: i >= end_val.value
 
+            iterations = 0
             while condition():
+                iterations += 1
+                from sards.core import constants
+                if not constants.UNBOUNDED_MODE and iterations >= 200000:
+                    from sards.core.error import ValueError as SardineValueError
+                    return res.failure(SardineValueError(node.pos_start, node.pos_end, "Comprehension execution limit exceeded (max 100,000 iterations)", context))
                 if len(elements) >= 100000:
                     from sards.core.error import ValueError as SardineValueError
                     return res.failure(SardineValueError(node.pos_start, node.pos_end, "Comprehension execution limit exceeded (max 100,000 items)", context))
@@ -528,7 +534,13 @@ class Interpreter:
                     f"'{type(collection).__name__}' object is not iterable in comprehension",
                     context))
 
+            iterations = 0
             for item in items:
+                iterations += 1
+                from sards.core import constants
+                if not constants.UNBOUNDED_MODE and iterations >= 200000:
+                    from sards.core.error import ValueError as SardineValueError
+                    return res.failure(SardineValueError(node.pos_start, node.pos_end, "Comprehension execution limit exceeded (max 100,000 iterations)", context))
                 if len(elements) >= 100000:
                     from sards.core.error import ValueError as SardineValueError
                     return res.failure(SardineValueError(node.pos_start, node.pos_end, "Comprehension execution limit exceeded (max 100,000 items)", context))
@@ -625,7 +637,13 @@ class Interpreter:
             else:
                 condition = lambda: i >= end_val.value
 
+            iterations = 0
             while condition():
+                iterations += 1
+                from sards.core import constants
+                if not constants.UNBOUNDED_MODE and iterations >= 200000:
+                    from sards.core.error import ValueError as SardineValueError
+                    return res.failure(SardineValueError(node.pos_start, node.pos_end, "Comprehension execution limit exceeded (max 100,000 iterations)", context))
                 if len(pairs) >= 100000:
                     from sards.core.error import ValueError as SardineValueError
                     return res.failure(SardineValueError(node.pos_start, node.pos_end, "Comprehension execution limit exceeded (max 100,000 items)", context))
@@ -662,7 +680,13 @@ class Interpreter:
                     f"'{type(collection).__name__}' object is not iterable in dict comprehension",
                     context))
 
+            iterations = 0
             for item in items:
+                iterations += 1
+                from sards.core import constants
+                if not constants.UNBOUNDED_MODE and iterations >= 200000:
+                    from sards.core.error import ValueError as SardineValueError
+                    return res.failure(SardineValueError(node.pos_start, node.pos_end, "Comprehension execution limit exceeded (max 100,000 iterations)", context))
                 if len(pairs) >= 100000:
                     from sards.core.error import ValueError as SardineValueError
                     return res.failure(SardineValueError(node.pos_start, node.pos_end, "Comprehension execution limit exceeded (max 100,000 items)", context))
@@ -757,8 +781,14 @@ class Interpreter:
     def visit_WhileNode(self, node, context):
         res = RunTimeResult()
         elements = []
+        iterations = 0
 
         while True:
+            iterations += 1
+            from sards.core import constants
+            if not constants.UNBOUNDED_MODE and iterations >= 200000:
+                from sards.core.error import ValueError as SardineValueError
+                return res.failure(SardineValueError(node.pos_start, node.pos_end, "Loop execution limit exceeded (max 100,000 iterations)", context))
             condition = res.register(self.visit(node.condition_node, context))
             if res.should_return():
                 return res
@@ -778,10 +808,11 @@ class Interpreter:
                 break
 
             if not node.return_null:
-                if len(elements) >= 100000:
+                if len(elements) < 100000:
+                    elements.append(value)
+                elif not constants.UNBOUNDED_MODE:
                     from sards.core.error import ValueError as SardineValueError
                     return res.failure(SardineValueError(node.pos_start, node.pos_end, "Loop execution result accumulation limit exceeded (max 100,000 items)", context))
-                elements.append(value)
 
         return res.success(
             Number(0) if node.return_null else (List(elements).set_context(context)
@@ -843,7 +874,13 @@ class Interpreter:
         else:
             condition = lambda: i >= end_value.value
 
+        iterations = 0
         while condition():
+            iterations += 1
+            from sards.core import constants
+            if not constants.UNBOUNDED_MODE and iterations >= 200000:
+                from sards.core.error import ValueError as SardineValueError
+                return res.failure(SardineValueError(node.pos_start, node.pos_end, "Loop execution limit exceeded (max 100,000 iterations)", context))
             context.symbol_table.set(node.var_name_tok.value, Number(i))
             i += step_value.value
 
@@ -859,10 +896,11 @@ class Interpreter:
                 break
 
             if not node.return_null:
-                if len(elements) >= 100000:
+                if len(elements) < 100000:
+                    elements.append(value)
+                elif not constants.UNBOUNDED_MODE:
                     from sards.core.error import ValueError as SardineValueError
                     return res.failure(SardineValueError(node.pos_start, node.pos_end, "Loop execution result accumulation limit exceeded (max 100,000 items)", context))
-                elements.append(value)
 
         return res.success(
             Number(0) if node.return_null else (List(elements)
@@ -881,7 +919,7 @@ class Interpreter:
         if isinstance(collection, Dict):
             if num_vars == 1:
                 var_name = var_name_tokens[0].value
-                for key, value in collection.elements.items():
+                for key, value in list(collection.elements.items()):
                     pair = List([key.copy(), value.copy()])
                     pair.set_context(context).set_pos(node.pos_start, node.pos_end)
                     context.symbol_table.set(var_name, pair)
@@ -899,7 +937,7 @@ class Interpreter:
             elif num_vars == 2:
                 key_var_name = var_name_tokens[0].value
                 val_var_name = var_name_tokens[1].value
-                for key, value in collection.elements.items():
+                for key, value in list(collection.elements.items()):
                     context.symbol_table.set(key_var_name, key.copy())
                     context.symbol_table.set(val_var_name, value.copy())
 
@@ -924,7 +962,7 @@ class Interpreter:
         elif isinstance(collection, List):
             if num_vars == 1:
                 var_name = var_name_tokens[0].value
-                for element in collection.elements:
+                for element in list(collection.elements):
                     context.symbol_table.set(var_name, element.copy())
 
                     value = res.register(self.visit(node.body_node, context))
@@ -937,11 +975,12 @@ class Interpreter:
                     if res.loop_or_switch_break:
                         break
             else:
-                for element in collection.elements:
+                for element in list(collection.elements):
                     if not isinstance(element, List):
                         return res.failure(
                             IllegalOperationError(
-                                element.pos_start, element.pos_end,
+                                getattr(element, 'pos_start', node.pos_start),
+                                getattr(element, 'pos_end', node.pos_end),
                                 f"Cannot unpack non-list item into {num_vars} variables",
                                 context
                             )
@@ -950,7 +989,8 @@ class Interpreter:
                     if len(element.elements) != num_vars:
                         return res.failure(
                             ValueError(
-                                element.pos_start, element.pos_end,
+                                getattr(element, 'pos_start', node.pos_start),
+                                getattr(element, 'pos_end', node.pos_end),
                                 f"Expected {num_vars} values to unpack, but got {len(element.elements)}",
                                 context
                             )
@@ -999,7 +1039,8 @@ class Interpreter:
         else:
             return res.failure(
                 IllegalOperationError(
-                    collection.pos_start, collection.pos_end,
+                    getattr(collection, 'pos_start', node.pos_start),
+                    getattr(collection, 'pos_end', node.pos_end),
                     f"'{type(collection).__name__}' object is not iterable",
                     context,
                     hint="Only List, String, and Dict values can be iterated with 'trace'."
@@ -1042,14 +1083,17 @@ class Interpreter:
                     context
                 ))
             
-            for seen in seen_choices:
-                if choice_val.value == seen:
-                    return res.failure(RunTimeError(
-                        choice.pos_start, choice.pos_end,
-                        f"Duplicate choice '{choice_val.value}' in menu",
-                        context
-                    ))
-            seen_choices.append(choice_val.value)
+            try:
+                for seen in seen_choices:
+                    if choice_val.value == seen:
+                        return res.failure(RunTimeError(
+                            choice.pos_start, choice.pos_end,
+                            f"Duplicate choice '{choice_val.value}' in menu",
+                            context
+                        ))
+                seen_choices.append(choice_val.value)
+            except Exception:
+                pass
 
             if not match_found and selection_val.value == choice_val.value:
                 match_found = True
@@ -1413,7 +1457,7 @@ class Interpreter:
             method = getattr(left_node, method_name)
             try:
                 result, error = method(right_node)
-            except (ValueError, TypeError, OverflowError, MemoryError) as e:
+            except (ValueError, TypeError, OverflowError, MemoryError, AttributeError) as e:
                 return res.failure(IllegalOperationError(
                     node.pos_start, node.pos_end,
                     f"Error during binary operation '{op_symbol}': {str(e)}",
@@ -1481,7 +1525,7 @@ class Interpreter:
                 else:
                     method = getattr(number, method_name)
                     number, error = method()
-            except (ValueError, TypeError, OverflowError, MemoryError) as e:
+            except (ValueError, TypeError, OverflowError, MemoryError, AttributeError) as e:
                 return res.failure(IllegalOperationError(
                     node.pos_start, node.pos_end,
                     f"Error during unary operation '{op_symbol}': {str(e)}",

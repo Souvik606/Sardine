@@ -21,10 +21,13 @@ class Dict:
         self.pos_start = None
         self.elements = {}
         for key, value in elements:
-            if hasattr(key, 'value'):
-                self.elements[key.value] = value
-            else:
-                self.elements[key] = value
+            try:
+                if hasattr(key, 'value'):
+                    self.elements[key.value] = value
+                else:
+                    self.elements[key] = value
+            except TypeError:
+                self.elements[str(key)] = value
             
         self.set_pos()
         self.set_context()
@@ -104,11 +107,11 @@ class Dict:
 
             return temp, None
 
-        except IndexError:
+        except (IndexError, TypeError):
             bad_idx = indexes[-1]
             return None, RunTimeError(
-                bad_idx.pos_start, bad_idx.pos_end,
-                "Index out of bounds",
+                getattr(bad_idx, 'pos_start', None), getattr(bad_idx, 'pos_end', None),
+                "Index out of bounds or invalid index",
                 self.context
             )
 
@@ -217,11 +220,11 @@ class Dict:
                     self.context
                 )
 
-        except IndexError:
+        except (IndexError, TypeError):
             bad_idx = indexes[-1]
             return None, RunTimeError(
-                bad_idx.pos_start, bad_idx.pos_end,
-                "Index out of bounds",
+                getattr(bad_idx, 'pos_start', None), getattr(bad_idx, 'pos_end', None),
+                "Index out of bounds or invalid index",
                 self.context
             )
 

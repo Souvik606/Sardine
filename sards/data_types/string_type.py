@@ -342,7 +342,10 @@ class String:
             old = pos_args[0]
             new = pos_args[1]
             if not isinstance(old, String) or not isinstance(new, String):
-                return res.failure(IllegalOperationError(instance.pos_start, instance.pos_end, "Both old and new arguments must be Strings", exec_context))
+                return res.failure(IllegalOperationError(
+                    getattr(old, 'pos_start', instance.pos_start), getattr(old, 'pos_end', instance.pos_end),
+                    "Both old and new arguments must be Strings", exec_context
+                ))
             
             try:
                 replaced = instance.value.replace(old.value, new.value)

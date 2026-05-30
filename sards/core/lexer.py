@@ -368,7 +368,7 @@ class Lexer:
                 return Token(T_FLOAT, float(number), pos_start, self.pos), None
             else:
                 return Token(T_INT, int(number), pos_start, self.pos), None
-        except ValueError:
+        except (ValueError, OverflowError):
             return None, IllegalCharError(pos_start, self.pos, f"Numerical literal exceeds digit conversion limits or is invalid")
 
     def enumerate_tokens(self):

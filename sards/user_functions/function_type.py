@@ -391,7 +391,7 @@ class BuiltInFunction(BaseFunction):
 
         try:
             number = int(pos_args[0].value)
-        except (ValueError, TypeError) as exc:
+        except (ValueError, TypeError, OverflowError) as exc:
             return res.failure(
                 ArgumentError(self.pos_start, self.pos_end, "Argument must be a value convertible to an integer",
                               self.context))
@@ -408,13 +408,13 @@ class BuiltInFunction(BaseFunction):
             return res.failure(
                 ArgumentError(self.pos_start, self.pos_end, "String() takes exactly one argument", self.context))
 
-        if not hasattr(pos_args[0], 'value'):
-            return res.failure(
-                ArgumentError(self.pos_start, self.pos_end, "Argument must be a primitive value (Number or String)", self.context))
-
+        arg = pos_args[0]
         try:
-            string = str(pos_args[0].value)
-        except (ValueError, TypeError) as exc:
+            if hasattr(arg, 'value'):
+                string = str(arg.value)
+            else:
+                string = str(arg)
+        except Exception as exc:
             return res.failure(
                 ArgumentError(self.pos_start, self.pos_end, "Argument must be a value convertible to a string",
                               self.context))
@@ -616,6 +616,31 @@ class BuiltInFunction(BaseFunction):
             val = len(arg.value)
         elif isinstance(arg, Dict):
             val = len(arg.elements)
+        elif hasattr(arg, 'model') and hasattr(arg, '_call_op_method'):
+            len_result, len_error = arg._call_op_method('__len__', [])
+            if len_error:
+                return res.failure(len_error)
+            if len_result is not None:
+                if isinstance(len_result, Number):
+                    return res.success(len_result)
+                else:
+                    return res.failure(
+                        IllegalOperationError(
+                            self.pos_start, self.pos_end,
+                            f"__len__ must return a Number, not '{type(len_result).__name__}'",
+                            exec_context
+                        )
+                    )
+            length_attr, attr_err = arg.get_attr('length', exec_context)
+            if attr_err is None and isinstance(length_attr, Number):
+                return res.success(length_attr)
+            return res.failure(
+                IllegalOperationError(
+                    self.pos_start, self.pos_end,
+                    f"Type '{type(arg).__name__}' has no length",
+                    exec_context
+                )
+            )
         else:
             return res.failure(
                 IllegalOperationError(
