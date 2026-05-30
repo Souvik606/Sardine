@@ -456,7 +456,7 @@ class InvalidErrorTypeError(RunTimeError):
                 "Valid error types are: RunTimeError, IllegalOperationError, "
                 "DivisionByZeroError, IndexOutOfBoundsError, NameError, ArgumentError, "
                 "TypeError, AttributeError, DictKeyError, ValueError, ModuleError, "
-                "StackDepthExceededError."
+                "StackDepthExceededError, FileIOError."
             )
         super().__init__(pos_start, pos_end, details, context, hint)
         self.error_name = "InvalidErrorTypeError"
@@ -538,3 +538,16 @@ class StackDepthExceededError(RunTimeError):
             )
         super().__init__(pos_start, pos_end, details, context, hint)
         self.error_name = "StackDepthExceededError"
+
+
+class FileIOError(RunTimeError):
+    """
+    [E9006] Error raised when a file input/output operation fails.
+    """
+    error_code = 'E9006'
+
+    def __init__(self, pos_start, pos_end, details, context, hint=None):
+        if hint is None:
+            hint = "Verify that the path is correct, the file exists, and you have necessary permissions."
+        super().__init__(pos_start, pos_end, details, context, hint)
+        self.error_name = "FileIOError"

@@ -44,6 +44,7 @@ global_symbol_table.set("error", BuiltInFunction.error)
 global_symbol_table.set("len", BuiltInFunction.len)
 global_symbol_table.set("range", BuiltInFunction.range)
 global_symbol_table.set("exit", BuiltInFunction.exit)
+global_symbol_table.set("fopen", BuiltInFunction.open)
 
 
 def run(filename, input_text):

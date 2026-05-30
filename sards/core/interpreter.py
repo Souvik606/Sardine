@@ -21,7 +21,7 @@ from .error import (
     NameError, NotImplementedError, InvalidErrorTypeError, RunTimeError,
     IllegalOperationError, IndexOutOfBoundsError, ArgumentError,
     DivisionByZeroError, ModuleError, AttributeError, DictKeyError,
-    TypeError, ValueError, StackDepthExceededError,
+    TypeError, ValueError, StackDepthExceededError, FileIOError,
     fuzzy_match
 )
 
@@ -46,6 +46,7 @@ ERROR_CLASS_MAP = {
     "TypeError": TypeError,
     "ValueError": ValueError,
     "StackDepthExceededError": StackDepthExceededError,
+    "FileIOError": FileIOError,
 }
 
 
@@ -528,6 +529,15 @@ class Interpreter:
             elif isinstance(collection, String):
                 items = [String(ch).set_context(context).set_pos(
                     node.pos_start, node.pos_end) for ch in collection.value]
+            elif type(collection).__name__ == "File":
+                if collection.file_obj.closed:
+                    from sards.core.error import FileIOError
+                    return res.failure(FileIOError(node.pos_start, node.pos_end, "I/O operation on closed file.", context))
+                try:
+                    items = [String(line).set_context(context).set_pos(node.pos_start, node.pos_end) for line in collection.file_obj]
+                except Exception as e:
+                    from sards.core.error import FileIOError
+                    return res.failure(FileIOError(node.pos_start, node.pos_end, f"Failed to read file lines: {str(e)}", context))
             else:
                 return res.failure(IllegalOperationError(
                     node.pos_start, node.pos_end,
@@ -674,6 +684,15 @@ class Interpreter:
             elif isinstance(collection, String):
                 items = [String(ch).set_context(context).set_pos(
                     node.pos_start, node.pos_end) for ch in collection.value]
+            elif type(collection).__name__ == "File":
+                if collection.file_obj.closed:
+                    from sards.core.error import FileIOError
+                    return res.failure(FileIOError(node.pos_start, node.pos_end, "I/O operation on closed file.", context))
+                try:
+                    items = [String(line).set_context(context).set_pos(node.pos_start, node.pos_end) for line in collection.file_obj]
+                except Exception as e:
+                    from sards.core.error import FileIOError
+                    return res.failure(FileIOError(node.pos_start, node.pos_end, f"Failed to read file lines: {str(e)}", context))
             else:
                 return res.failure(IllegalOperationError(
                     node.pos_start, node.pos_end,
@@ -1036,6 +1055,52 @@ class Interpreter:
                     )
                 )
 
+        elif type(collection).__name__ == "File":
+            if num_vars == 1:
+                var_name = var_name_tokens[0].value
+                if collection.file_obj.closed:
+                    from sards.core.error import FileIOError
+                    return res.failure(
+                        FileIOError(
+                            getattr(collection, 'pos_start', node.pos_start),
+                            getattr(collection, 'pos_end', node.pos_end),
+                            "I/O operation on closed file.",
+                            context
+                        )
+                    )
+                try:
+                    for line in collection.file_obj:
+                        line_str = String(line).set_context(context).set_pos(node.pos_start, node.pos_end)
+                        context.symbol_table.set(var_name, line_str)
+
+                        value = res.register(self.visit(node.body_node, context))
+                        if (res.should_return() and
+                                not res.loop_continue and
+                                not res.loop_or_switch_break):
+                            return res
+                        if res.loop_continue:
+                            continue
+                        if res.loop_or_switch_break:
+                            break
+                except Exception as e:
+                    from sards.core.error import FileIOError
+                    return res.failure(
+                        FileIOError(
+                            getattr(collection, 'pos_start', node.pos_start),
+                            getattr(collection, 'pos_end', node.pos_end),
+                            f"Failed to read file lines: {str(e)}",
+                            context
+                        )
+                    )
+            else:
+                return res.failure(
+                    ArgumentError(
+                        node.pos_start, node.pos_end,
+                        f"Cannot unpack a File line into {num_vars} variables",
+                        context
+                    )
+                )
+
         else:
             return res.failure(
                 IllegalOperationError(
@@ -1043,7 +1108,7 @@ class Interpreter:
                     getattr(collection, 'pos_end', node.pos_end),
                     f"'{type(collection).__name__}' object is not iterable",
                     context,
-                    hint="Only List, String, and Dict values can be iterated with 'trace'."
+                    hint="Only List, String, Dict, and File values can be iterated with 'trace'."
                 )
             )
 

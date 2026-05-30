@@ -762,6 +762,105 @@ class BuiltInFunction(BaseFunction):
         import sys
         sys.exit(0)
 
+    def execute_fopen(self, pos_args, kw_args, exec_context):
+        from sards.core import RunTimeResult
+        from sards.core.error import ArgumentError, FileIOError, TypeError
+        from sards.data_types import String, File
+
+        res = RunTimeResult()
+
+        filepath_val = None
+        mode_val = "r"
+
+        if len(pos_args) + len(kw_args) < 1 or len(pos_args) + len(kw_args) > 2:
+            return res.failure(ArgumentError(
+                self.pos_start, self.pos_end,
+                "fopen() takes 1 or 2 arguments: (path, mode='r')",
+                exec_context
+            ))
+
+        if len(pos_args) >= 1:
+            filepath_val = pos_args[0]
+        if len(pos_args) == 2:
+            mode_val_node = pos_args[1]
+            if not isinstance(mode_val_node, String):
+                return res.failure(TypeError(
+                    mode_val_node.pos_start, mode_val_node.pos_end,
+                    "Mode argument must be a String",
+                    exec_context
+                ))
+            mode_val = mode_val_node.value
+
+        for k, v in kw_args.items():
+            if k == "path":
+                if filepath_val is not None:
+                    return res.failure(ArgumentError(self.pos_start, self.pos_end, "Multiple values for argument 'path'", exec_context))
+                filepath_val = v
+            elif k == "mode":
+                if len(pos_args) == 2:
+                    return res.failure(ArgumentError(self.pos_start, self.pos_end, "Multiple values for argument 'mode'", exec_context))
+                if not isinstance(v, String):
+                    return res.failure(TypeError(
+                        v.pos_start, v.pos_end,
+                        "Mode argument must be a String",
+                        exec_context
+                    ))
+                mode_val = v.value
+            else:
+                return res.failure(ArgumentError(
+                    self.pos_start, self.pos_end,
+                    f"Unexpected keyword argument '{k}' for fopen()",
+                    exec_context
+                ))
+
+        if filepath_val is None:
+            return res.failure(ArgumentError(
+                self.pos_start, self.pos_end,
+                "Missing required argument 'path' for fopen()",
+                exec_context
+            ))
+
+        if not isinstance(filepath_val, String):
+            return res.failure(TypeError(
+                filepath_val.pos_start, filepath_val.pos_end,
+                "Path argument must be a String",
+                exec_context
+            ))
+
+        if mode_val not in ("r", "w", "a"):
+            return res.failure(FileIOError(
+                self.pos_start, self.pos_end,
+                f"Invalid open mode '{mode_val}'. Supported modes are: 'r', 'w', 'a'",
+                exec_context
+            ))
+
+        path = filepath_val.value
+        try:
+            file_obj = open(path, mode_val, encoding='utf-8')
+            file_instance = File(path, mode_val, file_obj)
+            file_instance.set_pos(self.pos_start, self.pos_end)
+            file_instance.set_context(exec_context)
+            return res.success(file_instance)
+        except FileNotFoundError:
+            return res.failure(FileIOError(
+                filepath_val.pos_start, filepath_val.pos_end,
+                f"File not found: '{path}'",
+                exec_context
+            ))
+        except PermissionError:
+            return res.failure(FileIOError(
+                filepath_val.pos_start, filepath_val.pos_end,
+                f"Permission denied: '{path}'",
+                exec_context
+            ))
+        except Exception as e:
+            return res.failure(FileIOError(
+                filepath_val.pos_start, filepath_val.pos_end,
+                f"Failed to open file '{path}': {str(e)}",
+                exec_context
+            ))
+
+
 
 class BoundMethod:
     """
@@ -818,3 +917,4 @@ BuiltInFunction.error = BuiltInFunction('error')
 BuiltInFunction.len = BuiltInFunction('len')
 BuiltInFunction.range = BuiltInFunction('range')
 BuiltInFunction.exit = BuiltInFunction('exit')
+BuiltInFunction.open = BuiltInFunction('fopen')
