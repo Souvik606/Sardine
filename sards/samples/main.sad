@@ -1,26 +1,3 @@
-# F-String feature demonstration in Sardine
-
-# 1. Simple Variable Interpolation
-name = "World"
-show($"Hello {name}! Welcome to Sardine.")
-
-# 2. Arithmetic Expressions inside F-Strings
-a = 10
-b = 20
-show($"The sum of {a} and {b} is {a + b}")
-show($"The product of {a} and {b} is {a * b}")
-
-# 3. Using functions and variables together
-method greet(person) {
-    show($"Greetings, {person}! Have a great day.")
-}
-greet("Alice")
-
-# 4. Complex expressions
-x = 5
-show($"x squared is {x * x}, and x cubed is {x * x * x}")
-
-# 5. Multiple Variables
-language = "Sardine"
-version = 1.0
-show($"Language: {language}, Version: {version}")
+a=4 b=5
+show(a)
+show(b)

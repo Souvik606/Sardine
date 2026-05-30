@@ -1,0 +1,8 @@
+# loop_accumulation_limit test
+risk {
+    Cycle i = 0 : 100000 {
+        i
+    }
+} trap ValueError e {
+    show(e.message)
+}

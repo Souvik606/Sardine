@@ -4,7 +4,7 @@ import subprocess
 import sys
 
 def run_tests():
-    tests_dir = os.path.join(os.path.dirname(__file__), 'features')
+    tests_dir = os.path.dirname(__file__)
     sards_executable = os.path.join(os.path.dirname(__file__), '..', 'sards', 'shell.py')
     
     passed_count = 0

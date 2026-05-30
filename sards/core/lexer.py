@@ -39,7 +39,7 @@ class Token:
             self.pos_end.advance()
 
         if pos_end:
-            self.pos_end = pos_end
+            self.pos_end = pos_end.copy()
 
     def __repr__(self):
         """
@@ -347,7 +347,7 @@ class Lexer:
         Extracts a numerical value (integer or float) from the input text.
 
         Returns:
-        - Token: A token of type INT or FLOAT based on the extracted number.
+        - tuple: (Token, Error) where token is of type INT or FLOAT, and error is None if successful.
         """
         number = ''
         is_float = False
@@ -363,8 +363,13 @@ class Lexer:
                 number += self.current_char
             self.advance()
 
-        return (Token(T_FLOAT, float(number), pos_start, self.pos) if is_float
-                else Token(T_INT, int(number), pos_start, self.pos))
+        try:
+            if is_float:
+                return Token(T_FLOAT, float(number), pos_start, self.pos), None
+            else:
+                return Token(T_INT, int(number), pos_start, self.pos), None
+        except (ValueError, OverflowError):
+            return None, IllegalCharError(pos_start, self.pos, f"Numerical literal exceeds digit conversion limits or is invalid")
 
     def enumerate_tokens(self):
         """
@@ -383,7 +388,10 @@ class Lexer:
                 tokens.append(Token(T_NEWLINE, pos_start=self.pos))
                 self.advance()
             elif self.current_char in DIGITS:
-                tokens.append(self.make_number())
+                tok, error = self.make_number()
+                if error:
+                    return [], error
+                tokens.append(tok)
             elif self.current_char in LETTERS + '_':
                 tokens.append(self.make_identifier())
             elif self.current_char == '"':

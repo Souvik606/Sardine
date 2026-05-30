@@ -1,0 +1,28 @@
+show("--- Test: Proceed Loop Jumps ---")
+
+show("--- whenever Loop with proceed ---")
+i = 0
+whenever i < 5 {
+    i = i + 1
+    when i % 2 == 0 {
+        proceed
+    }
+    show("Odd i:", i)
+}
+
+show("--- Cycle Loop with proceed ---")
+Cycle j = 1:5 {
+    when j == 3 {
+        proceed
+    }
+    show("Cycle j:", j)
+}
+
+show("--- trace Loop with proceed ---")
+items = [10, 20, 30, 40, 50]
+trace item <- items {
+    when item == 30 or item == 50 {
+        proceed
+    }
+    show("trace item:", item)
+}

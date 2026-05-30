@@ -69,6 +69,10 @@ class BaseFunction:
         new_context.symbol_table = SymbolTable(new_context.parent.symbol_table)
         return new_context
 
+    def is_true(self):
+        from sards.data_types import Number
+        return Number(1), None
+
     def check_and_populate_args(self, param_nodes, pos_args, kw_args, exec_context):
         """
         Checks and populates arguments, now handling positional, keyword, and default arguments.
@@ -146,7 +150,7 @@ class Function(BaseFunction):
         evaluated expression.
     """
 
-    def __init__(self, name, body_node, param_nodes, auto_return, instance=None):
+    def __init__(self, name, body_node, param_nodes, auto_return, instance=None, owner_class=None):
         """
         Initializes a Function instance.
 
@@ -161,6 +165,7 @@ class Function(BaseFunction):
         self.body_node = body_node
         self.param_nodes = param_nodes
         self.auto_return = auto_return
+        self.owner_class = owner_class
 
     def execute(self, pos_args, kw_args, call_context=None):
         from sards.core import RunTimeResult, Interpreter, Context
@@ -170,13 +175,23 @@ class Function(BaseFunction):
 
         if self.instance:
             instance = self.instance
-            method_owner = instance.model.find_method_owner(self.name)
+            method_owner = self.owner_class or instance.model.find_method_owner(self.name)
             exec_context = Context(f"method {self.name}", instance.context, self.pos_start, owner_class=method_owner)
             exec_context.symbol_table = SymbolTable(instance.symbol_table)
         else:
             traceback_parent = call_context if call_context is not None else self.context
             exec_context = Context(self.name, traceback_parent, self.pos_start)
             exec_context.symbol_table = SymbolTable(self.context.symbol_table)
+
+        from sards.core.constants import MAX_RECURSION_DEPTH
+        from sards.core.error import StackDepthExceededError
+
+        if exec_context.depth > MAX_RECURSION_DEPTH:
+            return res.failure(StackDepthExceededError(
+                self.pos_start, self.pos_end,
+                f"Maximum recursion depth exceeded ({MAX_RECURSION_DEPTH})",
+                exec_context
+            ))
 
         res.register(self.check_and_populate_args(self.param_nodes, pos_args, kw_args, exec_context))
         if res.should_return():
@@ -198,7 +213,7 @@ class Function(BaseFunction):
         Returns:
             copy: The copy of the function.
         """
-        copy = Function(self.name, self.body_node, self.param_nodes, self.auto_return, self.instance)
+        copy = Function(self.name, self.body_node, self.param_nodes, self.auto_return, self.instance, self.owner_class)
         copy.set_context(self.context)
         copy.set_pos(self.pos_start, self.pos_end)
         return copy
@@ -307,21 +322,41 @@ class BuiltInFunction(BaseFunction):
                     ArgumentError(self.pos_start, self.pos_end, f"Unexpected keyword argument '{name}' for show",
                                   self.context))
 
+        import threading
+        _stringify_state = threading.local()
+
         def stringify(node, nested=False):
-            if isinstance(node, List):
-                elements = ", ".join(stringify(el, nested=True) for el in node.elements)
-                return f"[{elements}]"
-            if isinstance(node, Dict):
-                pairs = ", ".join(f"{stringify(k, nested=True)}: {stringify(v, nested=True)}" for k, v in node.elements.items())
-                return f"{{{pairs}}}"
-            if isinstance(node, String):
-                return f"'{node.value}'" if nested else str(node.value)
-            if hasattr(node, 'value'):
-                return str(node.value)
-            # if node is a python string (e.g. dict key) we should probably quote it
-            if isinstance(node, str):
-                return f"'{node}'" if nested else node
-            return str(node)
+            if not hasattr(_stringify_state, 'visited'):
+                _stringify_state.visited = set()
+            if id(node) in _stringify_state.visited:
+                return "[...]" if isinstance(node, List) else "{...}"
+            _stringify_state.visited.add(id(node))
+            try:
+                if isinstance(node, List):
+                    elements = ", ".join(stringify(el, nested=True) for el in node.elements)
+                    return f"[{elements}]"
+                if isinstance(node, Dict):
+                    pairs = ", ".join(f"{stringify(k, nested=True)}: {stringify(v, nested=True)}" for k, v in node.elements.items())
+                    return f"{{{pairs}}}"
+                if isinstance(node, String):
+                    return f"'{node.value}'" if nested else str(node.value)
+                if hasattr(node, 'value'):
+                    try:
+                        return str(node.value)
+                    except ValueError:
+                        try:
+                            return f"{float(node.value):.4e}"
+                        except OverflowError:
+                            return "INF"
+                # if node is a python string (e.g. dict key) we should probably quote it
+                if isinstance(node, str):
+                    return f"'{node}'" if nested else node
+                try:
+                    return str(node)
+                except ValueError:
+                    return "INF"
+            finally:
+                _stringify_state.visited.remove(id(node))
 
         output = separator.join([stringify(arg) for arg in pos_args])
         print(output, end=end_char)
@@ -350,9 +385,13 @@ class BuiltInFunction(BaseFunction):
             return res.failure(
                 ArgumentError(self.pos_start, self.pos_end, "Integer() takes exactly one argument", self.context))
 
+        if not hasattr(pos_args[0], 'value'):
+            return res.failure(
+                ArgumentError(self.pos_start, self.pos_end, "Argument must be a primitive value (Number or String)", self.context))
+
         try:
             number = int(pos_args[0].value)
-        except (ValueError, TypeError) as exc:
+        except (ValueError, TypeError, OverflowError) as exc:
             return res.failure(
                 ArgumentError(self.pos_start, self.pos_end, "Argument must be a value convertible to an integer",
                               self.context))
@@ -369,9 +408,13 @@ class BuiltInFunction(BaseFunction):
             return res.failure(
                 ArgumentError(self.pos_start, self.pos_end, "String() takes exactly one argument", self.context))
 
+        arg = pos_args[0]
         try:
-            string = str(pos_args[0].value)
-        except (ValueError, TypeError) as exc:
+            if hasattr(arg, 'value'):
+                string = str(arg.value)
+            else:
+                string = str(arg)
+        except Exception as exc:
             return res.failure(
                 ArgumentError(self.pos_start, self.pos_end, "Argument must be a value convertible to a string",
                               self.context))
@@ -522,6 +565,247 @@ class BuiltInFunction(BaseFunction):
         result = obj.model.is_descendant_of(model_class)
         return res.success(Number(1 if result else 0))
 
+    def execute_error(self, pos_args, kw_args, exec_context):
+        from sards.core import RunTimeResult
+        from sards.core.error import IllegalOperationError
+        res = RunTimeResult()
+
+        if kw_args:
+            return res.failure(
+                ArgumentError(
+                    self.pos_start, self.pos_end,
+                    "error() takes no keyword arguments",
+                    exec_context
+                )
+            )
+
+        msg = "Illegal operation"
+        if len(pos_args) >= 1:
+            if not hasattr(pos_args[0], 'value'):
+                return res.failure(
+                    ArgumentError(self.pos_start, self.pos_end, "Error message must be a String value", exec_context))
+            msg = pos_args[0].value
+
+        return res.failure(
+            IllegalOperationError(
+                self.pos_start, self.pos_end,
+                msg,
+                exec_context.parent
+            )
+        )
+
+    def execute_len(self, pos_args, kw_args, exec_context):
+        from sards.core import RunTimeResult
+        from sards.data_types import Number, List, String, Dict
+        from sards.core.error import IllegalOperationError
+        res = RunTimeResult()
+
+        if len(pos_args) != 1 or kw_args:
+            return res.failure(
+                ArgumentError(
+                    self.pos_start, self.pos_end,
+                    "len() takes exactly 1 argument",
+                    exec_context
+                )
+            )
+
+        arg = pos_args[0]
+        if isinstance(arg, List):
+            val = len(arg.elements)
+        elif isinstance(arg, String):
+            val = len(arg.value)
+        elif isinstance(arg, Dict):
+            val = len(arg.elements)
+        elif hasattr(arg, 'model') and hasattr(arg, '_call_op_method'):
+            len_result, len_error = arg._call_op_method('__len__', [])
+            if len_error:
+                return res.failure(len_error)
+            if len_result is not None:
+                if isinstance(len_result, Number):
+                    return res.success(len_result)
+                else:
+                    return res.failure(
+                        IllegalOperationError(
+                            self.pos_start, self.pos_end,
+                            f"__len__ must return a Number, not '{type(len_result).__name__}'",
+                            exec_context
+                        )
+                    )
+            length_attr, attr_err = arg.get_attr('length', exec_context)
+            if attr_err is None and isinstance(length_attr, Number):
+                return res.success(length_attr)
+            return res.failure(
+                IllegalOperationError(
+                    self.pos_start, self.pos_end,
+                    f"Type '{type(arg).__name__}' has no length",
+                    exec_context
+                )
+            )
+        else:
+            return res.failure(
+                IllegalOperationError(
+                    self.pos_start, self.pos_end,
+                    f"Type '{type(arg).__name__}' has no length",
+                    exec_context
+                )
+            )
+
+        return res.success(Number(val))
+
+    def execute_range(self, pos_args, kw_args, exec_context):
+        from sards.core import RunTimeResult
+        from sards.data_types import Number, List
+        from sards.core.error import IllegalOperationError
+        res = RunTimeResult()
+
+        if len(pos_args) < 1 or len(pos_args) > 3 or kw_args:
+            return res.failure(
+                ArgumentError(
+                    self.pos_start, self.pos_end,
+                    "range() takes 1, 2, or 3 arguments",
+                    exec_context
+                )
+            )
+
+        for idx, arg in enumerate(pos_args):
+            if not isinstance(arg, Number) or isinstance(arg.value, float):
+                return res.failure(
+                    IllegalOperationError(
+                        arg.pos_start, arg.pos_end,
+                        f"Argument {idx + 1} to range() must be an integer Number",
+                        exec_context
+                    )
+                )
+
+        vals = [arg.value for arg in pos_args]
+        if len(vals) == 1:
+            start = 0
+            end = vals[0]
+            step = 1
+        elif len(vals) == 2:
+            start = vals[0]
+            end = vals[1]
+            step = 1
+        else:
+            start = vals[0]
+            end = vals[1]
+            step = vals[2]
+
+        if step == 0:
+            return res.failure(
+                IllegalOperationError(
+                    pos_args[-1].pos_start, pos_args[-1].pos_end,
+                    "range() step cannot be 0",
+                    exec_context
+                )
+            )
+
+        # Calculate count of elements in range
+        try:
+            if (step > 0 and start >= end) or (step < 0 and start <= end):
+                num_elements = 0
+            else:
+                num_elements = abs(end - start) // abs(step)
+                if abs(end - start) % abs(step) != 0:
+                    num_elements += 1
+        except OverflowError:
+            from sards.core.error import ValueError as SardineValueError
+            return res.failure(
+                SardineValueError(
+                    pos_args[0].pos_start, pos_args[-1].pos_end,
+                    "range() boundary overflow",
+                    exec_context
+                )
+            )
+
+        if num_elements > 1000000:
+            from sards.core.error import ValueError as SardineValueError
+            return res.failure(
+                SardineValueError(
+                    pos_args[0].pos_start, pos_args[-1].pos_end,
+                    f"range() limit exceeded (size {num_elements} > 1,000,000 limit)",
+                    exec_context
+                )
+            )
+
+        try:
+            elements = []
+            for i in range(start, end, step):
+                elements.append(Number(i).set_context(exec_context))
+        except (MemoryError, OverflowError):
+            from sards.core.error import ValueError as SardineValueError
+            return res.failure(
+                SardineValueError(
+                    self.pos_start, self.pos_end,
+                    "Memory error or overflow during range list generation",
+                    exec_context
+                )
+            )
+
+        return res.success(
+            List(elements)
+            .set_context(exec_context)
+            .set_pos(self.pos_start, self.pos_end)
+        )
+
+    def execute_exit(self, pos_args, kw_args, exec_context):
+        from sards.core import RunTimeResult
+        res = RunTimeResult()
+        if pos_args or kw_args:
+            return res.failure(
+                ArgumentError(
+                    self.pos_start, self.pos_end,
+                    "exit() takes no arguments",
+                    exec_context
+                )
+            )
+        import sys
+        sys.exit(0)
+
+
+class BoundMethod:
+    """
+    Wraps a Python function and binds it to a primitive instance.
+    When executed, it passes the instance as the first argument.
+    """
+    def __init__(self, name, instance, python_func):
+        self.name = name
+        self.instance = instance
+        self.python_func = python_func
+        self.pos_start = None
+        self.pos_end = None
+        self.context = None
+
+    def set_pos(self, pos_start=None, pos_end=None):
+        self.pos_start = pos_start
+        self.pos_end = pos_end
+        return self
+
+    def set_context(self, context=None):
+        self.context = context
+        return self
+
+    def execute(self, pos_args, kw_args, call_context=None):
+        from sards.core import RunTimeResult
+        res = RunTimeResult()
+        val = res.register(self.python_func(self.instance, pos_args, kw_args, call_context))
+        if res.should_return():
+            return res
+        return res.success(val)
+
+    def copy(self):
+        copy = BoundMethod(self.name, self.instance, self.python_func)
+        copy.set_context(self.context)
+        copy.set_pos(self.pos_start, self.pos_end)
+        return copy
+
+    def is_true(self):
+        from sards.data_types import Number
+        return Number(1), None
+
+    def __repr__(self):
+        return f"<bound method {self.name} of {self.instance}>"
+
 
 BuiltInFunction.show = BuiltInFunction('show')
 BuiltInFunction.listen = BuiltInFunction('listen')
@@ -530,3 +814,7 @@ BuiltInFunction.String = BuiltInFunction('String')
 BuiltInFunction.type = BuiltInFunction('type')
 BuiltInFunction.super = BuiltInFunction('super')
 BuiltInFunction.is_a = BuiltInFunction('is_a')
+BuiltInFunction.error = BuiltInFunction('error')
+BuiltInFunction.len = BuiltInFunction('len')
+BuiltInFunction.range = BuiltInFunction('range')
+BuiltInFunction.exit = BuiltInFunction('exit')

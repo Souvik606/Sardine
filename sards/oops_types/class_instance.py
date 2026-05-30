@@ -1,5 +1,5 @@
 from sards.ast_nodes import SymbolTable
-from sards.core.error import AttributeError, IllegalOperationError
+from sards.core.error import AttributeError, IllegalOperationError, fuzzy_match
 from sards.data_types import Number
 from sards.user_functions import Function
 
@@ -125,16 +125,18 @@ class ModelInstance:
                 attr_owner = self.model.find_attribute_owner(name)
 
                 if access_level == "secret":
-                    current_instance = self.context.symbol_table.get("this")
+                    current_instance = calling_context.symbol_table.get("this") if (calling_context and getattr(calling_context, 'symbol_table', None)) else None
                     if not current_instance or current_instance.model != attr_owner:
                         return None, AttributeError(self.pos_start, self.pos_end,
-                                                    f"Cannot access secret attribute '{name}'", self.context)
+                                                    f"Cannot access secret attribute '{name}'", calling_context,
+                                                    hint="'secret' attributes can only be accessed within the model that defines them.")
 
                 if access_level == "guarded":
-                    current_instance = self.context.symbol_table.get("this")
+                    current_instance = calling_context.symbol_table.get("this") if (calling_context and getattr(calling_context, 'symbol_table', None)) else None
                     if not current_instance or not current_instance.model.is_descendant_of(attr_owner):
                         return None, AttributeError(self.pos_start, self.pos_end,
-                                                    f"Cannot access guarded attribute '{name}'", self.context)
+                                                    f"Cannot access guarded attribute '{name}'", calling_context,
+                                                    hint="'guarded' attributes can only be accessed within the model or its subclasses.")
 
             return value, None
 
@@ -148,32 +150,40 @@ class ModelInstance:
                 access_level = access_modifier_tok
 
             method_owner = self.model.find_method_owner(name)
-            caller_class = calling_context.owner_class
+            caller_class = calling_context.owner_class if calling_context else None
 
             if access_level == "secret":
                 if not caller_class or caller_class != method_owner:
                     return None, AttributeError(self.pos_start, self.pos_end, f"Cannot access secret method '{name}'",
-                                                calling_context)
+                                                calling_context,
+                                                hint="'secret' methods can only be called from within the model that defines them.")
 
             if access_level == "guarded":
                 if not caller_class or not caller_class.is_descendant_of(method_owner):
                     return None, AttributeError(self.pos_start, self.pos_end, f"Cannot access guarded method '{name}'",
-                                                calling_context)
+                                                calling_context,
+                                                hint="'guarded' methods can only be called from within the model or its subclasses.")
 
             method = Function(
                 name,
                 method_node.body_node,
                 method_node.param_nodes,
                 False,
-                self
+                self,
+                owner_class=method_owner
             ).set_context(self.context)
             method.set_pos(method_node.pos_start, method_node.pos_end)
             return method, None
 
+        # Build a hint using fuzzy match on all known attributes + methods
+        _all_names = list(self.symbol_table.symbols.keys()) + list(self.model.method_nodes.keys())
+        _suggestion = fuzzy_match(name, _all_names)
+        _hint = f"Did you mean '{_suggestion}'?" if _suggestion else f"Check the definition of model '{self.model.name}' for available attributes and methods."
         return None, AttributeError(
             self.pos_start, self.pos_end,
             f"'{self.model.name}' instance has no attribute '{name}'",
-            self.context
+            self.context,
+            hint=_hint
         )
 
     def set_attr(self, name, value):

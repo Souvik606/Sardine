@@ -131,23 +131,41 @@ class Number:
         - IllegalOperationError: An error if operand is not of type Number.
         """
         if isinstance(operand, Number):
-            if operand.value == 0:
+            if getattr(operand, 'value', None) == 0:
                 return None, DivisionByZeroError(
-                    operand.pos_start, operand.pos_end, 'Division by zero', self.context
+                    getattr(operand, 'pos_start', None), getattr(operand, 'pos_end', None), 'Division by zero', self.context
                 )
-            return Number(self.value / operand.value).set_context(self.context), None
+            try:
+                return Number(self.value / operand.value).set_context(self.context), None
+            except ZeroDivisionError:
+                return None, DivisionByZeroError(
+                    getattr(operand, 'pos_start', None), getattr(operand, 'pos_end', None), 'Division by zero', self.context
+                )
+            except OverflowError:
+                return None, IllegalOperationError(
+                    getattr(operand, 'pos_start', None), getattr(operand, 'pos_end', None), 'Float division overflow', self.context
+                )
         else: return None, IllegalOperationError(
-                    operand.pos_start, operand.pos_end, 'Expected a Number type', self.context)
+                    getattr(operand, 'pos_start', None), getattr(operand, 'pos_end', None), 'Expected a Number type', self.context)
 
     def modulus(self, operand):
         if isinstance(operand, Number):
-            if operand.value == 0:
+            if getattr(operand, 'value', None) == 0:
                 return None, DivisionByZeroError(
-                    operand.pos_start, operand.pos_end, 'Division by zero', self.context
+                    getattr(operand, 'pos_start', None), getattr(operand, 'pos_end', None), 'Division by zero', self.context
                 )
-            return Number(self.value % operand.value).set_context(self.context), None
+            try:
+                return Number(self.value % operand.value).set_context(self.context), None
+            except ZeroDivisionError:
+                return None, DivisionByZeroError(
+                    getattr(operand, 'pos_start', None), getattr(operand, 'pos_end', None), 'Division by zero', self.context
+                )
+            except OverflowError:
+                return None, IllegalOperationError(
+                    getattr(operand, 'pos_start', None), getattr(operand, 'pos_end', None), 'Modulus overflow', self.context
+                )
         else: return None, IllegalOperationError(
-                    operand.pos_start, operand.pos_end, 'Expected a Number type',self.context)
+                    getattr(operand, 'pos_start', None), getattr(operand, 'pos_end', None), 'Expected a Number type',self.context)
         
     def bitwise_and(self, operand):
         if isinstance(operand, Number):
@@ -187,7 +205,14 @@ class Number:
             if isinstance(self.value, float) or isinstance(operand.value, float):
                 return None, IllegalOperationError(
                     operand.pos_start, operand.pos_end, 'Bitwise operations require integer Numbers', self.context)
-            return Number(self.value << operand.value).set_context(self.context), None
+            if operand.value < 0:
+                return None, IllegalOperationError(
+                    operand.pos_start, operand.pos_end, 'Negative shift count', self.context)
+            try:
+                return Number(self.value << operand.value).set_context(self.context), None
+            except (ValueError, OverflowError, MemoryError):
+                return None, IllegalOperationError(
+                    operand.pos_start, operand.pos_end, 'Shift count too large or result overflow', self.context)
         else: return None, IllegalOperationError(
                     operand.pos_start, operand.pos_end, 'Expected a Number type', self.context)
         
@@ -196,23 +221,48 @@ class Number:
             if isinstance(self.value, float) or isinstance(operand.value, float):
                 return None, IllegalOperationError(
                     operand.pos_start, operand.pos_end, 'Bitwise operations require integer Numbers', self.context)
-            return Number(self.value >> operand.value).set_context(self.context), None
+            if operand.value < 0:
+                return None, IllegalOperationError(
+                    operand.pos_start, operand.pos_end, 'Negative shift count', self.context)
+            try:
+                return Number(self.value >> operand.value).set_context(self.context), None
+            except (ValueError, OverflowError, MemoryError):
+                return None, IllegalOperationError(
+                    operand.pos_start, operand.pos_end, 'Shift count too large or result overflow', self.context)
         else: return None, IllegalOperationError(
                     operand.pos_start, operand.pos_end, 'Expected a Number type', self.context)
 
     def floor_divide(self, operand):
         if isinstance(operand, Number):
-            if operand.value == 0:
+            if getattr(operand, 'value', None) == 0:
                 return None, DivisionByZeroError(
-                    operand.pos_start, operand.pos_end, 'Division by zero', self.context
+                    getattr(operand, 'pos_start', None), getattr(operand, 'pos_end', None), 'Division by zero', self.context
                 )
-            return Number(self.value // operand.value).set_context(self.context), None
+            try:
+                return Number(self.value // operand.value).set_context(self.context), None
+            except ZeroDivisionError:
+                return None, DivisionByZeroError(
+                    getattr(operand, 'pos_start', None), getattr(operand, 'pos_end', None), 'Division by zero', self.context
+                )
+            except OverflowError:
+                return None, IllegalOperationError(
+                    getattr(operand, 'pos_start', None), getattr(operand, 'pos_end', None), 'Floor division overflow', self.context
+                )
         else: return None, IllegalOperationError(
-                    operand.pos_start, operand.pos_end, 'Expected a Number type', self.context)
+                    getattr(operand, 'pos_start', None), getattr(operand, 'pos_end', None), 'Expected a Number type', self.context)
 
     def exponent(self, operand):
         if isinstance(operand, Number):
-            return Number(self.value ** operand.value).set_context(self.context), None
+            try:
+                return Number(self.value ** operand.value).set_context(self.context), None
+            except ZeroDivisionError:
+                return None, DivisionByZeroError(
+                    operand.pos_start, operand.pos_end, 'Division by zero: 0.0 cannot be raised to a negative power', self.context
+                )
+            except (OverflowError, MemoryError, ValueError):
+                return None, IllegalOperationError(
+                    operand.pos_start, operand.pos_end, 'Result too large or invalid exponentiation', self.context
+                )
         else: return None, IllegalOperationError(
                     operand.pos_start, operand.pos_end, 'Expected a Number type', self.context)
 
@@ -285,4 +335,10 @@ class Number:
         Returns:
         - str: The string representation of the numerical value.
         """
-        return str(self.value)
+        try:
+            return str(self.value)
+        except ValueError:
+            try:
+                return f"{float(self.value):.4e}"
+            except OverflowError:
+                return "INF"

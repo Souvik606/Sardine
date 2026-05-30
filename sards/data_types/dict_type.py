@@ -1,6 +1,8 @@
 from .number_type import Number
 from .string_type import String
 from sards.core.error import RunTimeError, IllegalOperationError, DictKeyError
+import threading
+_repr_state = threading.local()
 
 class DictNode:
     def __init__(self, keyval_nodes, pos_start, pos_end):
@@ -19,10 +21,13 @@ class Dict:
         self.pos_start = None
         self.elements = {}
         for key, value in elements:
-            if hasattr(key, 'value'):
-                self.elements[key.value] = value
-            else:
-                self.elements[key] = value
+            try:
+                if hasattr(key, 'value'):
+                    self.elements[key.value] = value
+                else:
+                    self.elements[key] = value
+            except TypeError:
+                self.elements[str(key)] = value
             
         self.set_pos()
         self.set_context()
@@ -46,9 +51,18 @@ class Dict:
         return copy
     
     def __repr__(self):
-        def format_key(k):
-            return f"'{k}'" if isinstance(k, str) else str(k)
-        return f'{{{", ".join([f"{format_key(k)}: {repr(v)}" for k, v in self.elements.items()])}}}'
+        if not hasattr(_repr_state, 'visited'):
+            _repr_state.visited = set()
+        if id(self) in _repr_state.visited:
+            return "{...}"
+        _repr_state.visited.add(id(self))
+        try:
+            def format_key(k):
+                return f"'{k}'" if isinstance(k, str) else str(k)
+            res = f'{{{", ".join([f"{format_key(k)}: {repr(v)}" for k, v in self.elements.items()])}}}'
+        finally:
+            _repr_state.visited.remove(id(self))
+        return res
     
     def is_true(self):
         return Number(len(self.elements)).set_context(self.context), None    
@@ -93,11 +107,11 @@ class Dict:
 
             return temp, None
 
-        except IndexError:
+        except (IndexError, TypeError):
             bad_idx = indexes[-1]
             return None, RunTimeError(
-                bad_idx.pos_start, bad_idx.pos_end,
-                "Index out of bounds",
+                getattr(bad_idx, 'pos_start', None), getattr(bad_idx, 'pos_end', None),
+                "Index out of bounds or invalid index",
                 self.context
             )
 
@@ -206,11 +220,11 @@ class Dict:
                     self.context
                 )
 
-        except IndexError:
+        except (IndexError, TypeError):
             bad_idx = indexes[-1]
             return None, RunTimeError(
-                bad_idx.pos_start, bad_idx.pos_end,
-                "Index out of bounds",
+                getattr(bad_idx, 'pos_start', None), getattr(bad_idx, 'pos_end', None),
+                "Index out of bounds or invalid index",
                 self.context
             )
 
@@ -258,19 +272,28 @@ class Dict:
                 self.context
             )
             
-        if len(self.elements) != len(operand.elements):
-            return Number(0).set_context(self.context), None
-            
-        try:
-            for k, v in self.elements.items():
-                if k not in operand.elements:
-                    return Number(0).set_context(self.context), None
-                if str(v) != str(operand.elements[k]):
-                    return Number(0).set_context(self.context), None
-                    
+        if not hasattr(_repr_state, 'comparing'):
+            _repr_state.comparing = set()
+        pair = (id(self), id(operand))
+        if pair in _repr_state.comparing:
             return Number(1).set_context(self.context), None
-        except:
-            return Number(0).set_context(self.context), None
+        _repr_state.comparing.add(pair)
+        try:
+            if len(self.elements) != len(operand.elements):
+                return Number(0).set_context(self.context), None
+                
+            try:
+                for k, v in self.elements.items():
+                    if k not in operand.elements:
+                        return Number(0).set_context(self.context), None
+                    if str(v) != str(operand.elements[k]):
+                        return Number(0).set_context(self.context), None
+                        
+                return Number(1).set_context(self.context), None
+            except:
+                return Number(0).set_context(self.context), None
+        finally:
+            _repr_state.comparing.remove(pair)
 
     def get_comparison_neq(self, operand):
         """Returns opposite of eq comparison"""
@@ -410,4 +433,169 @@ class Dict:
             self.pos_start, self.pos_end,
             'Cannot apply \'not\' to a Dictionary',
             self.context
+        )
+
+    def get_attr(self, name, calling_context):
+        from sards.user_functions import BoundMethod
+        from sards.core.error import AttributeError, ArgumentError, IllegalOperationError, DictKeyError
+        from sards.core import RunTimeResult
+        from sards.data_types import Number, String, List, Dict
+
+        def method_keys(instance, pos_args, kw_args, exec_context):
+            res = RunTimeResult()
+            if pos_args or kw_args:
+                return res.failure(ArgumentError(instance.pos_start, instance.pos_end, "keys() takes no arguments", exec_context))
+            
+            list_keys = []
+            for k in instance.elements.keys():
+                if isinstance(k, (int, float)):
+                    node = Number(k)
+                else:
+                    node = String(str(k))
+                list_keys.append(node.set_context(calling_context))
+            return res.success(List(list_keys).set_context(calling_context))
+
+        def method_values(instance, pos_args, kw_args, exec_context):
+            res = RunTimeResult()
+            if pos_args or kw_args:
+                return res.failure(ArgumentError(instance.pos_start, instance.pos_end, "values() takes no arguments", exec_context))
+            
+            list_vals = [v.copy() for v in instance.elements.values()]
+            return res.success(List(list_vals).set_context(calling_context))
+
+        def method_entries(instance, pos_args, kw_args, exec_context):
+            res = RunTimeResult()
+            if pos_args or kw_args:
+                return res.failure(ArgumentError(instance.pos_start, instance.pos_end, "entries() takes no arguments", exec_context))
+            
+            pairs = []
+            for k, v in instance.elements.items():
+                if isinstance(k, (int, float)):
+                    k_node = Number(k)
+                else:
+                    k_node = String(str(k))
+                k_node.set_context(calling_context)
+                
+                pair_list = List([k_node, v.copy()]).set_context(calling_context)
+                pairs.append(pair_list)
+            return res.success(List(pairs).set_context(calling_context))
+
+        def method_items(instance, pos_args, kw_args, exec_context):
+            return method_entries(instance, pos_args, kw_args, exec_context)
+
+        def method_get(instance, pos_args, kw_args, exec_context):
+            res = RunTimeResult()
+            if len(pos_args) < 1 or len(pos_args) > 2 or kw_args:
+                return res.failure(ArgumentError(instance.pos_start, instance.pos_end, "get() takes 1 or 2 arguments: (key, [default])", exec_context))
+            
+            key = pos_args[0]
+            if not isinstance(key, (Number, String)):
+                return res.failure(IllegalOperationError(key.pos_start, key.pos_end, "Key must be a Number or String", exec_context))
+            
+            default_val = pos_args[1] if len(pos_args) == 2 else Number(0)
+            
+            val = instance.elements.get(key.value)
+            if val is None:
+                return res.success(default_val)
+            return res.success(val.copy())
+
+        def method_has_key(instance, pos_args, kw_args, exec_context):
+            res = RunTimeResult()
+            if len(pos_args) != 1 or kw_args:
+                return res.failure(ArgumentError(instance.pos_start, instance.pos_end, "has_key() takes exactly 1 argument", exec_context))
+            
+            key = pos_args[0]
+            if not isinstance(key, (Number, String)):
+                return res.failure(IllegalOperationError(key.pos_start, key.pos_end, "Key must be a Number or String", exec_context))
+            
+            ans = 1 if key.value in instance.elements else 0
+            return res.success(Number(ans))
+
+        def method_contains(instance, pos_args, kw_args, exec_context):
+            return method_has_key(instance, pos_args, kw_args, exec_context)
+
+        def method_pop(instance, pos_args, kw_args, exec_context):
+            res = RunTimeResult()
+            if len(pos_args) < 1 or len(pos_args) > 2 or kw_args:
+                return res.failure(ArgumentError(instance.pos_start, instance.pos_end, "pop() takes 1 or 2 arguments: (key, [default])", exec_context))
+            
+            key = pos_args[0]
+            if not isinstance(key, (Number, String)):
+                return res.failure(IllegalOperationError(key.pos_start, key.pos_end, "Key must be a Number or String", exec_context))
+            
+            if key.value not in instance.elements:
+                if len(pos_args) == 2:
+                    return res.success(pos_args[1])
+                return res.failure(DictKeyError(key.pos_start, key.pos_end, f"Key '{key.value}' not found in dictionary", exec_context))
+            
+            popped = instance.elements.pop(key.value)
+            return res.success(popped)
+
+        def method_pop_item(instance, pos_args, kw_args, exec_context):
+            res = RunTimeResult()
+            if pos_args or kw_args:
+                return res.failure(ArgumentError(instance.pos_start, instance.pos_end, "pop_item() takes no arguments", exec_context))
+            
+            if not instance.elements:
+                return res.failure(IllegalOperationError(instance.pos_start, instance.pos_end, "pop_item() called on empty dictionary", exec_context))
+            
+            k, v = instance.elements.popitem()
+            if isinstance(k, (int, float)):
+                k_node = Number(k)
+            else:
+                k_node = String(str(k))
+            k_node.set_context(calling_context)
+            
+            pair_list = List([k_node, v]).set_context(calling_context)
+            return res.success(pair_list)
+
+        def method_update(instance, pos_args, kw_args, exec_context):
+            res = RunTimeResult()
+            if len(pos_args) != 1 or kw_args:
+                return res.failure(ArgumentError(instance.pos_start, instance.pos_end, "update() takes exactly 1 argument: (other_dict)", exec_context))
+            
+            other = pos_args[0]
+            if not isinstance(other, Dict):
+                return res.failure(IllegalOperationError(other.pos_start, other.pos_end, "Argument to update() must be a Dictionary", exec_context))
+            
+            for k, v in other.elements.items():
+                instance.elements[k] = v.copy()
+            return res.success(instance)
+
+        def method_clear(instance, pos_args, kw_args, exec_context):
+            res = RunTimeResult()
+            if pos_args or kw_args:
+                return res.failure(ArgumentError(instance.pos_start, instance.pos_end, "clear() takes no arguments", exec_context))
+            instance.elements.clear()
+            return res.success(instance)
+
+        def method_copy(instance, pos_args, kw_args, exec_context):
+            res = RunTimeResult()
+            if pos_args or kw_args:
+                return res.failure(ArgumentError(instance.pos_start, instance.pos_end, "copy() takes no arguments", exec_context))
+            return res.success(instance.copy())
+
+        methods = {
+            "keys": method_keys,
+            "values": method_values,
+            "entries": method_entries,
+            "items": method_items,
+            "get": method_get,
+            "has_key": method_has_key,
+            "contains": method_contains,
+            "pop": method_pop,
+            "pop_item": method_pop_item,
+            "update": method_update,
+            "clear": method_clear,
+            "copy": method_copy
+        }
+
+        if name in methods:
+            bound = BoundMethod(name, self, methods[name])
+            return bound.set_context(calling_context).set_pos(self.pos_start, self.pos_end), None
+
+        return None, AttributeError(
+            self.pos_start, self.pos_end,
+            f"'{type(self).__name__}' has no attribute '{name}'",
+            calling_context
         )

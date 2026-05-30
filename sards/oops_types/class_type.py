@@ -2,7 +2,6 @@ from sards.data_types import Number
 from sards.oops_types import ModelInstance
 from sards.user_functions import Function
 
-
 class Model:
     """
     Represents a class blueprint at runtime.
@@ -18,49 +17,74 @@ class Model:
         self.pos_end = None
         self.context = None
 
-    def find_method(self, name):
+    def find_method(self, name, visited=None):
+        if visited is None:
+            visited = set()
+        if self.name in visited:
+            return None
+        visited.add(self.name)
         if name in self.method_nodes:
             return self.method_nodes[name]
         for parent in self.parents:
-            method_info = parent.find_method(name)
+            method_info = parent.find_method(name, visited)
             if method_info:
                 return method_info
         return None
 
-    def find_method_owner(self, name):
+    def find_method_owner(self, name, visited=None):
+        if visited is None:
+            visited = set()
+        if self.name in visited:
+            return None
+        visited.add(self.name)
         if name in self.method_nodes:
             return self
         for parent in self.parents:
-            owner = parent.find_method_owner(name)
+            owner = parent.find_method_owner(name, visited)
             if owner:
                 return owner
         return None
 
-    def find_attribute(self, name):
+    def find_attribute(self, name, visited=None):
+        if visited is None:
+            visited = set()
+        if self.name in visited:
+            return None
+        visited.add(self.name)
         for attr_name, _, _ in self.all_attributes:
             if name == attr_name:
                 return next((attr for attr in self.all_attributes if attr[0] == name), None)
         for parent in self.parents:
-            attr_info = parent.find_attribute(name)
+            attr_info = parent.find_attribute(name, visited)
             if attr_info:
                 return attr_info
         return None
 
-    def find_attribute_owner(self, name):
+    def find_attribute_owner(self, name, visited=None):
+        if visited is None:
+            visited = set()
+        if self.name in visited:
+            return None
+        visited.add(self.name)
         for attr_name, _, _ in self.all_attributes:
             if name == attr_name:
                 return self
         for parent in self.parents:
-            owner = parent.find_attribute_owner(name)
+            owner = parent.find_attribute_owner(name, visited)
             if owner:
                 return owner
         return None
 
-    def is_descendant_of(self, other_model):
+    def is_descendant_of(self, other_model, visited=None):
+        if visited is None:
+            visited = set()
+        if self.name in visited:
+            return False
+        visited.add(self.name)
         if self.name == other_model.name:
             return True
         for p in self.parents:
-            if p.is_descendant_of(other_model):
+            if p.is_descendant_of(other_model, visited):
                 return True
         return False
 
@@ -136,6 +160,9 @@ class Model:
         copy.set_context(self.context)
         copy.set_pos(self.pos_start, self.pos_end)
         return copy
+
+    def is_true(self):
+        return Number(1), None
 
     def __repr__(self):
         return f"<model {self.name}>"

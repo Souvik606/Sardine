@@ -28,6 +28,7 @@ Methods:
 
 from sards.ast_nodes import *
 from sards.ast_nodes.fstring_node import FStringNode
+from sards.ast_nodes.comprehension_nodes import ListComprehensionNode, DictComprehensionNode
 from sards.data_types import ListNode, StringNode, DictNode
 from .constants import *
 from .error import InvalidSyntaxError
@@ -135,6 +136,7 @@ class Parser: # pylint: disable=R0904
         self.tokens = tokens
         self.current_tok = None
         self.tok_index = -1
+        self.current_depth = 0
         self.advance()
 
     def advance(self):
@@ -148,6 +150,19 @@ class Parser: # pylint: disable=R0904
         self.tok_index -= amount
         self.update_current_tok()
         return self.current_tok
+
+    def _enter_depth(self):
+        from sards.core.constants import MAX_AST_DEPTH
+        self.current_depth += 1
+        if self.current_depth > MAX_AST_DEPTH:
+            return InvalidSyntaxError(
+                self.current_tok.pos_start, self.current_tok.pos_end,
+                f"Expression is too complex (maximum nesting depth of {MAX_AST_DEPTH} exceeded)"
+            )
+        return None
+
+    def _exit_depth(self):
+        self.current_depth -= 1
 
     def update_current_tok(self):
         """Updates current token in the token sequence."""
@@ -206,13 +221,23 @@ class Parser: # pylint: disable=R0904
             statements.append(first_stmt)
 
         while True:
+            newlines_count = 0
             while self.current_tok.type == T_NEWLINE:
                 res.register_advancement()
                 self.advance()
+                newlines_count += 1
 
             if self.current_tok.type!=T_EOF and self.current_tok.type!=T_RPAREN2 and not(
                 self.current_tok.type==T_KEYWORD and self.current_tok.value in ("yield","escape","proceed")
             ):
+                if newlines_count == 0 and len(statements) > 0:
+                    prev_pos_end = statements[-1].pos_end
+                    curr_pos_start = self.current_tok.pos_start
+                    if prev_pos_end.line == curr_pos_start.line:
+                        return res.failure(InvalidSyntaxError(
+                            self.current_tok.pos_start, self.current_tok.pos_end,
+                            "Expected newline to separate statements"
+                        ))
                 stmt = res.register(self.singleline())
                 if res.error:
                     return res
@@ -449,8 +474,16 @@ class Parser: # pylint: disable=R0904
         res.register_advancement()
         self.advance()
 
+        while self.current_tok.type == T_NEWLINE:
+            res.register_advancement()
+            self.advance()
+
         declarations = res.register(self.attr_list())
         if res.error: return res
+
+        while self.current_tok.type == T_NEWLINE:
+            res.register_advancement()
+            self.advance()
 
         if self.current_tok.type != T_GT:
             return res.failure(InvalidSyntaxError(
@@ -479,6 +512,10 @@ class Parser: # pylint: disable=R0904
         while self.current_tok.type == T_COMMA:
             res.register_advancement()
             self.advance()
+
+            while self.current_tok.type == T_NEWLINE:
+                res.register_advancement()
+                self.advance()
 
             item = res.register(self.attr_item())
             if res.error:
@@ -542,9 +579,17 @@ class Parser: # pylint: disable=R0904
         res.register_advancement()
         self.advance()
 
+        while self.current_tok.type == T_NEWLINE:
+            res.register_advancement()
+            self.advance()
+
         param_nodes = res.register(self.param_list())
         if res.error:
             return res
+
+        while self.current_tok.type == T_NEWLINE:
+            res.register_advancement()
+            self.advance()
 
         if self.current_tok.type != T_RPAREN:
             return res.failure(InvalidSyntaxError(
@@ -648,9 +693,17 @@ class Parser: # pylint: disable=R0904
         res.register_advancement()
         self.advance()
 
+        while self.current_tok.type == T_NEWLINE:
+            res.register_advancement()
+            self.advance()
+
         param_nodes = res.register(self.param_list())
         if res.error:
             return res
+
+        while self.current_tok.type == T_NEWLINE:
+            res.register_advancement()
+            self.advance()
 
         if self.current_tok.type != T_RPAREN:
             return res.failure(InvalidSyntaxError(
@@ -667,6 +720,7 @@ class Parser: # pylint: disable=R0904
         self.advance()
 
         body_nodes, pos_start = [], self.current_tok.pos_start
+        brace_open_line = pos_start.line + 1
         while self.current_tok.type != T_RPAREN2 and self.current_tok.type != T_EOF:
             if self.current_tok.type == T_KEYWORD and (self.current_tok.value in ("yield", "proceed", "escape")):
                 jump_node = res.register(self.jump_statements())
@@ -778,7 +832,16 @@ class Parser: # pylint: disable=R0904
         """
         Grammar Rule:
 
-        list-expression: LPAREN3 NEWLINE* (expression(NEWLINE* COMMA NEWLINE* expression)*)? RPAREN3
+        list-expression:
+            LPAREN3 NEWLINE* (expression (NEWLINE* COMMA NEWLINE* expression)*)? RPAREN3
+
+        list-comprehension (Cycle):
+            LPAREN3 expression KEYWORD:Cycle IDENTIFIER EQUAL expression COLON expression
+                    (COLON expression)? (KEYWORD:when expression)? RPAREN3
+
+        list-comprehension (trace):
+            LPAREN3 expression KEYWORD:trace IDENTIFIER (COMMA IDENTIFIER)* LARROW expression
+                    (KEYWORD:when expression)? RPAREN3
         """
         res = ParseResult()
         element_nodes = []
@@ -793,14 +856,44 @@ class Parser: # pylint: disable=R0904
         res.register_advancement()
         self.advance()
 
-        while self.current_tok.type==T_NEWLINE:
+        while self.current_tok.type == T_NEWLINE:
             res.register_advancement()
             self.advance()
 
         if self.current_tok.type == T_RPAREN3:
+            # empty list []
             res.register_advancement()
             self.advance()
-        else:
+            return res.success(ListNode([], pos_start, self.current_tok.pos_end.copy()))
+
+        # Parse the first (and possibly only) expression
+        first_expr = res.register(self.expression())
+        if res.error:
+            return res
+
+        while self.current_tok.type == T_NEWLINE:
+            res.register_advancement()
+            self.advance()
+
+        # ── List comprehension with Cycle ─────────────────────────────
+        if self.current_tok.type == T_KEYWORD and self.current_tok.value == 'Cycle':
+            return self._parse_list_comp_cycle(res, first_expr, pos_start)
+
+        # ── List comprehension with trace ─────────────────────────────
+        if self.current_tok.type == T_KEYWORD and self.current_tok.value == 'trace':
+            return self._parse_list_comp_trace(res, first_expr, pos_start)
+
+        # ── Plain list literal ────────────────────────────────────────
+        element_nodes.append(first_expr)
+
+        while self.current_tok and self.current_tok.type == T_COMMA:
+            res.register_advancement()
+            self.advance()
+
+            while self.current_tok.type == T_NEWLINE:
+                res.register_advancement()
+                self.advance()
+
             element_nodes.append(res.register(self.expression()))
             if res.error:
                 return res
@@ -809,32 +902,145 @@ class Parser: # pylint: disable=R0904
                 res.register_advancement()
                 self.advance()
 
-            while self.current_tok and self.current_tok.type == T_COMMA:
-                res.register_advancement()
-                self.advance()
+        if self.current_tok.type != T_RPAREN3:
+            return res.failure(
+                InvalidSyntaxError(self.current_tok.pos_start,
+                                   self.current_tok.pos_end,
+                                   "Expected ',' or ']",
+                                   hint="Did you forget a comma ',' between list elements?"))
 
-                while self.current_tok.type == T_NEWLINE:
-                    res.register_advancement()
-                    self.advance()
+        res.register_advancement()
+        self.advance()
 
-                element_nodes.append(res.register(self.expression()))
-                if res.error:
-                    return res
+        return res.success(ListNode(element_nodes, pos_start, self.current_tok.pos_end.copy()))
 
-                while self.current_tok.type == T_NEWLINE:
-                    res.register_advancement()
-                    self.advance()
+    def _parse_list_comp_cycle(self, res, expr_node, pos_start):
+        """
+        Parse the Cycle clause of a list comprehension after the expr has been read.
+        [expr Cycle var = start : end (: step)? (when cond)?]
+        """
+        # consume 'Cycle'
+        res.register_advancement()
+        self.advance()
 
-            if self.current_tok.type != T_RPAREN3:
-                return res.failure(
-                    InvalidSyntaxError(self.current_tok.pos_start,
-                                       self.current_tok.pos_end,
-                                       "Expected ',' or ']"))
+        if self.current_tok.type != T_IDENTIFIER:
+            return res.failure(InvalidSyntaxError(
+                self.current_tok.pos_start, self.current_tok.pos_end,
+                "Expected loop variable name after 'Cycle'"))
+        var_name_tok = self.current_tok
+        res.register_advancement()
+        self.advance()
 
+        if self.current_tok.type != T_EQ:
+            return res.failure(InvalidSyntaxError(
+                self.current_tok.pos_start, self.current_tok.pos_end, "Expected '='"))
+        res.register_advancement()
+        self.advance()
+
+        start_node = res.register(self.expression())
+        if res.error: return res
+
+        if self.current_tok.type != T_COLON:
+            return res.failure(InvalidSyntaxError(
+                self.current_tok.pos_start, self.current_tok.pos_end, "Expected ':'"))
+        res.register_advancement()
+        self.advance()
+
+        end_node = res.register(self.expression())
+        if res.error: return res
+
+        step_node = None
+        if self.current_tok.type == T_COLON:
+            res.register_advancement()
+            self.advance()
+            step_node = res.register(self.expression())
+            if res.error: return res
+
+        condition_node = None
+        if self.current_tok.type == T_KEYWORD and self.current_tok.value == 'when':
+            res.register_advancement()
+            self.advance()
+            condition_node = res.register(self.expression())
+            if res.error: return res
+
+        if self.current_tok.type != T_RPAREN3:
+            return res.failure(InvalidSyntaxError(
+                self.current_tok.pos_start, self.current_tok.pos_end,
+                "Expected ']' to close list comprehension"))
+        pos_end = self.current_tok.pos_end.copy()
+        res.register_advancement()
+        self.advance()
+
+        node = ListComprehensionNode(
+            expr_node=expr_node, loop_type='Cycle',
+            var_name_tok=var_name_tok,
+            start_node=start_node, end_node=end_node, step_node=step_node,
+            condition_node=condition_node,
+            pos_start=pos_start, pos_end=pos_end
+        )
+        return res.success(node)
+
+    def _parse_list_comp_trace(self, res, expr_node, pos_start):
+        """
+        Parse the trace clause of a list comprehension after the expr has been read.
+        [expr trace var <- collection (when cond)?]
+        """
+        # consume 'trace'
+        res.register_advancement()
+        self.advance()
+
+        var_name_tokens = []
+        if self.current_tok.type != T_IDENTIFIER:
+            return res.failure(InvalidSyntaxError(
+                self.current_tok.pos_start, self.current_tok.pos_end,
+                "Expected at least one variable name after 'trace'"))
+        var_name_tokens.append(self.current_tok)
+        res.register_advancement()
+        self.advance()
+
+        while self.current_tok.type == T_COMMA:
+            res.register_advancement()
+            self.advance()
+            if self.current_tok.type != T_IDENTIFIER:
+                return res.failure(InvalidSyntaxError(
+                    self.current_tok.pos_start, self.current_tok.pos_end,
+                    "Expected identifier after ','"))
+            var_name_tokens.append(self.current_tok)
             res.register_advancement()
             self.advance()
 
-        return res.success(ListNode(element_nodes, pos_start, self.current_tok.pos_end.copy()))
+        if self.current_tok.type != T_LARROW:
+            return res.failure(InvalidSyntaxError(
+                self.current_tok.pos_start, self.current_tok.pos_end, "Expected '<-'"))
+        res.register_advancement()
+        self.advance()
+
+        collection_node = res.register(self.expression())
+        if res.error: return res
+
+        condition_node = None
+        if self.current_tok.type == T_KEYWORD and self.current_tok.value == 'when':
+            res.register_advancement()
+            self.advance()
+            condition_node = res.register(self.expression())
+            if res.error: return res
+
+        if self.current_tok.type != T_RPAREN3:
+            return res.failure(InvalidSyntaxError(
+                self.current_tok.pos_start, self.current_tok.pos_end,
+                "Expected ']' to close list comprehension"))
+        pos_end = self.current_tok.pos_end.copy()
+        res.register_advancement()
+        self.advance()
+
+        node = ListComprehensionNode(
+            expr_node=expr_node, loop_type='trace',
+            var_name_tokens=var_name_tokens, collection_node=collection_node,
+            condition_node=condition_node,
+            pos_start=pos_start, pos_end=pos_end
+        )
+        return res.success(node)
+
 
     def dict_expression(self):
         """
@@ -842,6 +1048,14 @@ class Parser: # pylint: disable=R0904
         dict-expression:
             LPAREN2 NEWLINE* (dict-entry (NEWLINE* COMMA NEWLINE* dict-entry)*)?
             NEWLINE* RPAREN2
+
+        dict-comprehension (Cycle):
+            LPAREN2 expression COLON expression KEYWORD:Cycle IDENTIFIER EQUAL expression
+                    COLON expression (COLON expression)? (KEYWORD:when expression)? RPAREN2
+
+        dict-comprehension (trace):
+            LPAREN2 expression COLON expression KEYWORD:trace IDENTIFIER (COMMA IDENTIFIER)*
+                    LARROW expression (KEYWORD:when expression)? RPAREN2
         """
         res = ParseResult()
         keyval_nodes = []
@@ -859,7 +1073,44 @@ class Parser: # pylint: disable=R0904
             res.register_advancement()
             self.advance()
 
-        if self.current_tok.type != T_RPAREN2:
+        if self.current_tok.type == T_RPAREN2:
+            # empty dict {}
+            res.register_advancement()
+            self.advance()
+            return res.success(DictNode([], pos_start, self.current_tok.pos_end.copy()))
+
+        # Parse the first key:value pair
+        first_entry = res.register(self.dict_entry())
+        if res.error:
+            return res
+        first_key, first_val = first_entry
+
+        while self.current_tok.type == T_NEWLINE:
+            res.register_advancement()
+            self.advance()
+
+        # ── Dict comprehension with Cycle ──────────────────────────────
+        if self.current_tok.type == T_KEYWORD and self.current_tok.value == 'Cycle':
+            return self._parse_dict_comp_cycle(res, first_key, first_val, pos_start)
+
+        # ── Dict comprehension with trace ──────────────────────────────
+        if self.current_tok.type == T_KEYWORD and self.current_tok.value == 'trace':
+            return self._parse_dict_comp_trace(res, first_key, first_val, pos_start)
+
+        # ── Plain dict literal ─────────────────────────────────────────
+        keyval_nodes.append(first_entry)
+
+        while self.current_tok.type == T_COMMA:
+            res.register_advancement()
+            self.advance()
+
+            while self.current_tok.type == T_NEWLINE:
+                res.register_advancement()
+                self.advance()
+
+            if self.current_tok.type == T_RPAREN2:
+                break
+
             entry = res.register(self.dict_entry())
             if res.error:
                 return res
@@ -869,37 +1120,143 @@ class Parser: # pylint: disable=R0904
                 res.register_advancement()
                 self.advance()
 
-            while self.current_tok.type == T_COMMA:
-                res.register_advancement()
-                self.advance()
-
-                while self.current_tok.type == T_NEWLINE:
-                    res.register_advancement()
-                    self.advance()
-
-                if self.current_tok.type == T_RPAREN2:
-                    break
-
-                entry = res.register(self.dict_entry())
-                if res.error:
-                    return res
-                keyval_nodes.append(entry)
-
-                while self.current_tok.type == T_NEWLINE:
-                    res.register_advancement()
-                    self.advance()
-
         if self.current_tok.type != T_RPAREN2:
             return res.failure(
                 InvalidSyntaxError(self.current_tok.pos_start,
                                    self.current_tok.pos_end,
-                                   "Expected ',' or '}'"))
+                                   "Expected ',' or '}'",
+                                   hint="Did you forget a comma ',' between dictionary entries?"))
 
         res.register_advancement()
         self.advance()
 
         return res.success(
             DictNode(keyval_nodes, pos_start, self.current_tok.pos_end.copy()))
+
+    def _parse_dict_comp_cycle(self, res, key_node, val_node, pos_start):
+        """
+        {key : val Cycle var = start : end (: step)? (when cond)?}
+        """
+        # consume 'Cycle'
+        res.register_advancement()
+        self.advance()
+
+        if self.current_tok.type != T_IDENTIFIER:
+            return res.failure(InvalidSyntaxError(
+                self.current_tok.pos_start, self.current_tok.pos_end,
+                "Expected loop variable name after 'Cycle'"))
+        var_name_tok = self.current_tok
+        res.register_advancement()
+        self.advance()
+
+        if self.current_tok.type != T_EQ:
+            return res.failure(InvalidSyntaxError(
+                self.current_tok.pos_start, self.current_tok.pos_end, "Expected '='"))
+        res.register_advancement()
+        self.advance()
+
+        start_node = res.register(self.expression())
+        if res.error: return res
+
+        if self.current_tok.type != T_COLON:
+            return res.failure(InvalidSyntaxError(
+                self.current_tok.pos_start, self.current_tok.pos_end, "Expected ':'"))
+        res.register_advancement()
+        self.advance()
+
+        end_node = res.register(self.expression())
+        if res.error: return res
+
+        step_node = None
+        if self.current_tok.type == T_COLON:
+            res.register_advancement()
+            self.advance()
+            step_node = res.register(self.expression())
+            if res.error: return res
+
+        condition_node = None
+        if self.current_tok.type == T_KEYWORD and self.current_tok.value == 'when':
+            res.register_advancement()
+            self.advance()
+            condition_node = res.register(self.expression())
+            if res.error: return res
+
+        if self.current_tok.type != T_RPAREN2:
+            return res.failure(InvalidSyntaxError(
+                self.current_tok.pos_start, self.current_tok.pos_end,
+                "Expected '}' to close dict comprehension"))
+        pos_end = self.current_tok.pos_end.copy()
+        res.register_advancement()
+        self.advance()
+
+        node = DictComprehensionNode(
+            key_node=key_node, val_node=val_node, loop_type='Cycle',
+            var_name_tok=var_name_tok,
+            start_node=start_node, end_node=end_node, step_node=step_node,
+            condition_node=condition_node,
+            pos_start=pos_start, pos_end=pos_end
+        )
+        return res.success(node)
+
+    def _parse_dict_comp_trace(self, res, key_node, val_node, pos_start):
+        """
+        {key : val trace var <- collection (when cond)?}
+        """
+        # consume 'trace'
+        res.register_advancement()
+        self.advance()
+
+        var_name_tokens = []
+        if self.current_tok.type != T_IDENTIFIER:
+            return res.failure(InvalidSyntaxError(
+                self.current_tok.pos_start, self.current_tok.pos_end,
+                "Expected at least one variable name after 'trace'"))
+        var_name_tokens.append(self.current_tok)
+        res.register_advancement()
+        self.advance()
+
+        while self.current_tok.type == T_COMMA:
+            res.register_advancement()
+            self.advance()
+            if self.current_tok.type != T_IDENTIFIER:
+                return res.failure(InvalidSyntaxError(
+                    self.current_tok.pos_start, self.current_tok.pos_end,
+                    "Expected identifier after ','"))
+            var_name_tokens.append(self.current_tok)
+            res.register_advancement()
+            self.advance()
+
+        if self.current_tok.type != T_LARROW:
+            return res.failure(InvalidSyntaxError(
+                self.current_tok.pos_start, self.current_tok.pos_end, "Expected '<-'"))
+        res.register_advancement()
+        self.advance()
+
+        collection_node = res.register(self.expression())
+        if res.error: return res
+
+        condition_node = None
+        if self.current_tok.type == T_KEYWORD and self.current_tok.value == 'when':
+            res.register_advancement()
+            self.advance()
+            condition_node = res.register(self.expression())
+            if res.error: return res
+
+        if self.current_tok.type != T_RPAREN2:
+            return res.failure(InvalidSyntaxError(
+                self.current_tok.pos_start, self.current_tok.pos_end,
+                "Expected '}' to close dict comprehension"))
+        pos_end = self.current_tok.pos_end.copy()
+        res.register_advancement()
+        self.advance()
+
+        node = DictComprehensionNode(
+            key_node=key_node, val_node=val_node, loop_type='trace',
+            var_name_tokens=var_name_tokens, collection_node=collection_node,
+            condition_node=condition_node,
+            pos_start=pos_start, pos_end=pos_end
+        )
+        return res.success(node)
 
     def dict_entry(self):
         """
@@ -1207,6 +1564,10 @@ class Parser: # pylint: disable=R0904
             res.register_advancement()
             self.advance()
 
+            while self.current_tok.type == T_NEWLINE:
+                res.register_advancement()
+                self.advance()
+
             item = res.register(self.param_item())
             if res.error: return res
             params.append(item)
@@ -1249,15 +1610,24 @@ class Parser: # pylint: disable=R0904
         res.register_advancement()
         self.advance()
 
+        while self.current_tok.type == T_NEWLINE:
+            res.register_advancement()
+            self.advance()
+
         arg_nodes = res.register(self.param_list())
         if res.error:
             return res
+
+        while self.current_tok.type == T_NEWLINE:
+            res.register_advancement()
+            self.advance()
 
         if self.current_tok.type != T_RPAREN:
             return res.failure(
                 InvalidSyntaxError(self.current_tok.pos_start,
                                    self.current_tok.pos_end,
-                                   "Expected ',' or ')'"))
+                                   "Expected ',' or ')'",
+                                   hint="Did you forget a comma ',' between parameters?"))
 
         res.register_advancement()
         self.advance()
@@ -1270,6 +1640,7 @@ class Parser: # pylint: disable=R0904
         self.advance()
 
         body_nodes, pos_start = [], self.current_tok.pos_start
+        brace_open_line = pos_start.line + 1
         while self.current_tok.type != T_RPAREN2 and self.current_tok.type != T_EOF:
             if self.current_tok.type == T_KEYWORD and (self.current_tok.value in ("yield", "proceed", "escape")):
                 jump_node = res.register(self.jump_statements())
@@ -1295,7 +1666,8 @@ class Parser: # pylint: disable=R0904
             return res.failure(
                 InvalidSyntaxError(self.current_tok.pos_start,
                                    self.current_tok.pos_end,
-                                   "Expected '}'"))
+                                   "Expected '}'",
+                                   hint=f"Unexpected end of file. You opened a block '{{' on line {brace_open_line} that was never closed."))
         res.register_advancement()
         self.advance()
 
@@ -1327,9 +1699,17 @@ class Parser: # pylint: disable=R0904
         res.register_advancement()
         self.advance()
 
+        while self.current_tok.type == T_NEWLINE:
+            res.register_advancement()
+            self.advance()
+
         arg_nodes = res.register(self.param_list())
         if res.error:
             return res
+
+        while self.current_tok.type == T_NEWLINE:
+            res.register_advancement()
+            self.advance()
 
         if self.current_tok.type != T_RPAREN:
             return res.failure(
@@ -1348,6 +1728,7 @@ class Parser: # pylint: disable=R0904
         self.advance()
 
         body_nodes, pos_start = [], self.current_tok.pos_start
+        brace_open_line = pos_start.line + 1
         while self.current_tok.type != T_RPAREN2 and self.current_tok.type != T_EOF:
             if self.current_tok.type == T_KEYWORD and (self.current_tok.value in ("yield", "proceed", "escape")):
                 jump_node = res.register(self.jump_statements())
@@ -1373,7 +1754,8 @@ class Parser: # pylint: disable=R0904
             return res.failure(
                 InvalidSyntaxError(self.current_tok.pos_start,
                                    self.current_tok.pos_end,
-                                   "Expected '}'"))
+                                   "Expected '}'",
+                                   hint=f"Unexpected end of file. You opened a block '{{' on line {brace_open_line} that was never closed."))
         res.register_advancement()
         self.advance()
 
@@ -1607,17 +1989,28 @@ class Parser: # pylint: disable=R0904
         condition = res.register(self.expression())
         if res.error: return res
 
+        if isinstance(condition, AssignNode):
+            return res.failure(
+                InvalidSyntaxError(condition.pos_start, condition.pos_end,
+                                   "Assignment is not allowed in a 'whenever' condition",
+                                   hint="Did you mean '==' for comparison instead of '=' for assignment?"))
+
         # '{'
         if not self.current_tok.type == T_LPAREN2:
+            _hint = None
+            if self.current_tok.type == T_EQ:
+                _hint = "Did you mean '==' for comparison instead of '=' for assignment?"
             return res.failure(
                 InvalidSyntaxError(self.current_tok.pos_start,
                                    self.current_tok.pos_end,
-                                   "Expected '{'"))
+                                   "Expected '{'",
+                                   hint=_hint))
         res.register_advancement()
         self.advance()
 
         # body
         body_nodes, pos_start = [], self.current_tok.pos_start
+        brace_open_line = pos_start.line + 1
         while self.current_tok.type != T_RPAREN2 and self.current_tok.type != T_EOF:
             if self.current_tok.type == T_KEYWORD and (self.current_tok.value in ("escape", "proceed","yield")):
                 jump_node = res.register(self.jump_statements())
@@ -1644,7 +2037,8 @@ class Parser: # pylint: disable=R0904
             return res.failure(
                 InvalidSyntaxError(self.current_tok.pos_start,
                                    self.current_tok.pos_end,
-                                   "Expected '}'"))
+                                   "Expected '}'",
+                                   hint=f"Unexpected end of file. You opened a block '{{' on line {brace_open_line} that was never closed."))
         res.register_advancement()
         self.advance()
 
@@ -2016,17 +2410,28 @@ class Parser: # pylint: disable=R0904
         condition = res.register(self.expression())
         if res.error: return res
 
+        if isinstance(condition, AssignNode):
+            return res.failure(
+                InvalidSyntaxError(condition.pos_start, condition.pos_end,
+                                   "Assignment is not allowed in a 'when' condition",
+                                   hint="Did you mean '==' for comparison instead of '=' for assignment?"))
+
         # '{'
         if not self.current_tok.type == T_LPAREN2:
+            _hint = None
+            if self.current_tok.type == T_EQ:
+                _hint = "Did you mean '==' for comparison instead of '=' for assignment?"
             return res.failure(
                 InvalidSyntaxError(self.current_tok.pos_start,
                                    self.current_tok.pos_end,
-                                   "Expected '{'"))
+                                   "Expected '{'",
+                                   hint=_hint))
         res.register_advancement()
         self.advance()
 
         # body
         body_nodes, pos_start = [], self.current_tok.pos_start
+        brace_open_line = pos_start.line + 1
         while self.current_tok.type not in (T_RPAREN2, T_EOF):
             if self.current_tok.type == T_KEYWORD and (self.current_tok.value in ("escape", "proceed","yield")):
                 jump_node = res.register(self.jump_statements())
@@ -2053,7 +2458,8 @@ class Parser: # pylint: disable=R0904
             return res.failure(
                 InvalidSyntaxError(self.current_tok.pos_start,
                                    self.current_tok.pos_end,
-                                   "Expected '}'"))
+                                   "Expected '}'",
+                                   hint=f"Unexpected end of file. You opened a block '{{' on line {brace_open_line} that was never closed."))
         res.register_advancement()
         self.advance()
 
@@ -2109,17 +2515,28 @@ class Parser: # pylint: disable=R0904
         condition = res.register(self.expression())
         if res.error: return res
 
+        if isinstance(condition, AssignNode):
+            return res.failure(
+                InvalidSyntaxError(condition.pos_start, condition.pos_end,
+                                   "Assignment is not allowed in an 'orwhen' condition",
+                                   hint="Did you mean '==' for comparison instead of '=' for assignment?"))
+
         # '{'
         if not self.current_tok.type == T_LPAREN2:
+            _hint = None
+            if self.current_tok.type == T_EQ:
+                _hint = "Did you mean '==' for comparison instead of '=' for assignment?"
             return res.failure(
                 InvalidSyntaxError(self.current_tok.pos_start,
                                    self.current_tok.pos_end,
-                                   "Expected '{'"))
+                                   "Expected '{'",
+                                   hint=_hint))
         res.register_advancement()
         self.advance()
 
         # body
         body_nodes, pos_start = [], self.current_tok.pos_start
+        brace_open_line = pos_start.line + 1
         while self.current_tok.type not in (T_RPAREN2, T_EOF):
             if self.current_tok.type == T_KEYWORD and (self.current_tok.value in ("escape", "proceed","yield")):
                 jump_node = res.register(self.jump_statements())
@@ -2146,7 +2563,8 @@ class Parser: # pylint: disable=R0904
             return res.failure(
                 InvalidSyntaxError(self.current_tok.pos_start,
                                    self.current_tok.pos_end,
-                                   "Expected '}'"))
+                                   "Expected '}'",
+                                   hint=f"Unexpected end of file. You opened a block '{{' on line {brace_open_line} that was never closed."))
         res.register_advancement()
         self.advance()
 
@@ -2334,6 +2752,10 @@ class Parser: # pylint: disable=R0904
             res.register_advancement()
             self.advance()
 
+            while self.current_tok.type == T_NEWLINE:
+                res.register_advancement()
+                self.advance()
+
             item = res.register(self.keyword_item())
             if res.error: return res
             keywords.append(item)
@@ -2352,12 +2774,21 @@ class Parser: # pylint: disable=R0904
         positional_args.append(expr)
 
         while self.current_tok.type == T_COMMA:
+            peek_idx = 1
+            while self.tok_index + peek_idx < len(self.tokens) and self.tokens[self.tok_index + peek_idx].type == T_NEWLINE:
+                peek_idx += 1
+            next_tok = self.tokens[self.tok_index + peek_idx] if self.tok_index + peek_idx < len(self.tokens) else None
+            next_next_tok = self.tokens[self.tok_index + peek_idx + 1] if self.tok_index + peek_idx + 1 < len(self.tokens) else None
+            
+            if next_tok and next_tok.type == T_IDENTIFIER and next_next_tok and next_next_tok.type == T_EQ:
+                break
+
             res.register_advancement()
             self.advance()
 
-            if self.current_tok.type == T_IDENTIFIER and self.peek() and self.peek().type == T_EQ:
-                self.reverse()
-                break
+            while self.current_tok.type == T_NEWLINE:
+                res.register_advancement()
+                self.advance()
 
             expr = res.register(self.expression())
             if res.error: return res
@@ -2385,6 +2816,10 @@ class Parser: # pylint: disable=R0904
                 res.register_advancement()
                 self.advance()
 
+                while self.current_tok.type == T_NEWLINE:
+                    res.register_advancement()
+                    self.advance()
+
                 if not (self.current_tok.type == T_IDENTIFIER and self.peek() and self.peek().type == T_EQ):
                     return res.failure(InvalidSyntaxError(
                         self.current_tok.pos_start, self.current_tok.pos_end,
@@ -2411,11 +2846,19 @@ class Parser: # pylint: disable=R0904
                 self.advance()
                 positional_args, keyword_args = [], []
 
+                while self.current_tok.type == T_NEWLINE:
+                    res.register_advancement()
+                    self.advance()
+
                 if self.current_tok.type != T_RPAREN:
                     args = res.register(self.argument_list())
                     if res.error:
                         return res
                     positional_args, keyword_args = args
+
+                while self.current_tok.type == T_NEWLINE:
+                    res.register_advancement()
+                    self.advance()
 
                 if self.current_tok.type != T_RPAREN:
                     return res.failure(InvalidSyntaxError(
@@ -2738,9 +3181,15 @@ class Parser: # pylint: disable=R0904
         """
         res = ParseResult()
 
+        depth_error = self._enter_depth()
+        if depth_error: return res.failure(depth_error)
+
         ternary_node = res.register(self.ternary_expression())
         if res.error:
+            self._exit_depth()
             return res
+            
+        self._exit_depth()
         return res.success(ternary_node)
 
     def logical_expression(self):

@@ -63,7 +63,8 @@ class SuperProxy:
                     method_node.body_node,
                     method_node.param_nodes,
                     False,
-                    self.instance
+                    self.instance,
+                    owner_class=parent
                 ).set_context(self.instance.context)
                 method.set_pos(method_node.pos_start, method_node.pos_end)
                 return method, None
