@@ -1640,6 +1640,7 @@ class Parser: # pylint: disable=R0904
         self.advance()
 
         body_nodes, pos_start = [], self.current_tok.pos_start
+        brace_open_line = pos_start.line + 1
         while self.current_tok.type != T_RPAREN2 and self.current_tok.type != T_EOF:
             if self.current_tok.type == T_KEYWORD and (self.current_tok.value in ("yield", "proceed", "escape")):
                 jump_node = res.register(self.jump_statements())
@@ -1665,7 +1666,8 @@ class Parser: # pylint: disable=R0904
             return res.failure(
                 InvalidSyntaxError(self.current_tok.pos_start,
                                    self.current_tok.pos_end,
-                                   "Expected '}'"))
+                                   "Expected '}'",
+                                   hint=f"Unexpected end of file. You opened a block '{{' on line {brace_open_line} that was never closed."))
         res.register_advancement()
         self.advance()
 
@@ -1726,6 +1728,7 @@ class Parser: # pylint: disable=R0904
         self.advance()
 
         body_nodes, pos_start = [], self.current_tok.pos_start
+        brace_open_line = pos_start.line + 1
         while self.current_tok.type != T_RPAREN2 and self.current_tok.type != T_EOF:
             if self.current_tok.type == T_KEYWORD and (self.current_tok.value in ("yield", "proceed", "escape")):
                 jump_node = res.register(self.jump_statements())
@@ -1751,7 +1754,8 @@ class Parser: # pylint: disable=R0904
             return res.failure(
                 InvalidSyntaxError(self.current_tok.pos_start,
                                    self.current_tok.pos_end,
-                                   "Expected '}'"))
+                                   "Expected '}'",
+                                   hint=f"Unexpected end of file. You opened a block '{{' on line {brace_open_line} that was never closed."))
         res.register_advancement()
         self.advance()
 
