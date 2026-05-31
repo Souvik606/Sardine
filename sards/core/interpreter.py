@@ -11,12 +11,13 @@ Classes:
 """
 
 import os
+import builtins
 
 from sards.ast_nodes import SymbolTable
-from sards.data_types import Number, String, List, Dict, Module
+from sards.data_types import Number, Integer, Float, Boolean, String, List, Dict, Module
 
 from .constants import (T_PLUS, T_MINUS, T_MUL, T_DIVIDE, T_MODULUS, T_FLOOR, T_BITAND, T_BITXOR, T_BITOR, T_BITNOT, T_EXP, T_EE,
-                        T_LSHIFT, T_RSHIFT, T_NEQ, T_GT, T_GTE, T_LT, T_LTE, T_KEYWORD, ERROR_TYPES)
+                        T_LSHIFT, T_RSHIFT, T_NEQ, T_GT, T_GTE, T_LT, T_LTE, T_KEYWORD, T_INT, T_FLOAT, ERROR_TYPES)
 from .error import (
     NameError, NotImplementedError, InvalidErrorTypeError, RunTimeError,
     IllegalOperationError, IndexOutOfBoundsError, ArgumentError,
@@ -411,11 +412,14 @@ class Interpreter:
                 if res.should_return():
                     return res
                 try:
-                    str_val = str(value)
-                except (ValueError, OverflowError, MemoryError):
+                    if isinstance(value, Number):
+                        str_val = repr(value)
+                    else:
+                        str_val = str(value)
+                except (builtins.ValueError, OverflowError, MemoryError):
                     try:
                         str_val = f"{float(value.value):.4e}" if hasattr(value, 'value') else "INF"
-                    except:
+                    except Exception:
                         str_val = "INF"
                 result_str += str_val
 
@@ -452,7 +456,7 @@ class Interpreter:
                 step_val = res.register(self.visit(node.step_node, context))
                 if res.should_return(): return res
             else:
-                step_val = Number(1)
+                step_val = Integer(1)
 
             if not isinstance(start_val, Number):
                 return res.failure(TypeError(
@@ -607,7 +611,7 @@ class Interpreter:
                 step_val = res.register(self.visit(node.step_node, context))
                 if res.should_return(): return res
             else:
-                step_val = Number(1)
+                step_val = Integer(1)
 
             if not isinstance(start_val, Number):
                 return res.failure(TypeError(
@@ -834,7 +838,7 @@ class Interpreter:
                     return res.failure(SardineValueError(node.pos_start, node.pos_end, "Loop execution result accumulation limit exceeded (max 100,000 items)", context))
 
         return res.success(
-            Number(0) if node.return_null else (List(elements).set_context(context)
+            Boolean(False) if node.return_null else (List(elements).set_context(context)
                                                 .set_pos(node.pos_start, node.pos_end)))
 
     def visit_ForNode(self, node, context):
@@ -854,7 +858,7 @@ class Interpreter:
             if res.should_return():
                 return res
         else:
-            step_value = Number(1)
+            step_value = Integer(1)
 
         if not isinstance(start_value, Number):
             return res.failure(TypeError(
@@ -900,7 +904,7 @@ class Interpreter:
             if not constants.UNBOUNDED_MODE and iterations >= 200000:
                 from sards.core.error import ValueError as SardineValueError
                 return res.failure(SardineValueError(node.pos_start, node.pos_end, "Loop execution limit exceeded (max 100,000 iterations)", context))
-            context.symbol_table.set(node.var_name_tok.value, Number(i))
+            context.symbol_table.set(node.var_name_tok.value, Integer(i))
             i += step_value.value
 
             value = res.register(self.visit(node.body_node, context))
@@ -922,7 +926,7 @@ class Interpreter:
                     return res.failure(SardineValueError(node.pos_start, node.pos_end, "Loop execution result accumulation limit exceeded (max 100,000 items)", context))
 
         return res.success(
-            Number(0) if node.return_null else (List(elements)
+            Boolean(False) if node.return_null else (List(elements)
                                                 .set_context(context)
                                                 .set_pos(node.pos_start,node.pos_end)))
 
@@ -1173,12 +1177,12 @@ class Interpreter:
             if (res.should_return() and
                 not res.loop_or_switch_break):
                 return res
-            elements.append(Number(0) if return_null else body_val)
+            elements.append(Boolean(False) if return_null else body_val)
             if res.loop_or_switch_break:
                 break
 
         return res.success(
-            Number(0) if node.return_null else (List(elements)
+            Boolean(False) if node.return_null else (List(elements)
                                                 .set_context(context)
                                                 .set_pos(node.pos_start,
                                                                                            node.pos_end)))
@@ -1195,16 +1199,16 @@ class Interpreter:
                 expression_value = res.register(self.visit(expression, context))
                 if res.should_return():
                     return res
-                return res.success(Number(0) if return_null else expression_value)
+                return res.success(Boolean(False) if return_null else expression_value)
 
         if node.else_case:
             expression, return_null = node.else_case
             else_value = res.register(self.visit(expression, context))
             if res.should_return():
                 return res
-            return res.success(Number(0) if return_null else else_value)
+            return res.success(Boolean(False) if return_null else else_value)
 
-        return res.success(Number(0))
+        return res.success(Boolean(False))
 
     def visit_VariableUseNode(self, node, context):
         from sards.user_functions import Function
@@ -1448,8 +1452,13 @@ class Interpreter:
         return res.success(value)
 
     def visit_NumberNode(self, node, context):
+        """Dispatch to Integer or Float based on the token type."""
+        if node.token.type == T_FLOAT:
+            return RunTimeResult().success(
+                Float(node.token.value).set_context(context).set_pos(node.pos_start, node.pos_end)
+            )
         return RunTimeResult().success(
-            Number(node.token.value).set_context(context).set_pos(node.pos_start, node.pos_end)
+            Integer(node.token.value).set_context(context).set_pos(node.pos_start, node.pos_end)
         )
 
     def visit_ReturnNode(self, node, context):
@@ -1457,7 +1466,7 @@ class Interpreter:
         return_values = []
 
         if not node.nodes_to_return:
-            return res.success_return(Number(0))
+            return res.success_return(Boolean(False))
 
         for node_to_return in node.nodes_to_return:
             value = res.register(self.visit(node_to_return, context))
@@ -1522,7 +1531,7 @@ class Interpreter:
             method = getattr(left_node, method_name)
             try:
                 result, error = method(right_node)
-            except (ValueError, TypeError, OverflowError, MemoryError, AttributeError) as e:
+            except (builtins.ValueError, builtins.TypeError, OverflowError, MemoryError, builtins.AttributeError) as e:
                 return res.failure(IllegalOperationError(
                     node.pos_start, node.pos_end,
                     f"Error during binary operation '{op_symbol}': {str(e)}",
@@ -1586,11 +1595,11 @@ class Interpreter:
                 ))
             try:
                 if method_name == 'multiply':
-                    number, error = number.multiply(Number(-1))
+                    number, error = number.multiply(Integer(-1))
                 else:
                     method = getattr(number, method_name)
                     number, error = method()
-            except (ValueError, TypeError, OverflowError, MemoryError, AttributeError) as e:
+            except (builtins.ValueError, builtins.TypeError, OverflowError, MemoryError, builtins.AttributeError) as e:
                 return res.failure(IllegalOperationError(
                     node.pos_start, node.pos_end,
                     f"Error during unary operation '{op_symbol}': {str(e)}",

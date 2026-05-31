@@ -68,8 +68,8 @@ class Module:
     # ------------------------------------------------------------------
 
     def is_true(self):
-        from sards.data_types.number_type import Number
-        return Number(1), None
+        from sards.data_types.number_type import Boolean
+        return Boolean(True), None
 
     def __repr__(self):
         return f"<module '{self.name}'>"

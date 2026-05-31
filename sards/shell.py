@@ -29,13 +29,15 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 from sards import *
 
 global_symbol_table = SymbolTable()
-global_symbol_table.set("None", Number(0))
-global_symbol_table.set("True", Number(1))
-global_symbol_table.set("False", Number(0))
+global_symbol_table.set("None", Integer(0))
+global_symbol_table.set("True", Boolean(True))
+global_symbol_table.set("False", Boolean(False))
 
 global_symbol_table.set("show", BuiltInFunction.show)
 global_symbol_table.set("listen", BuiltInFunction.listen)
 global_symbol_table.set("Integer", BuiltInFunction.Integer)
+global_symbol_table.set("Float", BuiltInFunction.Float)
+global_symbol_table.set("Boolean", BuiltInFunction.Boolean)
 global_symbol_table.set("String", BuiltInFunction.String)
 global_symbol_table.set("type", BuiltInFunction.type)
 global_symbol_table.set("super", BuiltInFunction.super)

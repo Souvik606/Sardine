@@ -1,4 +1,4 @@
-from .number_type import Number
+from .number_type import Number, Integer, Boolean
 from .string_type import String
 from sards.core.error import RunTimeError, IllegalOperationError, DictKeyError
 import threading
@@ -65,7 +65,7 @@ class Dict:
         return res
     
     def is_true(self):
-        return Number(len(self.elements)).set_context(self.context), None    
+        return Integer(len(self.elements)).set_context(self.context), None    
 
     def getByIndex(self, indexes):
         from .list_type import List #Avoiding Circular Import
@@ -276,22 +276,22 @@ class Dict:
             _repr_state.comparing = set()
         pair = (id(self), id(operand))
         if pair in _repr_state.comparing:
-            return Number(1).set_context(self.context), None
+            return Boolean(True).set_context(self.context), None
         _repr_state.comparing.add(pair)
         try:
             if len(self.elements) != len(operand.elements):
-                return Number(0).set_context(self.context), None
+                return Boolean(False).set_context(self.context), None
                 
             try:
                 for k, v in self.elements.items():
                     if k not in operand.elements:
-                        return Number(0).set_context(self.context), None
+                        return Boolean(False).set_context(self.context), None
                     if str(v) != str(operand.elements[k]):
-                        return Number(0).set_context(self.context), None
+                        return Boolean(False).set_context(self.context), None
                         
-                return Number(1).set_context(self.context), None
+                return Boolean(True).set_context(self.context), None
             except:
-                return Number(0).set_context(self.context), None
+                return Boolean(False).set_context(self.context), None
         finally:
             _repr_state.comparing.remove(pair)
 
@@ -307,7 +307,7 @@ class Dict:
         result, error = self.get_comparison_eq(operand)
         if error:
             return None, error
-        return Number(1 if result.value == 0 else 0).set_context(self.context), None
+        return Boolean(not bool(result.value)).set_context(self.context), None
 
     def multiply(self, operand):
         return None, IllegalOperationError(
@@ -449,7 +449,7 @@ class Dict:
             list_keys = []
             for k in instance.elements.keys():
                 if isinstance(k, (int, float)):
-                    node = Number(k)
+                    node = Integer(k)
                 else:
                     node = String(str(k))
                 list_keys.append(node.set_context(calling_context))
@@ -471,7 +471,7 @@ class Dict:
             pairs = []
             for k, v in instance.elements.items():
                 if isinstance(k, (int, float)):
-                    k_node = Number(k)
+                    k_node = Integer(k)
                 else:
                     k_node = String(str(k))
                 k_node.set_context(calling_context)
@@ -492,7 +492,7 @@ class Dict:
             if not isinstance(key, (Number, String)):
                 return res.failure(IllegalOperationError(key.pos_start, key.pos_end, "Key must be a Number or String", exec_context))
             
-            default_val = pos_args[1] if len(pos_args) == 2 else Number(0)
+            default_val = pos_args[1] if len(pos_args) == 2 else Integer(0)
             
             val = instance.elements.get(key.value)
             if val is None:
@@ -509,7 +509,7 @@ class Dict:
                 return res.failure(IllegalOperationError(key.pos_start, key.pos_end, "Key must be a Number or String", exec_context))
             
             ans = 1 if key.value in instance.elements else 0
-            return res.success(Number(ans))
+            return res.success(Boolean(bool(ans)))
 
         def method_contains(instance, pos_args, kw_args, exec_context):
             return method_has_key(instance, pos_args, kw_args, exec_context)
@@ -541,7 +541,7 @@ class Dict:
             
             k, v = instance.elements.popitem()
             if isinstance(k, (int, float)):
-                k_node = Number(k)
+                k_node = Integer(k)
             else:
                 k_node = String(str(k))
             k_node.set_context(calling_context)

@@ -23,10 +23,10 @@ sqrt(16)      : 4.0
 sqrt(2)       : 1.4142
 sqrt(0)       : 0
 cbrt(27)      : 3.0
-cbrt(-8)      : -2
+cbrt(-8)      : -2.0
 cbrt(0)       : 0
 hypot(3, 4)   : 5.0
-hypot(5, 12)  : 13
+hypot(5, 12)  : 13.0
 --- math stdlib: rounding & division ---
 floor(3.7)    : 3
 floor(-2.3)   : -3
@@ -58,7 +58,7 @@ log(27, 3)    : 3.0
 sin(0)        : 0
 sin(m.PI/2)   : 1.0
 cos(0)        : 1
-cos(m.PI)     : -1
+cos(m.PI)     : -1.0
 tan(0)        : 0
 tan(m.PI/4)   : 1.0
 asin(0.5)     : 0.5236

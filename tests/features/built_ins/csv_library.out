@@ -6,4 +6,4 @@ row 1 role: Interpreter
 row 2 id: 2
 row 2 name: Standard Dev
 row 2 role: Engineer
-row 3 is None: 1
+row 3 is None: True

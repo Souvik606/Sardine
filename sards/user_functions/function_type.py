@@ -9,7 +9,7 @@ Classes:
 """
 from sards.ast_nodes import SymbolTable
 from sards.core.error import ArgumentError
-from sards.data_types import Number, String, List
+from sards.data_types import Number, Integer, Float, Boolean, String, List
 
 class BaseFunction:
     """
@@ -70,8 +70,8 @@ class BaseFunction:
         return new_context
 
     def is_true(self):
-        from sards.data_types import Number
-        return Number(1), None
+        from sards.data_types import Boolean
+        return Boolean(True), None
 
     def check_and_populate_args(self, param_nodes, pos_args, kw_args, exec_context):
         """
@@ -202,7 +202,7 @@ class Function(BaseFunction):
             return res
 
         return_value = ((value if self.auto_return else None) or
-                        res.func_return_value or Number(0))
+                        res.func_return_value or Boolean(False))
 
         return res.success(return_value)
 
@@ -340,6 +340,14 @@ class BuiltInFunction(BaseFunction):
                     return f"{{{pairs}}}"
                 if isinstance(node, String):
                     return f"'{node.value}'" if nested else str(node.value)
+                # For Number subclasses (Integer, Float, Boolean) use repr() so
+                # Boolean renders 'True'/'False' and Float renders with decimal point
+                from sards.data_types import Number as _Number
+                if isinstance(node, _Number):
+                    try:
+                        return repr(node)
+                    except Exception:
+                        return str(getattr(node, 'value', node))
                 if hasattr(node, 'value'):
                     try:
                         return str(node.value)
@@ -361,7 +369,7 @@ class BuiltInFunction(BaseFunction):
         output = separator.join([stringify(arg) for arg in pos_args])
         print(output, end=end_char)
 
-        return res.success(Number(0))
+        return res.success(Boolean(False))
 
     def execute_listen(self, pos_args, kw_args, exec_context):
         """
@@ -396,7 +404,7 @@ class BuiltInFunction(BaseFunction):
                 ArgumentError(self.pos_start, self.pos_end, "Argument must be a value convertible to an integer",
                               self.context))
 
-        return res.success(Number(number))
+        return res.success(Integer(number))
 
     def execute_String(self, pos_args, kw_args, exec_context):  # pylint: disable=C0103
         """
@@ -424,20 +432,34 @@ class BuiltInFunction(BaseFunction):
     def execute_type(self, pos_args, kw_args, exec_context):
         """
         Executes the 'type' built-in function.
+        Returns '<type Integer>', '<type Float>', '<type Boolean>',
+        '<type String>', '<type List>', '<type Dict>', '<type File>',
+        '<type Module>', or '<type ModelInstance>'.
         """
         from sards.core import RunTimeResult
+        from sards.data_types import Dict, Module, File
         res = RunTimeResult()
         if len(pos_args) != 1 or len(kw_args) > 0:
             return res.failure(
                 ArgumentError(self.pos_start, self.pos_end, "type() takes exactly one argument", self.context))
 
         data = pos_args[0]
-        if isinstance(data, Number):
-            output = "<type Number>"
+        if isinstance(data, Boolean):
+            output = "<type Boolean>"
+        elif isinstance(data, Integer):
+            output = "<type Integer>"
+        elif isinstance(data, Float):
+            output = "<type Float>"
         elif isinstance(data, String):
             output = "<type String>"
         elif isinstance(data, List):
             output = "<type List>"
+        elif isinstance(data, Dict):
+            output = "<type Dict>"
+        elif isinstance(data, File):
+            output = "<type File>"
+        elif isinstance(data, Module):
+            output = "<type Module>"
         else:
             output = f"<type {type(data).__name__}>"
 
@@ -559,11 +581,11 @@ class BuiltInFunction(BaseFunction):
 
         if not isinstance(obj, ModelInstance):
             # Primitive types are never instances of any user-defined model
-            return res.success(Number(0))
+            return res.success(Boolean(False))
 
         # Use the existing is_descendant_of helper which already handles MRO
         result = obj.model.is_descendant_of(model_class)
-        return res.success(Number(1 if result else 0))
+        return res.success(Boolean(result))
 
     def execute_error(self, pos_args, kw_args, exec_context):
         from sards.core import RunTimeResult
@@ -650,7 +672,7 @@ class BuiltInFunction(BaseFunction):
                 )
             )
 
-        return res.success(Number(val))
+        return res.success(Integer(val))
 
     def execute_range(self, pos_args, kw_args, exec_context):
         from sards.core import RunTimeResult
@@ -731,7 +753,7 @@ class BuiltInFunction(BaseFunction):
         try:
             elements = []
             for i in range(start, end, step):
-                elements.append(Number(i).set_context(exec_context))
+                elements.append(Integer(i).set_context(exec_context))
         except (MemoryError, OverflowError):
             from sards.core.error import ValueError as SardineValueError
             return res.failure(
@@ -860,6 +882,56 @@ class BuiltInFunction(BaseFunction):
                 exec_context
             ))
 
+    def execute_Float(self, pos_args, kw_args, exec_context):  # pylint: disable=C0103
+        """
+        Executes the 'Float' built-in function.
+        Converts Integer, Boolean, or String to a Float (exact Decimal).
+        """
+        from sards.core import RunTimeResult
+        from decimal import InvalidOperation
+        res = RunTimeResult()
+        if len(pos_args) != 1 or len(kw_args) > 0:
+            return res.failure(
+                ArgumentError(self.pos_start, self.pos_end, "Float() takes exactly one argument", self.context))
+
+        arg = pos_args[0]
+        if not hasattr(arg, 'value'):
+            return res.failure(
+                ArgumentError(self.pos_start, self.pos_end, "Argument must be a primitive value (Number or String)", self.context))
+
+        try:
+            result = Float(str(arg.value))
+        except (ValueError, TypeError, OverflowError, InvalidOperation) as exc:
+            return res.failure(
+                ArgumentError(self.pos_start, self.pos_end, "Argument must be a value convertible to a Float",
+                              self.context))
+
+        return res.success(result)
+
+    def execute_Boolean(self, pos_args, kw_args, exec_context):  # pylint: disable=C0103
+        """
+        Executes the 'Boolean' built-in function.
+        Converts any Sardine value to a Boolean (True/False).
+          - Number: 0 → False, anything else → True
+          - String: empty string → False, non-empty → True
+          - List: empty → False, non-empty → True
+          - Everything else → True
+        """
+        from sards.core import RunTimeResult
+        res = RunTimeResult()
+        if len(pos_args) != 1 or len(kw_args) > 0:
+            return res.failure(
+                ArgumentError(self.pos_start, self.pos_end, "Boolean() takes exactly one argument", self.context))
+
+        arg = pos_args[0]
+        if isinstance(arg, Number):
+            return res.success(Boolean(bool(arg.value)))
+        if isinstance(arg, String):
+            return res.success(Boolean(bool(arg.value)))
+        if isinstance(arg, List):
+            return res.success(Boolean(bool(arg.elements)))
+        # For any other object (model instance, etc.) — treat as truthy
+        return res.success(Boolean(True))
 
 
 class BoundMethod:
@@ -899,8 +971,8 @@ class BoundMethod:
         return copy
 
     def is_true(self):
-        from sards.data_types import Number
-        return Number(1), None
+        from sards.data_types import Boolean
+        return Boolean(True), None
 
     def __repr__(self):
         return f"<bound method {self.name} of {self.instance}>"
@@ -909,6 +981,8 @@ class BoundMethod:
 BuiltInFunction.show = BuiltInFunction('show')
 BuiltInFunction.listen = BuiltInFunction('listen')
 BuiltInFunction.Integer = BuiltInFunction('Integer')
+BuiltInFunction.Float = BuiltInFunction('Float')
+BuiltInFunction.Boolean = BuiltInFunction('Boolean')
 BuiltInFunction.String = BuiltInFunction('String')
 BuiltInFunction.type = BuiltInFunction('type')
 BuiltInFunction.super = BuiltInFunction('super')

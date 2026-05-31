@@ -1,4 +1,4 @@
-from sards.data_types.number_type import Number
+from sards.data_types.number_type import Number, Integer, Boolean
 from sards.data_types.string_type import String
 
 class File:
@@ -27,7 +27,7 @@ class File:
 
     def is_true(self):
         closed = self.file_obj.closed
-        return Number(0 if closed else 1).set_context(self.context), None
+        return Boolean(not closed).set_context(self.context), None
 
     def __repr__(self):
         closed = self.file_obj.closed
@@ -80,7 +80,7 @@ class File:
                 return res.failure(TypeError(text_arg.pos_start, text_arg.pos_end, "write() argument must be a String", exec_context))
             try:
                 instance.file_obj.write(text_arg.value)
-                return res.success(Number(0))
+                return res.success(Integer(0))
             except Exception as e:
                 return res.failure(FileIOError(instance.pos_start, instance.pos_end, f"Failed to write to file: {str(e)}", exec_context))
 
@@ -97,7 +97,7 @@ class File:
                 return res.failure(TypeError(text_arg.pos_start, text_arg.pos_end, "lwrite() argument must be a String", exec_context))
             try:
                 instance.file_obj.write(text_arg.value + "\n")
-                return res.success(Number(0))
+                return res.success(Integer(0))
             except Exception as e:
                 return res.failure(FileIOError(instance.pos_start, instance.pos_end, f"Failed to write line to file: {str(e)}", exec_context))
 
@@ -110,7 +110,7 @@ class File:
                     instance.file_obj.close()
                 except Exception as e:
                     return res.failure(FileIOError(instance.pos_start, instance.pos_end, f"Failed to close file: {str(e)}", exec_context))
-            return res.success(Number(0))
+            return res.success(Integer(0))
 
         methods = {
             "read": method_read,

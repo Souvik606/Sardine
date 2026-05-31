@@ -1,4 +1,4 @@
-from .number_type import Number
+from .number_type import Number, Integer, Boolean
 from .string_type import String
 from sards.core.error import RunTimeError, IllegalOperationError, DictKeyError, IndexOutOfBoundsError
 import threading
@@ -123,7 +123,7 @@ class List:
                 _repr_state.comparing = set()
             pair = (id(self), id(operand))
             if pair in _repr_state.comparing:
-                return Number(1).set_context(self.context), None
+                return Boolean(True).set_context(self.context), None
             _repr_state.comparing.add(pair)
             try:
                 new_list = self.copy()
@@ -133,7 +133,7 @@ class List:
                         for a, b in zip(new_list.elements, operand.elements):
                             if hasattr(a, 'get_comparison_eq') and hasattr(b, 'get_comparison_eq'):
                                 eq_node, err = a.get_comparison_eq(b)
-                                if err or eq_node.value == 0:
+                                if err or not eq_node.value:
                                     all_eq = False
                                     break
                             elif hasattr(a, 'value') and hasattr(b, 'value'):
@@ -147,11 +147,11 @@ class List:
                             else:
                                 all_eq = False
                                 break
-                        return Number(1 if all_eq else 0).set_context(self.context), None
+                        return Boolean(all_eq).set_context(self.context), None
                     except Exception:
-                        return Number(0).set_context(self.context), None
+                        return Boolean(False).set_context(self.context), None
                 else:
-                    return Number(0).set_context(self.context), None
+                    return Boolean(False).set_context(self.context), None
             finally:
                 _repr_state.comparing.remove(pair)
         else: return None, IllegalOperationError(
@@ -160,7 +160,10 @@ class List:
     def get_comparison_neq(self, operand):
         if isinstance(operand, List):
             new_list = self.copy()
-            return Number(int(not new_list.get_comparison_eq(operand)[0].value)).set_context(self.context), None
+            eq_node, err = new_list.get_comparison_eq(operand)
+            if err:
+                return None, err
+            return Boolean(not eq_node.value).set_context(self.context), None
         else: return None, IllegalOperationError(
                     operand.pos_start, operand.pos_end, 'Expected a List', self.context)
 
@@ -368,7 +371,7 @@ class List:
             )
 
     def is_true(self):
-        return Number(len(self.elements)).set_context(self.context), None
+        return Boolean(len(self.elements) > 0).set_context(self.context), None
 
     def __repr__(self):
         if not hasattr(_repr_state, 'visited'):
@@ -553,14 +556,14 @@ class List:
             found_idx = -1
             for i, el in enumerate(instance.elements):
                 eq_node, err = el.get_comparison_eq(target) if hasattr(el, 'get_comparison_eq') else (None, None)
-                if eq_node and eq_node.value == 1:
+                if eq_node and eq_node.value:
                     found_idx = i
                     break
                 elif not hasattr(el, 'get_comparison_eq') and hasattr(el, 'value') and hasattr(target, 'value') and el.value == target.value:
                     found_idx = i
                     break
             
-            return res.success(Number(found_idx))
+            return res.success(Integer(found_idx))
 
         def method_contains(instance, pos_args, kw_args, exec_context):
             res = RunTimeResult()
@@ -568,17 +571,17 @@ class List:
                 return res.failure(ArgumentError(instance.pos_start, instance.pos_end, "contains() takes exactly 1 argument", exec_context))
             
             target = pos_args[0]
-            found = 0
+            found = False
             for el in instance.elements:
                 eq_node, err = el.get_comparison_eq(target) if hasattr(el, 'get_comparison_eq') else (None, None)
-                if eq_node and eq_node.value == 1:
-                    found = 1
+                if eq_node and eq_node.value:
+                    found = True
                     break
                 elif not hasattr(el, 'get_comparison_eq') and hasattr(el, 'value') and hasattr(target, 'value') and el.value == target.value:
-                    found = 1
+                    found = True
                     break
             
-            return res.success(Number(found))
+            return res.success(Boolean(found))
 
         def method_extend(instance, pos_args, kw_args, exec_context):
             res = RunTimeResult()
