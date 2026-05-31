@@ -291,12 +291,16 @@ class Number:
     # ------------------------------------------------------------------
 
     def get_comparison_eq(self, operand):
+        if type(operand).__name__ == "Null":
+            return Boolean(False).set_context(self.context), None
         if not isinstance(operand, Number):
             return self._err_illegal(operand, 'Expected a Number type')
         lv, rv, _ = _promote(self, operand)
         return Boolean(lv == rv).set_context(self.context), None
 
     def get_comparison_neq(self, operand):
+        if type(operand).__name__ == "Null":
+            return Boolean(True).set_context(self.context), None
         if not isinstance(operand, Number):
             return self._err_illegal(operand, 'Expected a Number type')
         lv, rv, _ = _promote(self, operand)

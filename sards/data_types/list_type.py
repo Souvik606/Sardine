@@ -118,6 +118,8 @@ class List:
                 self.pos_start, self.pos_end, 'Cannot apply \'**\' to a List', self.context)
 
     def get_comparison_eq(self, operand):
+        if type(operand).__name__ == "Null":
+            return Boolean(False).set_context(self.context), None
         if isinstance(operand, List):
             if not hasattr(_repr_state, 'comparing'):
                 _repr_state.comparing = set()
@@ -158,6 +160,8 @@ class List:
                     operand.pos_start, operand.pos_end, 'Expected a List', self.context)
 
     def get_comparison_neq(self, operand):
+        if type(operand).__name__ == "Null":
+            return Boolean(True).set_context(self.context), None
         if isinstance(operand, List):
             new_list = self.copy()
             eq_node, err = new_list.get_comparison_eq(operand)

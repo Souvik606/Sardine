@@ -9,7 +9,7 @@ Classes:
 """
 from sards.ast_nodes import SymbolTable
 from sards.core.error import ArgumentError
-from sards.data_types import Number, Integer, Float, Boolean, String, List
+from sards.data_types import Number, Integer, Float, Boolean, String, List, Null
 
 class BaseFunction:
     """
@@ -202,7 +202,7 @@ class Function(BaseFunction):
             return res
 
         return_value = ((value if self.auto_return else None) or
-                        res.func_return_value or Boolean(False))
+                        res.func_return_value or Null())
 
         return res.success(return_value)
 
@@ -369,7 +369,7 @@ class BuiltInFunction(BaseFunction):
         output = separator.join([stringify(arg) for arg in pos_args])
         print(output, end=end_char)
 
-        return res.success(Boolean(False))
+        return res.success(Null())
 
     def execute_listen(self, pos_args, kw_args, exec_context):
         """
@@ -444,7 +444,9 @@ class BuiltInFunction(BaseFunction):
                 ArgumentError(self.pos_start, self.pos_end, "type() takes exactly one argument", self.context))
 
         data = pos_args[0]
-        if isinstance(data, Boolean):
+        if isinstance(data, Null):
+            output = "<type Null>"
+        elif isinstance(data, Boolean):
             output = "<type Boolean>"
         elif isinstance(data, Integer):
             output = "<type Integer>"
