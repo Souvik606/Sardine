@@ -137,6 +137,7 @@ class Parser: # pylint: disable=R0904
         self.current_tok = None
         self.tok_index = -1
         self.current_depth = 0
+        self.in_method_count = 0
         self.advance()
 
     def advance(self):
@@ -181,6 +182,10 @@ class Parser: # pylint: disable=R0904
         result = self.multiline()
 
         if not result.error and self.current_tok.type != T_EOF:
+            if self.current_tok.type == T_KEYWORD and self.current_tok.value in ("yield", "proceed", "escape"):
+                jump_res = self.jump_statements()
+                if jump_res.error:
+                    return jump_res
             return result.failure(
                 InvalidSyntaxError(self.current_tok.pos_start, self.current_tok.pos_end,
                                    f"Unexpected token '{self.current_tok.value or self.current_tok.type}'"))
@@ -316,6 +321,12 @@ class Parser: # pylint: disable=R0904
             if res.error:
                 return res
             return res.success(foreach_statement)
+
+        if token.type == T_KEYWORD and token.value == 'yield':
+            jump_stmt = res.register(self.jump_statements())
+            if res.error:
+                return res
+            return res.success(jump_stmt)
 
         if token.type == T_KEYWORD and token.value == 'summon':
             summon_stmt = res.register(self.summon_statement())
@@ -689,98 +700,102 @@ class Parser: # pylint: disable=R0904
         LPAREN (param-list)? RPAREN
         LPAREN2 (multiline |jump-statements)* RPAREN2
         """
-        res = ParseResult()
-        access_modifier_tok = None
+        self.in_method_count += 1
+        try:
+            res = ParseResult()
+            access_modifier_tok = None
 
-        if self.current_tok.type==T_KEYWORD and self.current_tok.value in ('open', 'guarded', 'secret'):
-            access_modifier_tok = self.current_tok
+            if self.current_tok.type==T_KEYWORD and self.current_tok.value in ('open', 'guarded', 'secret'):
+                access_modifier_tok = self.current_tok
+                res.register_advancement()
+                self.advance()
+
+            if not (self.current_tok.type==T_KEYWORD and self.current_tok.value=='method'):
+                return res.failure(InvalidSyntaxError(
+                    self.current_tok.pos_start, self.current_tok.pos_end, "Expected 'method'"
+                ))
             res.register_advancement()
             self.advance()
 
-        if not (self.current_tok.type==T_KEYWORD and self.current_tok.value=='method'):
-            return res.failure(InvalidSyntaxError(
-                self.current_tok.pos_start, self.current_tok.pos_end, "Expected 'method'"
-            ))
-        res.register_advancement()
-        self.advance()
+            name_tok = None
+            if self.current_tok.type == T_IDENTIFIER:
+                name_tok = self.current_tok
+                res.register_advancement()
+                self.advance()
 
-        name_tok = None
-        if self.current_tok.type == T_IDENTIFIER:
-            name_tok = self.current_tok
+            if self.current_tok.type != T_LPAREN:
+                return res.failure(InvalidSyntaxError(
+                    self.current_tok.pos_start, self.current_tok.pos_end, "Expected '('"
+                ))
             res.register_advancement()
             self.advance()
 
-        if self.current_tok.type != T_LPAREN:
-            return res.failure(InvalidSyntaxError(
-                self.current_tok.pos_start, self.current_tok.pos_end, "Expected '('"
-            ))
-        res.register_advancement()
-        self.advance()
+            while self.current_tok.type == T_NEWLINE:
+                res.register_advancement()
+                self.advance()
 
-        while self.current_tok.type == T_NEWLINE:
+            param_nodes = res.register(self.param_list())
+            if res.error:
+                return res
+
+            while self.current_tok.type == T_NEWLINE:
+                res.register_advancement()
+                self.advance()
+
+            if self.current_tok.type != T_RPAREN:
+                return res.failure(InvalidSyntaxError(
+                    self.current_tok.pos_start, self.current_tok.pos_end, "Expected ',' or ')'"
+                ))
             res.register_advancement()
             self.advance()
 
-        param_nodes = res.register(self.param_list())
-        if res.error:
-            return res
+            while self.current_tok.type == T_NEWLINE:
+                res.register_advancement()
+                self.advance()
 
-        while self.current_tok.type == T_NEWLINE:
+            if self.current_tok.type != T_LPAREN2:
+                return res.failure(InvalidSyntaxError(
+                    self.current_tok.pos_start, self.current_tok.pos_end, "Expected '{'"
+                ))
             res.register_advancement()
             self.advance()
 
-        if self.current_tok.type != T_RPAREN:
-            return res.failure(InvalidSyntaxError(
-                self.current_tok.pos_start, self.current_tok.pos_end, "Expected ',' or ')'"
-            ))
-        res.register_advancement()
-        self.advance()
+            body_nodes, pos_start = [], self.current_tok.pos_start
+            brace_open_line = pos_start.line + 1
+            while self.current_tok.type != T_RPAREN2 and self.current_tok.type != T_EOF:
+                sep_err = self.check_statement_separation(res, body_nodes)
+                if sep_err: return sep_err
+                if self.current_tok.type == T_KEYWORD and (self.current_tok.value in ("yield", "proceed", "escape")):
+                    jump_node = res.register(self.jump_statements())
+                    if res.error: return res
+                    body_nodes.append(jump_node)
+                else:
+                    multiline_node = res.try_register(self.multiline())
 
-        while self.current_tok.type == T_NEWLINE:
+                    if res.error: return res
+                    if not multiline_node:
+                        if not (self.current_tok.type == T_KEYWORD and (
+                                self.current_tok.value in ("escape", "proceed", "yield"))) and not (
+                                self.current_tok.type == T_RPAREN2
+                        ):
+                            return res.failure(
+                                InvalidSyntaxError(self.current_tok.pos_start,
+                                                   self.current_tok.pos_end,
+                                                   "Expected identifier,when,whenever,method or Cycle"))
+                    if multiline_node: body_nodes.extend(multiline_node.element_nodes)
+
+            body_node = ListNode(body_nodes, pos_start, self.current_tok.pos_end)
+
+            if self.current_tok.type != T_RPAREN2:
+                return res.failure(InvalidSyntaxError(
+                    self.current_tok.pos_start, self.current_tok.pos_end, "Expected '}'"
+                ))
             res.register_advancement()
             self.advance()
 
-        if self.current_tok.type != T_LPAREN2:
-            return res.failure(InvalidSyntaxError(
-                self.current_tok.pos_start, self.current_tok.pos_end, "Expected '{'"
-            ))
-        res.register_advancement()
-        self.advance()
-
-        body_nodes, pos_start = [], self.current_tok.pos_start
-        brace_open_line = pos_start.line + 1
-        while self.current_tok.type != T_RPAREN2 and self.current_tok.type != T_EOF:
-            sep_err = self.check_statement_separation(res, body_nodes)
-            if sep_err: return sep_err
-            if self.current_tok.type == T_KEYWORD and (self.current_tok.value in ("yield", "proceed", "escape")):
-                jump_node = res.register(self.jump_statements())
-                if res.error: return res
-                body_nodes.append(jump_node)
-            else:
-                multiline_node = res.try_register(self.multiline())
-
-                if res.error: return res
-                if not multiline_node:
-                    if not (self.current_tok.type == T_KEYWORD and (
-                            self.current_tok.value in ("escape", "proceed", "yield"))) and not (
-                            self.current_tok.type == T_RPAREN2
-                    ):
-                        return res.failure(
-                            InvalidSyntaxError(self.current_tok.pos_start,
-                                               self.current_tok.pos_end,
-                                               "Expected identifier,when,whenever,method or Cycle"))
-                if multiline_node: body_nodes.extend(multiline_node.element_nodes)
-
-        body_node = ListNode(body_nodes, pos_start, self.current_tok.pos_end)
-
-        if self.current_tok.type != T_RPAREN2:
-            return res.failure(InvalidSyntaxError(
-                self.current_tok.pos_start, self.current_tok.pos_end, "Expected '}'"
-            ))
-        res.register_advancement()
-        self.advance()
-
-        return res.success(FunctionDefinitionNode(name_tok, param_nodes, body_node, False, access_modifier_tok))
+            return res.success(FunctionDefinitionNode(name_tok, param_nodes, body_node, False, access_modifier_tok))
+        finally:
+            self.in_method_count -= 1
 
     def initializer_list(self):
         """
@@ -1629,103 +1644,107 @@ class Parser: # pylint: disable=R0904
             KEYWORD:method IDENTIFIER LPAREN (param-list)? RPAREN
             LPAREN2 (multiline | jump-statements)* RPAREN2
         """
-        res = ParseResult()
+        self.in_method_count += 1
+        try:
+            res = ParseResult()
 
-        if not (self.current_tok.type == T_KEYWORD and self.current_tok.value == 'method'):
-            return res.failure(
-                InvalidSyntaxError(self.current_tok.pos_start,
-                                   self.current_tok.pos_end,
-                                   "Expected 'method'"))
-        res.register_advancement()
-        self.advance()
-
-        if self.current_tok.type != T_IDENTIFIER:
-            return res.failure(InvalidSyntaxError(
-                self.current_tok.pos_start, self.current_tok.pos_end,
-                "Expected identifier for function name"
-            ))
-
-        var_name_tok = self.current_tok
-        res.register_advancement()
-        self.advance()
-
-        if self.current_tok.type != T_LPAREN:
-            return res.failure(
-                InvalidSyntaxError(self.current_tok.pos_start,
-                                   self.current_tok.pos_end,
-                                   "Expected '('"))
-
-        res.register_advancement()
-        self.advance()
-
-        while self.current_tok.type == T_NEWLINE:
+            if not (self.current_tok.type == T_KEYWORD and self.current_tok.value == 'method'):
+                return res.failure(
+                    InvalidSyntaxError(self.current_tok.pos_start,
+                                       self.current_tok.pos_end,
+                                       "Expected 'method'"))
             res.register_advancement()
             self.advance()
 
-        arg_nodes = res.register(self.param_list())
-        if res.error:
-            return res
+            if self.current_tok.type != T_IDENTIFIER:
+                return res.failure(InvalidSyntaxError(
+                    self.current_tok.pos_start, self.current_tok.pos_end,
+                    "Expected identifier for function name"
+                ))
 
-        while self.current_tok.type == T_NEWLINE:
+            var_name_tok = self.current_tok
             res.register_advancement()
             self.advance()
 
-        if self.current_tok.type != T_RPAREN:
-            return res.failure(
-                InvalidSyntaxError(self.current_tok.pos_start,
-                                   self.current_tok.pos_end,
-                                   "Expected ',' or ')'",
-                                   hint="Did you forget a comma ',' between parameters?"))
+            if self.current_tok.type != T_LPAREN:
+                return res.failure(
+                    InvalidSyntaxError(self.current_tok.pos_start,
+                                       self.current_tok.pos_end,
+                                       "Expected '('"))
 
-        res.register_advancement()
-        self.advance()
-
-        while self.current_tok.type == T_NEWLINE:
             res.register_advancement()
             self.advance()
 
-        if self.current_tok.type != T_LPAREN2:
-            return res.failure(InvalidSyntaxError(self.current_tok.pos_start,
-                                                  self.current_tok.pos_end,
-                                                  "Expected '{'"))
-        res.register_advancement()
-        self.advance()
+            while self.current_tok.type == T_NEWLINE:
+                res.register_advancement()
+                self.advance()
 
-        body_nodes, pos_start = [], self.current_tok.pos_start
-        brace_open_line = pos_start.line + 1
-        while self.current_tok.type != T_RPAREN2 and self.current_tok.type != T_EOF:
-            sep_err = self.check_statement_separation(res, body_nodes)
-            if sep_err: return sep_err
-            if self.current_tok.type == T_KEYWORD and (self.current_tok.value in ("yield", "proceed", "escape")):
-                jump_node = res.register(self.jump_statements())
-                if res.error: return res
-                body_nodes.append(jump_node)
-            else:
-                multiline_node = res.try_register(self.multiline())
-                if res.error: return res
-                if not multiline_node:
-                    if not (self.current_tok.type == T_KEYWORD and (
-                            self.current_tok.value in ("escape", "proceed", "yield"))) and not (
-                            self.current_tok.type == T_RPAREN2
-                    ):
-                        return res.failure(
-                            InvalidSyntaxError(self.current_tok.pos_start,
-                                               self.current_tok.pos_end,
-                                               "Expected identifier,when,whenever,method or Cycle"))
-                if multiline_node: body_nodes.extend(multiline_node.element_nodes)
+            arg_nodes = res.register(self.param_list())
+            if res.error:
+                return res
 
-        body_node = ListNode(body_nodes, pos_start, self.current_tok.pos_end)
+            while self.current_tok.type == T_NEWLINE:
+                res.register_advancement()
+                self.advance()
 
-        if self.current_tok.type != T_RPAREN2:
-            return res.failure(
-                InvalidSyntaxError(self.current_tok.pos_start,
-                                   self.current_tok.pos_end,
-                                   "Expected '}'",
-                                   hint=f"Unexpected end of file. You opened a block '{{' on line {brace_open_line} that was never closed."))
-        res.register_advancement()
-        self.advance()
+            if self.current_tok.type != T_RPAREN:
+                return res.failure(
+                    InvalidSyntaxError(self.current_tok.pos_start,
+                                       self.current_tok.pos_end,
+                                       "Expected ',' or ')'",
+                                       hint="Did you forget a comma ',' between parameters?"))
 
-        return res.success(FunctionDefinitionNode(var_name_tok, arg_nodes, body_node, False))
+            res.register_advancement()
+            self.advance()
+
+            while self.current_tok.type == T_NEWLINE:
+                res.register_advancement()
+                self.advance()
+
+            if self.current_tok.type != T_LPAREN2:
+                return res.failure(InvalidSyntaxError(self.current_tok.pos_start,
+                                                      self.current_tok.pos_end,
+                                                      "Expected '{'"))
+            res.register_advancement()
+            self.advance()
+
+            body_nodes, pos_start = [], self.current_tok.pos_start
+            brace_open_line = pos_start.line + 1
+            while self.current_tok.type != T_RPAREN2 and self.current_tok.type != T_EOF:
+                sep_err = self.check_statement_separation(res, body_nodes)
+                if sep_err: return sep_err
+                if self.current_tok.type == T_KEYWORD and (self.current_tok.value in ("yield", "proceed", "escape")):
+                    jump_node = res.register(self.jump_statements())
+                    if res.error: return res
+                    body_nodes.append(jump_node)
+                else:
+                    multiline_node = res.try_register(self.multiline())
+                    if res.error: return res
+                    if not multiline_node:
+                        if not (self.current_tok.type == T_KEYWORD and (
+                                self.current_tok.value in ("escape", "proceed", "yield"))) and not (
+                                self.current_tok.type == T_RPAREN2
+                        ):
+                            return res.failure(
+                                InvalidSyntaxError(self.current_tok.pos_start,
+                                                   self.current_tok.pos_end,
+                                                   "Expected identifier,when,whenever,method or Cycle"))
+                    if multiline_node: body_nodes.extend(multiline_node.element_nodes)
+
+            body_node = ListNode(body_nodes, pos_start, self.current_tok.pos_end)
+
+            if self.current_tok.type != T_RPAREN2:
+                return res.failure(
+                    InvalidSyntaxError(self.current_tok.pos_start,
+                                       self.current_tok.pos_end,
+                                       "Expected '}'",
+                                       hint=f"Unexpected end of file. You opened a block '{{' on line {brace_open_line} that was never closed."))
+            res.register_advancement()
+            self.advance()
+
+            return res.success(FunctionDefinitionNode(var_name_tok, arg_nodes, body_node, False))
+        finally:
+            self.in_method_count -= 1
 
     def anonymous_func_expr(self):
         """
@@ -1734,92 +1753,96 @@ class Parser: # pylint: disable=R0904
             KEYWORD:method IDENTIFIER LPAREN (param-list)? RPAREN
             LPAREN2 (multiline | jump-statements)* RPAREN2
         """
-        res = ParseResult()
+        self.in_method_count += 1
+        try:
+            res = ParseResult()
 
-        if not (self.current_tok.type == T_KEYWORD and self.current_tok.value == 'method'):
-            return res.failure(
-                InvalidSyntaxError(self.current_tok.pos_start,
-                                   self.current_tok.pos_end,
-                                   "Expected 'method'"))
-        res.register_advancement()
-        self.advance()
-
-        if self.current_tok.type != T_LPAREN:
-            return res.failure(
-                InvalidSyntaxError(self.current_tok.pos_start,
-                                   self.current_tok.pos_end,
-                                   "Expected '('"))
-
-        res.register_advancement()
-        self.advance()
-
-        while self.current_tok.type == T_NEWLINE:
+            if not (self.current_tok.type == T_KEYWORD and self.current_tok.value == 'method'):
+                return res.failure(
+                    InvalidSyntaxError(self.current_tok.pos_start,
+                                       self.current_tok.pos_end,
+                                       "Expected 'method'"))
             res.register_advancement()
             self.advance()
 
-        arg_nodes = res.register(self.param_list())
-        if res.error:
-            return res
+            if self.current_tok.type != T_LPAREN:
+                return res.failure(
+                    InvalidSyntaxError(self.current_tok.pos_start,
+                                       self.current_tok.pos_end,
+                                       "Expected '('"))
 
-        while self.current_tok.type == T_NEWLINE:
             res.register_advancement()
             self.advance()
 
-        if self.current_tok.type != T_RPAREN:
-            return res.failure(
-                InvalidSyntaxError(self.current_tok.pos_start,
-                                   self.current_tok.pos_end,
-                                   "Expected ',' or ')'"))
+            while self.current_tok.type == T_NEWLINE:
+                res.register_advancement()
+                self.advance()
 
-        res.register_advancement()
-        self.advance()
+            arg_nodes = res.register(self.param_list())
+            if res.error:
+                return res
 
-        while self.current_tok.type == T_NEWLINE:
+            while self.current_tok.type == T_NEWLINE:
+                res.register_advancement()
+                self.advance()
+
+            if self.current_tok.type != T_RPAREN:
+                return res.failure(
+                    InvalidSyntaxError(self.current_tok.pos_start,
+                                       self.current_tok.pos_end,
+                                       "Expected ',' or ')'"))
+
             res.register_advancement()
             self.advance()
 
-        if self.current_tok.type != T_LPAREN2:
-            return res.failure(InvalidSyntaxError(self.current_tok.pos_start,
-                                                  self.current_tok.pos_end,
-                                                  "Expected '{'"))
-        res.register_advancement()
-        self.advance()
+            while self.current_tok.type == T_NEWLINE:
+                res.register_advancement()
+                self.advance()
 
-        body_nodes, pos_start = [], self.current_tok.pos_start
-        brace_open_line = pos_start.line + 1
-        while self.current_tok.type != T_RPAREN2 and self.current_tok.type != T_EOF:
-            sep_err = self.check_statement_separation(res, body_nodes)
-            if sep_err: return sep_err
-            if self.current_tok.type == T_KEYWORD and (self.current_tok.value in ("yield", "proceed", "escape")):
-                jump_node = res.register(self.jump_statements())
-                if res.error: return res
-                body_nodes.append(jump_node)
-            else:
-                multiline_node = res.try_register(self.multiline())
-                if res.error: return res
-                if not multiline_node:
-                    if not (self.current_tok.type == T_KEYWORD and (
-                            self.current_tok.value in ("escape", "proceed", "yield"))) and not (
-                            self.current_tok.type == T_RPAREN2
-                    ):
-                        return res.failure(
-                            InvalidSyntaxError(self.current_tok.pos_start,
-                                               self.current_tok.pos_end,
-                                               "Expected identifier,when,whenever,method or Cycle"))
-                if multiline_node: body_nodes.extend(multiline_node.element_nodes)
+            if self.current_tok.type != T_LPAREN2:
+                return res.failure(InvalidSyntaxError(self.current_tok.pos_start,
+                                                      self.current_tok.pos_end,
+                                                      "Expected '{'"))
+            res.register_advancement()
+            self.advance()
 
-        body_node = ListNode(body_nodes, pos_start, self.current_tok.pos_end)
+            body_nodes, pos_start = [], self.current_tok.pos_start
+            brace_open_line = pos_start.line + 1
+            while self.current_tok.type != T_RPAREN2 and self.current_tok.type != T_EOF:
+                sep_err = self.check_statement_separation(res, body_nodes)
+                if sep_err: return sep_err
+                if self.current_tok.type == T_KEYWORD and (self.current_tok.value in ("yield", "proceed", "escape")):
+                    jump_node = res.register(self.jump_statements())
+                    if res.error: return res
+                    body_nodes.append(jump_node)
+                else:
+                    multiline_node = res.try_register(self.multiline())
+                    if res.error: return res
+                    if not multiline_node:
+                        if not (self.current_tok.type == T_KEYWORD and (
+                                self.current_tok.value in ("escape", "proceed", "yield"))) and not (
+                                self.current_tok.type == T_RPAREN2
+                        ):
+                            return res.failure(
+                                InvalidSyntaxError(self.current_tok.pos_start,
+                                                   self.current_tok.pos_end,
+                                                   "Expected identifier,when,whenever,method or Cycle"))
+                    if multiline_node: body_nodes.extend(multiline_node.element_nodes)
 
-        if self.current_tok.type != T_RPAREN2:
-            return res.failure(
-                InvalidSyntaxError(self.current_tok.pos_start,
-                                   self.current_tok.pos_end,
-                                   "Expected '}'",
-                                   hint=f"Unexpected end of file. You opened a block '{{' on line {brace_open_line} that was never closed."))
-        res.register_advancement()
-        self.advance()
+            body_node = ListNode(body_nodes, pos_start, self.current_tok.pos_end)
 
-        return res.success(FunctionDefinitionNode(None, arg_nodes, body_node, False))
+            if self.current_tok.type != T_RPAREN2:
+                return res.failure(
+                    InvalidSyntaxError(self.current_tok.pos_start,
+                                       self.current_tok.pos_end,
+                                       "Expected '}'",
+                                       hint=f"Unexpected end of file. You opened a block '{{' on line {brace_open_line} that was never closed."))
+            res.register_advancement()
+            self.advance()
+
+            return res.success(FunctionDefinitionNode(None, arg_nodes, body_node, False))
+        finally:
+            self.in_method_count -= 1
 
     def switch_statement(self):
         """
@@ -3236,6 +3259,11 @@ class Parser: # pylint: disable=R0904
             return res.success(BreakNode(pos_start, pos_end))
 
         if self.current_tok.type == T_KEYWORD and self.current_tok.value == 'yield':
+            if self.in_method_count == 0:
+                return res.failure(InvalidSyntaxError(
+                    self.current_tok.pos_start, self.current_tok.pos_end,
+                    "'yield' is only allowed inside methods/functions"
+                ))
             pos_start = self.current_tok.pos_start.copy()
             res.register_advancement()
             self.advance()

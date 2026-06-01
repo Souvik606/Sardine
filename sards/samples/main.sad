@@ -1,7 +1,7 @@
-method inc(test)
-{
-    test = test + 1
-    yield test
+method test(){
+    Cycle i=1:10{
+        yield i
+    }
 }
 
-show(inc(53))
+show(test())
