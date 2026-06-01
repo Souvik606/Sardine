@@ -106,12 +106,16 @@ class String:
                 self.pos_start, self.pos_end, 'Cannot apply \'**\' to a String type', self.context)
 
     def get_comparison_eq(self, operand):
+        if type(operand).__name__ == "Null":
+            return Boolean(False).set_context(self.context), None
         if isinstance(operand, String):
             return Boolean(self.value == operand.value).set_context(self.context), None
         else: return None, IllegalOperationError(
                     operand.pos_start, operand.pos_end, 'Expected a String type', self.context)
 
     def get_comparison_neq(self, operand):
+        if type(operand).__name__ == "Null":
+            return Boolean(True).set_context(self.context), None
         if isinstance(operand, String):
             return Boolean(self.value != operand.value).set_context(self.context), None
         else: return None, IllegalOperationError(

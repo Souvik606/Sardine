@@ -14,7 +14,7 @@ import os
 import builtins
 
 from sards.ast_nodes import SymbolTable
-from sards.data_types import Number, Integer, Float, Boolean, String, List, Dict, Module
+from sards.data_types import Number, Integer, Float, Boolean, String, List, Dict, Module, Null
 
 from .constants import (T_PLUS, T_MINUS, T_MUL, T_DIVIDE, T_MODULUS, T_FLOOR, T_BITAND, T_BITXOR, T_BITOR, T_BITNOT, T_EXP, T_EE,
                         T_LSHIFT, T_RSHIFT, T_NEQ, T_GT, T_GTE, T_LT, T_LTE, T_KEYWORD, T_INT, T_FLOAT, ERROR_TYPES)
@@ -838,7 +838,7 @@ class Interpreter:
                     return res.failure(SardineValueError(node.pos_start, node.pos_end, "Loop execution result accumulation limit exceeded (max 100,000 items)", context))
 
         return res.success(
-            Boolean(False) if node.return_null else (List(elements).set_context(context)
+            Null().set_context(context).set_pos(node.pos_start, node.pos_end) if node.return_null else (List(elements).set_context(context)
                                                 .set_pos(node.pos_start, node.pos_end)))
 
     def visit_ForNode(self, node, context):
@@ -926,7 +926,7 @@ class Interpreter:
                     return res.failure(SardineValueError(node.pos_start, node.pos_end, "Loop execution result accumulation limit exceeded (max 100,000 items)", context))
 
         return res.success(
-            Boolean(False) if node.return_null else (List(elements)
+            Null().set_context(context).set_pos(node.pos_start, node.pos_end) if node.return_null else (List(elements)
                                                 .set_context(context)
                                                 .set_pos(node.pos_start,node.pos_end)))
 
@@ -1116,7 +1116,7 @@ class Interpreter:
                 )
             )
 
-        return res.success(Number(0))
+        return res.success(Null().set_context(context).set_pos(node.pos_start, node.pos_end))
 
     def visit_SwitchNode(self, node, context):
         res = RunTimeResult()
@@ -1177,12 +1177,12 @@ class Interpreter:
             if (res.should_return() and
                 not res.loop_or_switch_break):
                 return res
-            elements.append(Boolean(False) if return_null else body_val)
+            elements.append(Null().set_context(context).set_pos(body.pos_start, body.pos_end) if return_null else body_val)
             if res.loop_or_switch_break:
                 break
 
         return res.success(
-            Boolean(False) if node.return_null else (List(elements)
+            Null().set_context(context).set_pos(node.pos_start, node.pos_end) if node.return_null else (List(elements)
                                                 .set_context(context)
                                                 .set_pos(node.pos_start,
                                                                                            node.pos_end)))
@@ -1199,16 +1199,16 @@ class Interpreter:
                 expression_value = res.register(self.visit(expression, context))
                 if res.should_return():
                     return res
-                return res.success(Boolean(False) if return_null else expression_value)
+                return res.success(Null().set_context(context).set_pos(expression.pos_start, expression.pos_end) if return_null else expression_value)
 
         if node.else_case:
             expression, return_null = node.else_case
             else_value = res.register(self.visit(expression, context))
             if res.should_return():
                 return res
-            return res.success(Boolean(False) if return_null else else_value)
+            return res.success(Null().set_context(context).set_pos(expression.pos_start, expression.pos_end) if return_null else else_value)
 
-        return res.success(Boolean(False))
+        return res.success(Null().set_context(context).set_pos(node.pos_start, node.pos_end))
 
     def visit_VariableUseNode(self, node, context):
         from sards.user_functions import Function
@@ -1466,7 +1466,7 @@ class Interpreter:
         return_values = []
 
         if not node.nodes_to_return:
-            return res.success_return(Boolean(False))
+            return res.success_return(Null().set_context(context).set_pos(node.pos_start, node.pos_end))
 
         for node_to_return in node.nodes_to_return:
             value = res.register(self.visit(node_to_return, context))

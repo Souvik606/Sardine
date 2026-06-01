@@ -16,7 +16,7 @@ show("headers:", reader.headers)
 
 r1 = reader.read_dict_row()
 r2 = reader.read_dict_row()
-r3 = reader.read_dict_row() # should be None
+r3 = reader.read_dict_row() # should be Null
 
 show("row 1 id:", r1.get("id"))
 show("row 1 name:", r1.get("name"))
@@ -26,5 +26,5 @@ show("row 2 id:", r2.get("id"))
 show("row 2 name:", r2.get("name"))
 show("row 2 role:", r2.get("role"))
 
-show("row 3 is None:", r3 == None)
+show("row 3 is Null:", r3 == Null)
 reader.close()

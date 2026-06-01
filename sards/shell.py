@@ -29,7 +29,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 from sards import *
 
 global_symbol_table = SymbolTable()
-global_symbol_table.set("None", Integer(0))
+global_symbol_table.set("Null", Null())
 global_symbol_table.set("True", Boolean(True))
 global_symbol_table.set("False", Boolean(False))
 

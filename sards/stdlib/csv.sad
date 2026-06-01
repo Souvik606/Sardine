@@ -35,7 +35,7 @@ model CSVReader {
     open method read_row() {
         line = this.file.lread()
         when len(line) == 0 {
-            yield None
+            yield Null
         }
         yield this.parse_row(line)
     }
@@ -44,7 +44,7 @@ model CSVReader {
     open method read_dict_row() {
         line = this.file.lread()
         when len(line) == 0 {
-            yield None
+            yield Null
         }
         fields = this.parse_row(line)
         row_dict = {}

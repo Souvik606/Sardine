@@ -264,6 +264,8 @@ class Dict:
 
     def get_comparison_eq(self, operand):
         """Returns 1 if dicts have same key-value pairs, 0 otherwise"""
+        if type(operand).__name__ == "Null":
+            return Boolean(False).set_context(self.context), None
         if not isinstance(operand, Dict):
             return None, IllegalOperationError(
                 operand.pos_start, 
@@ -297,6 +299,8 @@ class Dict:
 
     def get_comparison_neq(self, operand):
         """Returns opposite of eq comparison"""
+        if type(operand).__name__ == "Null":
+            return Boolean(True).set_context(self.context), None
         if not isinstance(operand, Dict):
             return None, IllegalOperationError(
                 operand.pos_start, 
