@@ -30,7 +30,7 @@ multiline: NEWLINE* (singleline (NEWLINE+ singleline)*)? NEWLINE*
 
 singleline: call | statements | if-expression | for-expression | while-expression | switch-statement | function-definition | exception-handling | class-definition | foreach-expression
 
-class-definition: KEYWORD:model IDENTIFIER (COLON IDENTIFIER (COMMA IDENTIFIER)*)? LPAREN2 NEWLINE* (class-member NEWLINE*)* RPAREN2
+class-definition: KEYWORD:model IDENTIFIER (COLON IDENTIFIER (COMMA IDENTIFIER)*)? NEWLINE* LPAREN2 NEWLINE* (class-member NEWLINE*)* RPAREN2
 
 class-member: attr-declaration | constructor-definition | method-definition
 
@@ -40,9 +40,9 @@ attr-list: attr-item (COMMA NEWLINE* attr-item)*
 
 attr-item: IDENTIFIER (EQUAL expression)?
 
-method-definition: (KEYWORD:open | KEYWORD:guarded | KEYWORD:secret)? KEYWORD:method IDENTIFIER? LPAREN NEWLINE* (param-list)? NEWLINE* RPAREN LPAREN2 (multiline |jump-statements)* RPAREN2
+method-definition: (KEYWORD:open | KEYWORD:guarded | KEYWORD:secret)? KEYWORD:method IDENTIFIER? LPAREN NEWLINE* (param-list)? NEWLINE* RPAREN NEWLINE* LPAREN2 (multiline |jump-statements)* RPAREN2
 
-constructor-definition: KEYWORD:init LPAREN NEWLINE* (param-list)? NEWLINE* RPAREN LPAREN2 NEWLINE* (initializer-list)? (multiline | jump-statements)* NEWLINE* RPAREN2
+constructor-definition: KEYWORD:init LPAREN NEWLINE* (param-list)? NEWLINE* RPAREN NEWLINE* LPAREN2 NEWLINE* (initializer-list)? (multiline | jump-statements)* NEWLINE* RPAREN2
 
 initializer-list: initializer-item ((COMMA NEWLINE* | NEWLINE+) initializer-item)*
 
@@ -52,11 +52,11 @@ jump-statements: KEYWORD:proceed | KEYWORD:escape | KEYWORD:yield (expression NE
 
 statements: call (COMMA call)* (EQUAL | PLUSEQUAL | MINUSEQUAL | MULEQUAL | DIVEQUAL | MODEQUAL | FLOOREQUAL | EXPEQUAL) expression (COMMA expression)*
 
-switch-statement: KEYWORD:menu ternary-expression LPAREN2 NEWLINE* (case-statement* NEWLINE*)* default-statement? NEWLINE* (case-statement* NEWLINE*)* RPAREN2
+switch-statement: KEYWORD:menu ternary-expression NEWLINE* LPAREN2 NEWLINE* (case-statement* NEWLINE*)* default-statement? NEWLINE* (case-statement* NEWLINE*)* RPAREN2
 
-case-statement: KEYWORD:choice ternary-expression LPAREN2 NEWLINE* (multiline | jump-statements)* RPAREN2
+case-statement: KEYWORD:choice ternary-expression NEWLINE* LPAREN2 NEWLINE* (multiline | jump-statements)* RPAREN2
 
-KEYWORD:fallback LPAREN2 NEWLINE* (multiline | jump-statements)* RPAREN2
+fallback-statement: KEYWORD:fallback NEWLINE* LPAREN2 NEWLINE* (multiline | jump-statements)* RPAREN2
 
 param-list: param-item (COMMA NEWLINE* param-item)*
 
@@ -106,27 +106,28 @@ list-expression: LPAREN3 NEWLINE* (expression(NEWLINE* COMMA NEWLINE* expression
 
 exception-handling: try-expression NEWLINE* ( catch-expression NEWLINE* (catch-expression)* NEWLINE* finally-expression? | finally-expression)
 
-try-expression: KEYWORD:risk LPAREN2 (multiline | jump-statements)* RPAREN2
+try-expression: KEYWORD:risk NEWLINE* LPAREN2 (multiline | jump-statements)* RPAREN2
 
-catch-expression: KEYWORD:trap (ERROR (IDENTIFIER)?)? LPAREN2 (multiline | jump-statements)* RPAREN2
+catch-expression: KEYWORD:trap (ERROR (IDENTIFIER)?)? NEWLINE* LPAREN2 (multiline | jump-statements)* RPAREN2
 
-finally-expression: KEYWORD:clean LPAREN2 (multiline | jump-statements)* RPAREN2
+finally-expression: KEYWORD:clean NEWLINE* LPAREN2 (multiline | jump-statements)* RPAREN2
 
-while-expression: KEYWORD:whenever expression LPAREN2 (multiline | jump-statements)* RPAREN2
+while-expression: KEYWORD:whenever expression NEWLINE* LPAREN2 (multiline | jump-statements)* RPAREN2
 
-for-expression: KEYWORD:Cycle IDENTIFIER EQUAL expression COLON expression (COLON expression)? LPAREN2 (multiline | jump-statements)* RPAREN2
+for-expression: KEYWORD:Cycle IDENTIFIER EQUAL expression COLON expression (COLON expression)? NEWLINE* LPAREN2 (multiline | jump-statements)* RPAREN2
 
 foreach-expression:KEYWORD:trace IDENTIFIER (COMMA IDENTIFIER)* LARROW expression NEWLINE* LPAREN2 (multiline | jump-statements)* RPAREN2
 
-function-definition: KEYWORD:method IDENTIFIER LPAREN NEWLINE* (param-list)? NEWLINE* RPAREN LPAREN2 (multiline |jump-statements)* RPAREN2
+function-definition: KEYWORD:method IDENTIFIER LPAREN NEWLINE* (param-list)? NEWLINE* RPAREN NEWLINE* LPAREN2 (multiline |jump-statements)* RPAREN2
 
-anonymous-func-expr: KEYWORD:method LPAREN NEWLINE* (param-list)? NEWLINE* RPAREN LPAREN2 (multiline |jump-statements)* RPAREN2
+anonymous-func-expr: KEYWORD:method LPAREN NEWLINE* (param-list)? NEWLINE* RPAREN NEWLINE* LPAREN2 (multiline |jump-statements)* RPAREN2
 
-if-expression: KEYWORD:when expression LPAREN2 (multiline | jump-statements)* RPAREN2 NEWLINE* (elif-expression | else-expression)?
+if-expression: KEYWORD:when expression NEWLINE* LPAREN2 (multiline | jump-statements)* RPAREN2 NEWLINE* (elif-expression | else-expression)?
 
-elif-expression: KEYWORD:orwhen expression LPAREN2 (multiline | jump-statements)* RPAREN2 NEWLINE* (elif-expression |else-expression)?
+elif-expression: KEYWORD:orwhen expression NEWLINE* LPAREN2 (multiline | jump-statements)* RPAREN2 NEWLINE* (elif-expression |else-expression)?
 
-else-expression: KEYWORD:otherwise LPAREN2 (multiline | jump-statements)* RPAREN2
+else-expression: KEYWORD:otherwise NEWLINE* LPAREN2 (multiline | jump-statements)* RPAREN2
+
 ```
 
 ## Operator Precedence
@@ -185,7 +186,7 @@ Here are some valid expressions and statements according to this grammar:
 ## Operator Overloading
 
 ```grammar
-operator-method: KEYWORD:method IDENTIFIER LPAREN (param-list)? RPAREN LPAREN2 (multiline | jump-statements)* RPAREN2
+operator-method: KEYWORD:method IDENTIFIER LPAREN (param-list)? RPAREN NEWLINE* LPAREN2 (multiline | jump-statements)* RPAREN2
 
 # IDENTIFIER must be one of the reserved operator method names listed below.
 ```

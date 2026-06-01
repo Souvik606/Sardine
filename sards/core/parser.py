@@ -200,6 +200,20 @@ class Parser: # pylint: disable=R0904
         self.update_current_tok()
         return is_statement
 
+    def check_statement_separation(self, res, parsed_list):
+        if self.current_tok.type in (T_NEWLINE, T_RPAREN2, T_EOF):
+            return None
+        if len(parsed_list) > 0 and self.tok_index > 0 and self.tokens[self.tok_index - 1].type != T_NEWLINE:
+            msg = "Expected newline to separate statements"
+            if self.current_tok.type == T_KEYWORD and self.current_tok.value in ("yield", "proceed", "escape"):
+                msg += f". Jump statements (like '{self.current_tok.value}') must be on a new line."
+            return res.failure(InvalidSyntaxError(
+                self.current_tok.pos_start, self.current_tok.pos_end, msg
+            ))
+        return None
+
+
+
     def multiline(self):
         """
         Grammar Rule:
@@ -384,6 +398,10 @@ class Parser: # pylint: disable=R0904
                 parent_name_toks.append(self.current_tok)
                 res.register_advancement()
                 self.advance()
+
+        while self.current_tok.type == T_NEWLINE:
+            res.register_advancement()
+            self.advance()
 
         if self.current_tok.type != T_LPAREN2:
             return res.failure(InvalidSyntaxError(
@@ -599,6 +617,10 @@ class Parser: # pylint: disable=R0904
         res.register_advancement()
         self.advance()
 
+        while self.current_tok.type == T_NEWLINE:
+            res.register_advancement()
+            self.advance()
+
         if self.current_tok.type != T_LPAREN2:
             return res.failure(InvalidSyntaxError(
                 self.current_tok.pos_start, self.current_tok.pos_end,
@@ -621,6 +643,8 @@ class Parser: # pylint: disable=R0904
         body_pos_start = self.current_tok.pos_start.copy()
 
         while self.current_tok.type != T_RPAREN2 and self.current_tok.type != T_EOF:
+            sep_err = self.check_statement_separation(res, body_nodes)
+            if sep_err: return sep_err
             if self.current_tok.type == T_KEYWORD and (self.current_tok.value in ("escape", "proceed", "yield")):
                 jump_node = res.register(self.jump_statements())
                 if res.error:
@@ -712,6 +736,10 @@ class Parser: # pylint: disable=R0904
         res.register_advancement()
         self.advance()
 
+        while self.current_tok.type == T_NEWLINE:
+            res.register_advancement()
+            self.advance()
+
         if self.current_tok.type != T_LPAREN2:
             return res.failure(InvalidSyntaxError(
                 self.current_tok.pos_start, self.current_tok.pos_end, "Expected '{'"
@@ -722,6 +750,8 @@ class Parser: # pylint: disable=R0904
         body_nodes, pos_start = [], self.current_tok.pos_start
         brace_open_line = pos_start.line + 1
         while self.current_tok.type != T_RPAREN2 and self.current_tok.type != T_EOF:
+            sep_err = self.check_statement_separation(res, body_nodes)
+            if sep_err: return sep_err
             if self.current_tok.type == T_KEYWORD and (self.current_tok.value in ("yield", "proceed", "escape")):
                 jump_node = res.register(self.jump_statements())
                 if res.error: return res
@@ -1360,6 +1390,10 @@ class Parser: # pylint: disable=R0904
         res.register_advancement()
         self.advance()
 
+        while self.current_tok.type == T_NEWLINE:
+            res.register_advancement()
+            self.advance()
+
         if self.current_tok.type != T_LPAREN2:
             return res.failure(
                 InvalidSyntaxError(self.current_tok.pos_start, self.current_tok.pos_end, "Expected '{'")
@@ -1369,6 +1403,8 @@ class Parser: # pylint: disable=R0904
 
         body_nodes, pos_start = [], self.current_tok.pos_start
         while self.current_tok.type != T_RPAREN2 and self.current_tok.type != T_EOF:
+            sep_err = self.check_statement_separation(res, body_nodes)
+            if sep_err: return sep_err
             if self.current_tok.type == T_KEYWORD and (self.current_tok.value in ("escape", "proceed", "yield")):
                 jump_node = res.register(self.jump_statements())
                 if res.error: return res
@@ -1427,6 +1463,10 @@ class Parser: # pylint: disable=R0904
                 res.register_advancement()
                 self.advance()
 
+        while self.current_tok.type == T_NEWLINE:
+            res.register_advancement()
+            self.advance()
+
         if self.current_tok.type != T_LPAREN2:
             return res.failure(
                 InvalidSyntaxError(self.current_tok.pos_start, self.current_tok.pos_end, "Expected '{'")
@@ -1436,6 +1476,8 @@ class Parser: # pylint: disable=R0904
 
         body_nodes, pos_start = [], self.current_tok.pos_start
         while self.current_tok.type != T_RPAREN2 and self.current_tok.type != T_EOF:
+            sep_err = self.check_statement_separation(res, body_nodes)
+            if sep_err: return sep_err
             if self.current_tok.type == T_KEYWORD and (self.current_tok.value in ("escape", "proceed", "yield")):
                 jump_node = res.register(self.jump_statements())
                 if res.error: return res
@@ -1480,6 +1522,10 @@ class Parser: # pylint: disable=R0904
         res.register_advancement()
         self.advance()
 
+        while self.current_tok.type == T_NEWLINE:
+            res.register_advancement()
+            self.advance()
+
         if self.current_tok.type != T_LPAREN2:
             return res.failure(
                 InvalidSyntaxError(self.current_tok.pos_start, self.current_tok.pos_end, "Expected '{'")
@@ -1489,6 +1535,8 @@ class Parser: # pylint: disable=R0904
 
         body_nodes, pos_start = [], self.current_tok.pos_start
         while self.current_tok.type != T_RPAREN2 and self.current_tok.type != T_EOF:
+            sep_err = self.check_statement_separation(res, body_nodes)
+            if sep_err: return sep_err
             if self.current_tok.type == T_KEYWORD and (self.current_tok.value in ("escape", "proceed", "yield")):
                 jump_node = res.register(self.jump_statements())
                 if res.error: return res
@@ -1632,6 +1680,10 @@ class Parser: # pylint: disable=R0904
         res.register_advancement()
         self.advance()
 
+        while self.current_tok.type == T_NEWLINE:
+            res.register_advancement()
+            self.advance()
+
         if self.current_tok.type != T_LPAREN2:
             return res.failure(InvalidSyntaxError(self.current_tok.pos_start,
                                                   self.current_tok.pos_end,
@@ -1642,6 +1694,8 @@ class Parser: # pylint: disable=R0904
         body_nodes, pos_start = [], self.current_tok.pos_start
         brace_open_line = pos_start.line + 1
         while self.current_tok.type != T_RPAREN2 and self.current_tok.type != T_EOF:
+            sep_err = self.check_statement_separation(res, body_nodes)
+            if sep_err: return sep_err
             if self.current_tok.type == T_KEYWORD and (self.current_tok.value in ("yield", "proceed", "escape")):
                 jump_node = res.register(self.jump_statements())
                 if res.error: return res
@@ -1720,6 +1774,10 @@ class Parser: # pylint: disable=R0904
         res.register_advancement()
         self.advance()
 
+        while self.current_tok.type == T_NEWLINE:
+            res.register_advancement()
+            self.advance()
+
         if self.current_tok.type != T_LPAREN2:
             return res.failure(InvalidSyntaxError(self.current_tok.pos_start,
                                                   self.current_tok.pos_end,
@@ -1730,6 +1788,8 @@ class Parser: # pylint: disable=R0904
         body_nodes, pos_start = [], self.current_tok.pos_start
         brace_open_line = pos_start.line + 1
         while self.current_tok.type != T_RPAREN2 and self.current_tok.type != T_EOF:
+            sep_err = self.check_statement_separation(res, body_nodes)
+            if sep_err: return sep_err
             if self.current_tok.type == T_KEYWORD and (self.current_tok.value in ("yield", "proceed", "escape")):
                 jump_node = res.register(self.jump_statements())
                 if res.error: return res
@@ -1782,6 +1842,10 @@ class Parser: # pylint: disable=R0904
         selection = res.register(self.ternary_expression())
         if res.error:
             return res
+
+        while self.current_tok.type == T_NEWLINE:
+            res.register_advancement()
+            self.advance()
 
         if not self.current_tok.type == T_LPAREN2:
             return res.failure(InvalidSyntaxError(self.current_tok.pos_start,
@@ -1866,6 +1930,10 @@ class Parser: # pylint: disable=R0904
         if res.error:
             return res
 
+        while self.current_tok.type == T_NEWLINE:
+            res.register_advancement()
+            self.advance()
+
         if not self.current_tok.type == T_LPAREN2:
             return res.failure(InvalidSyntaxError(self.current_tok.pos_start,
                                                   self.current_tok.pos_end,
@@ -1876,6 +1944,8 @@ class Parser: # pylint: disable=R0904
 
         body_nodes, pos_start = [], self.current_tok.pos_start
         while self.current_tok.type != T_RPAREN2 and self.current_tok.type != T_EOF:
+            sep_err = self.check_statement_separation(res, body_nodes)
+            if sep_err: return sep_err
             if self.current_tok.type == T_KEYWORD and (self.current_tok.value in ("escape", "proceed", "yield")):
                 jump_node = res.register(self.jump_statements())
                 if res.error: return res
@@ -1926,6 +1996,10 @@ class Parser: # pylint: disable=R0904
         res.register_advancement()
         self.advance()
 
+        while self.current_tok.type == T_NEWLINE:
+            res.register_advancement()
+            self.advance()
+
         if not self.current_tok.type == T_LPAREN2:
             return res.failure(InvalidSyntaxError(self.current_tok.pos_start,
                                                   self.current_tok.pos_end,
@@ -1936,6 +2010,8 @@ class Parser: # pylint: disable=R0904
 
         body_nodes, pos_start = [], self.current_tok.pos_start
         while self.current_tok.type != T_RPAREN2 and self.current_tok.type != T_EOF:
+            sep_err = self.check_statement_separation(res, body_nodes)
+            if sep_err: return sep_err
             if self.current_tok.type == T_KEYWORD and (self.current_tok.value in ("escape", "proceed", "yield")):
                 jump_node = res.register(self.jump_statements())
                 if res.error: return res
@@ -1996,6 +2072,10 @@ class Parser: # pylint: disable=R0904
                                    hint="Did you mean '==' for comparison instead of '=' for assignment?"))
 
         # '{'
+        while self.current_tok.type == T_NEWLINE:
+            res.register_advancement()
+            self.advance()
+
         if not self.current_tok.type == T_LPAREN2:
             _hint = None
             if self.current_tok.type == T_EQ:
@@ -2012,6 +2092,8 @@ class Parser: # pylint: disable=R0904
         body_nodes, pos_start = [], self.current_tok.pos_start
         brace_open_line = pos_start.line + 1
         while self.current_tok.type != T_RPAREN2 and self.current_tok.type != T_EOF:
+            sep_err = self.check_statement_separation(res, body_nodes)
+            if sep_err: return sep_err
             if self.current_tok.type == T_KEYWORD and (self.current_tok.value in ("escape", "proceed","yield")):
                 jump_node = res.register(self.jump_statements())
                 if res.error: return res
@@ -2106,6 +2188,10 @@ class Parser: # pylint: disable=R0904
             if res.error: return res
 
         # '{'
+        while self.current_tok.type == T_NEWLINE:
+            res.register_advancement()
+            self.advance()
+
         if not self.current_tok.type == T_LPAREN2:
             return res.failure(
                 InvalidSyntaxError(self.current_tok.pos_start,
@@ -2116,6 +2202,8 @@ class Parser: # pylint: disable=R0904
 
         body_node,pos_start=[],self.current_tok.pos_start
         while self.current_tok.type != T_RPAREN2 and self.current_tok.type != T_EOF:
+            sep_err = self.check_statement_separation(res, body_node)
+            if sep_err: return sep_err
             if self.current_tok.type==T_KEYWORD and (self.current_tok.value in ("escape","proceed","yield")):
                 jump_node = res.register(self.jump_statements())
                 if res.error: return res
@@ -2212,6 +2300,8 @@ class Parser: # pylint: disable=R0904
 
         body_nodes, pos_start = [], self.current_tok.pos_start
         while self.current_tok.type != T_RPAREN2 and self.current_tok.type != T_EOF:
+            sep_err = self.check_statement_separation(res, body_nodes)
+            if sep_err: return sep_err
             if self.current_tok.type == T_KEYWORD and (self.current_tok.value in ("yield", "proceed", "escape")):
                 jump_node = res.register(self.jump_statements())
                 if res.error: return res
@@ -2417,6 +2507,10 @@ class Parser: # pylint: disable=R0904
                                    hint="Did you mean '==' for comparison instead of '=' for assignment?"))
 
         # '{'
+        while self.current_tok.type == T_NEWLINE:
+            res.register_advancement()
+            self.advance()
+
         if not self.current_tok.type == T_LPAREN2:
             _hint = None
             if self.current_tok.type == T_EQ:
@@ -2433,6 +2527,8 @@ class Parser: # pylint: disable=R0904
         body_nodes, pos_start = [], self.current_tok.pos_start
         brace_open_line = pos_start.line + 1
         while self.current_tok.type not in (T_RPAREN2, T_EOF):
+            sep_err = self.check_statement_separation(res, body_nodes)
+            if sep_err: return sep_err
             if self.current_tok.type == T_KEYWORD and (self.current_tok.value in ("escape", "proceed","yield")):
                 jump_node = res.register(self.jump_statements())
                 if res.error: return res
@@ -2522,6 +2618,10 @@ class Parser: # pylint: disable=R0904
                                    hint="Did you mean '==' for comparison instead of '=' for assignment?"))
 
         # '{'
+        while self.current_tok.type == T_NEWLINE:
+            res.register_advancement()
+            self.advance()
+
         if not self.current_tok.type == T_LPAREN2:
             _hint = None
             if self.current_tok.type == T_EQ:
@@ -2538,6 +2638,8 @@ class Parser: # pylint: disable=R0904
         body_nodes, pos_start = [], self.current_tok.pos_start
         brace_open_line = pos_start.line + 1
         while self.current_tok.type not in (T_RPAREN2, T_EOF):
+            sep_err = self.check_statement_separation(res, body_nodes)
+            if sep_err: return sep_err
             if self.current_tok.type == T_KEYWORD and (self.current_tok.value in ("escape", "proceed","yield")):
                 jump_node = res.register(self.jump_statements())
                 if res.error: return res
@@ -2591,6 +2693,10 @@ class Parser: # pylint: disable=R0904
             res.register_advancement()
             self.advance()
 
+            while self.current_tok.type == T_NEWLINE:
+                res.register_advancement()
+                self.advance()
+
             if not self.current_tok.type == T_LPAREN2:
                 return res.failure(
                     InvalidSyntaxError(self.current_tok.pos_start,
@@ -2602,6 +2708,8 @@ class Parser: # pylint: disable=R0904
             # body
             body_nodes, pos_start = [], self.current_tok.pos_start
             while self.current_tok.type not in (T_RPAREN2, T_EOF):
+                sep_err = self.check_statement_separation(res, body_nodes)
+                if sep_err: return sep_err
                 if self.current_tok.type == T_KEYWORD and (self.current_tok.value in ("escape", "proceed","yield")):
                     jump_node = res.register(self.jump_statements())
                     if res.error: return res
