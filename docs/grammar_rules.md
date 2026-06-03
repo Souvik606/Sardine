@@ -112,7 +112,7 @@ exception-handling: try-expression NEWLINE* ( catch-expression NEWLINE* (catch-e
 
 try-expression: KEYWORD:risk NEWLINE* LPAREN2 (multiline | jump-statements)* RPAREN2
 
-catch-expression: KEYWORD:trap (ERROR (IDENTIFIER)?)? NEWLINE* LPAREN2 (multiline | jump-statements)* RPAREN2
+catch-expression: KEYWORD:trap ((ERROR | IDENTIFIER) (IDENTIFIER)?)? NEWLINE* LPAREN2 (multiline | jump-statements)* RPAREN2
 
 finally-expression: KEYWORD:clean NEWLINE* LPAREN2 (multiline | jump-statements)* RPAREN2
 

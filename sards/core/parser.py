@@ -1467,8 +1467,11 @@ class Parser: # pylint: disable=R0904
         error_type_tok = None
         error_name_tok = None
 
-        # Optional ERROR (IDENTIFIER)?
-        if self.current_tok.type == T_ERROR:
+        # Optional (ERROR | IDENTIFIER) (IDENTIFIER)?
+        # ERROR tokens are built-in error type names; IDENTIFIER tokens are
+        # user-defined model names.  Both are stored in error_type_tok and the
+        # interpreter resolves the distinction at runtime.
+        if self.current_tok.type in (T_ERROR, T_IDENTIFIER):
             error_type_tok = self.current_tok
             res.register_advancement()
             self.advance()

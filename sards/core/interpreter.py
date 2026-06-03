@@ -23,7 +23,7 @@ from .error import (
     IllegalOperationError, IndexOutOfBoundsError, ArgumentError,
     DivisionByZeroError, ModuleError, AttributeError, DictKeyError,
     TypeError, ValueError, StackDepthExceededError, FileIOError,
-    fuzzy_match
+    UserDefinedError, fuzzy_match
 )
 
 # Global module cache: abs_path -> Module instance
@@ -282,22 +282,28 @@ class Interpreter:
         handled = False
 
         for trap_node in node.trap_nodes:
-            if trap_node.error_type and trap_node.error_type.value not in ERROR_CLASS_MAP:
-                return res.failure(
-                    InvalidErrorTypeError(
-                        trap_node.pos_start, trap_node.pos_end,
-                        f"'{trap_node.error_type}' is not a valid error type",
-                        context
-                    )
-                )
-
             matches = False
+
             if trap_node.error_type is None:
                 matches = True
-            else:
+            elif trap_node.error_type.value in ERROR_CLASS_MAP:
                 caught_cls = ERROR_CLASS_MAP[trap_node.error_type.value]
-                actual_cls = type(error)
-                if issubclass(actual_cls, caught_cls):
+                if issubclass(type(error), caught_cls):
+                    matches = True
+            else:
+                from sards.oops_types import Model
+                model_class = context.symbol_table.get(trap_node.error_type.value)
+                if model_class is None or not isinstance(model_class, Model):
+                    return res.failure(
+                        InvalidErrorTypeError(
+                            trap_node.pos_start, trap_node.pos_end,
+                            f"'{trap_node.error_type.value}' is not a valid error type or model name",
+                            context,
+                            hint="Use a built-in error name (e.g. RunTimeError) or a model defined with 'model'."
+                        )
+                    )
+                if isinstance(error, UserDefinedError) and \
+                        error.instance.model.is_descendant_of(model_class):
                     matches = True
 
             # Match error (type check or wildcard)
@@ -308,15 +314,20 @@ class Interpreter:
 
                 # Bind error variable if provided
                 if trap_node.error_name:
-                    from sards.oops_types.class_type import Model
                     from sards.oops_types.class_instance import ModelInstance
                     from sards.data_types import String
 
-                    exception_model = Model(error.error_name, [], None, {})
-                    e_instance = ModelInstance(exception_model)
-                    e_instance.set_attr("type", String(error.error_name))
-                    e_instance.set_attr("message", String(error.details))
-                    e_instance.set_attr("traceback", String(error.to_string()))
+                    if isinstance(error, UserDefinedError):
+                        # Pass the original model instance — all user attrs are intact
+                        e_instance = error.instance
+                    else:
+                        # Synthetic instance for built-in errors (existing behaviour)
+                        from sards.oops_types.class_type import Model
+                        exception_model = Model(error.error_name, [], None, {})
+                        e_instance = ModelInstance(exception_model)
+                        e_instance.set_attr("type", String(error.error_name))
+                        e_instance.set_attr("message", String(error.details))
+                        e_instance.set_attr("traceback", String(error.to_string()))
 
                     trap_context.symbol_table.set(
                         trap_node.error_name.value,

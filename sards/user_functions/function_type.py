@@ -618,6 +618,49 @@ class BuiltInFunction(BaseFunction):
             )
         )
 
+    def execute_throw(self, pos_args, kw_args, exec_context):
+        """
+        Executes the 'throw' built-in function.
+
+        Raises a UserDefinedError wrapping the given model instance so it can
+        be caught by a 'trap ModelName' block.
+
+        Signature:  throw(instance)  ->  (never returns normally)
+        """
+        from sards.core import RunTimeResult
+        from sards.core.error import UserDefinedError
+        from sards.oops_types import ModelInstance
+
+        res = RunTimeResult()
+
+        if kw_args or len(pos_args) != 1:
+            return res.failure(
+                ArgumentError(
+                    self.pos_start, self.pos_end,
+                    "throw() takes exactly one argument: a model instance",
+                    exec_context
+                )
+            )
+
+        instance = pos_args[0]
+        if not isinstance(instance, ModelInstance):
+            return res.failure(
+                ArgumentError(
+                    self.pos_start, self.pos_end,
+                    f"throw() requires a model instance, got '{type(instance).__name__}'. "
+                    f"Define your error type with 'model' and pass an instance.",
+                    exec_context
+                )
+            )
+
+        return res.failure(
+            UserDefinedError(
+                self.pos_start, self.pos_end,
+                instance,
+                exec_context.parent
+            )
+        )
+
     def execute_len(self, pos_args, kw_args, exec_context):
         from sards.core import RunTimeResult
         from sards.data_types import Number, List, String, Dict
@@ -990,6 +1033,7 @@ BuiltInFunction.type = BuiltInFunction('type')
 BuiltInFunction.super = BuiltInFunction('super')
 BuiltInFunction.is_a = BuiltInFunction('is_a')
 BuiltInFunction.error = BuiltInFunction('error')
+BuiltInFunction.throw = BuiltInFunction('throw')
 BuiltInFunction.len = BuiltInFunction('len')
 BuiltInFunction.range = BuiltInFunction('range')
 BuiltInFunction.exit = BuiltInFunction('exit')
