@@ -29,6 +29,13 @@ class String:
 
     def add(self, operand):
         if isinstance(operand, String):
+            if len(self.value) + len(operand.value) > 100000:
+                from sards.core.error import ValueError as SardineValueError
+                return None, SardineValueError(
+                    operand.pos_start, operand.pos_end,
+                    f"String concatenation limit exceeded (size {len(self.value) + len(operand.value)} > 100,000 characters limit)",
+                    self.context
+                )
             return String(self.value + operand.value).set_context(self.context), None
         else:
             _hint = None
@@ -353,6 +360,9 @@ class String:
             
             try:
                 replaced = instance.value.replace(old.value, new.value)
+                if len(replaced) > 100000:
+                    from sards.core.error import ValueError as SardineValueError
+                    return res.failure(SardineValueError(instance.pos_start, instance.pos_end, f"String length limit exceeded during replace (size {len(replaced)} > 100,000 characters limit)", exec_context))
                 return res.success(String(replaced).set_context(calling_context))
             except (MemoryError, OverflowError):
                 from sards.core.error import ValueError as SardineValueError

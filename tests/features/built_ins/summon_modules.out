@@ -22,10 +22,10 @@
 === Test 6: ModuleError on bad module ===
 ModuleError caught correctly:
   Module 'totally_nonexistent_module' not found. Searched:
-  tests/features/built_ins/totally_nonexistent_module.sad
-  tests/features/built_ins/totally_nonexistent_module.sard
   sards/stdlib/totally_nonexistent_module.sad
   sards/stdlib/totally_nonexistent_module.sard
+  tests/features/built_ins/totally_nonexistent_module.sad
+  tests/features/built_ins/totally_nonexistent_module.sard
 
 === Test 7: ModuleError on bad member ===
 Bad member error caught:

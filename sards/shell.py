@@ -75,6 +75,9 @@ def run(filename, input_text):
     else:
         print(ast)
     """
+    from sards.core.interpreter import _MODULE_CACHE
+    _MODULE_CACHE.clear()
+
     lexer = Lexer(filename, input_text)  # Initialize the Lexer with the input text
     tokens, error = lexer.enumerate_tokens()
 

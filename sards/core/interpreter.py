@@ -1644,10 +1644,10 @@ class Interpreter:
         # Derive the directory of the currently-executing file from context.
         source_dir = getattr(context, 'source_dir', None) or os.getcwd()
         candidates = [
-            os.path.join(source_dir, module_name + '.sad'),
-            os.path.join(source_dir, module_name + '.sard'),
             os.path.join(_STDLIB_DIR, module_name + '.sad'),
             os.path.join(_STDLIB_DIR, module_name + '.sard'),
+            os.path.join(source_dir, module_name + '.sad'),
+            os.path.join(source_dir, module_name + '.sard'),
         ]
 
         resolved_path = None

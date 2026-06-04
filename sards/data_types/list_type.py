@@ -32,11 +32,25 @@ class List:
     def add(self, operand):
         from .dict_type import Dict #Avoiding Circular Import
         if isinstance(operand, Number) or isinstance(operand, String) or isinstance(operand, Dict):
+            if len(self.elements) + 1 > 100000:
+                from sards.core.error import ValueError as SardineValueError
+                return None, SardineValueError(
+                    operand.pos_start, operand.pos_end,
+                    f"List size limit exceeded (size {len(self.elements) + 1} > 100,000 elements limit)",
+                    self.context
+                )
             new_list = self.copy()
             new_list.elements.append(operand)
             return new_list, None
 
         elif isinstance(operand, List):
+            if len(self.elements) + len(operand.elements) > 100000:
+                from sards.core.error import ValueError as SardineValueError
+                return None, SardineValueError(
+                    operand.pos_start, operand.pos_end,
+                    f"List concatenation limit exceeded (size {len(self.elements) + len(operand.elements)} > 100,000 elements limit)",
+                    self.context
+                )
             new_list = self.copy()
             for i in operand.elements:
                 new_list.elements.append(i)
@@ -417,6 +431,9 @@ class List:
             res = RunTimeResult()
             if len(pos_args) != 1 or kw_args:
                 return res.failure(ArgumentError(instance.pos_start, instance.pos_end, "append() takes exactly 1 argument", exec_context))
+            if len(instance.elements) + 1 > 100000:
+                from sards.core.error import ValueError as SardineValueError
+                return res.failure(SardineValueError(instance.pos_start, instance.pos_end, "List size limit exceeded (size 100001 > 100,000 elements limit)", exec_context))
             instance.elements.append(pos_args[0])
             return res.success(instance)
 
@@ -424,6 +441,9 @@ class List:
             res = RunTimeResult()
             if len(pos_args) != 1 or kw_args:
                 return res.failure(ArgumentError(instance.pos_start, instance.pos_end, "prepend() takes exactly 1 argument", exec_context))
+            if len(instance.elements) + 1 > 100000:
+                from sards.core.error import ValueError as SardineValueError
+                return res.failure(SardineValueError(instance.pos_start, instance.pos_end, "List size limit exceeded (size 100001 > 100,000 elements limit)", exec_context))
             instance.elements.insert(0, pos_args[0])
             return res.success(instance)
 
@@ -434,6 +454,9 @@ class List:
             idx = pos_args[0]
             if type(idx) is not Integer:
                 return res.failure(IllegalOperationError(idx.pos_start, idx.pos_end, "Index must be of an integer Number type", exec_context))
+            if len(instance.elements) + 1 > 100000:
+                from sards.core.error import ValueError as SardineValueError
+                return res.failure(SardineValueError(instance.pos_start, instance.pos_end, "List size limit exceeded (size 100001 > 100,000 elements limit)", exec_context))
             
             instance.elements.insert(idx.value, pos_args[1])
             return res.success(instance)
@@ -551,6 +574,10 @@ class List:
                     except OverflowError:
                         parts.append("INF")
             try:
+                joined_len = sum(len(p) for p in parts) + (len(instance.elements) - 1) * len(sep.value) if instance.elements else 0
+                if joined_len > 100000:
+                    from sards.core.error import ValueError as SardineValueError
+                    return res.failure(SardineValueError(instance.pos_start, instance.pos_end, f"String length limit exceeded during join (size {joined_len} > 100,000 characters limit)", exec_context))
                 joined_str = sep.value.join(parts)
                 return res.success(String(joined_str).set_context(calling_context))
             except (MemoryError, OverflowError):
@@ -601,6 +628,10 @@ class List:
             other = pos_args[0]
             if not isinstance(other, List):
                 return res.failure(IllegalOperationError(other.pos_start, other.pos_end, "Argument to extend() must be a List", exec_context))
+            
+            if len(instance.elements) + len(other.elements) > 100000:
+                from sards.core.error import ValueError as SardineValueError
+                return res.failure(SardineValueError(instance.pos_start, instance.pos_end, f"List size limit exceeded (size {len(instance.elements) + len(other.elements)} > 100,000 elements limit)", exec_context))
             
             instance.elements.extend([el.copy() for el in other.elements])
             return res.success(instance)
