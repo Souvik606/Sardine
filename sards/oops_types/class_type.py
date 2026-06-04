@@ -162,7 +162,8 @@ class Model:
         return copy
 
     def is_true(self):
-        return Number(1), None
+        from sards.data_types.number_type import Boolean
+        return Boolean(True), None
 
     def __repr__(self):
         return f"<model {self.name}>"

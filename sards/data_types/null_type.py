@@ -32,3 +32,13 @@ class Null:
 
     def get_comparison_neq(self, operand):
         return Boolean(not isinstance(operand, Null)).set_context(self.context), None
+
+    def not_by(self):
+        return Boolean(True).set_context(self.context), None
+
+    def __eq__(self, other):
+        return type(self) is type(other)
+
+    def __hash__(self):
+        return hash(type(self))
+

@@ -79,8 +79,24 @@ class SuperProxy:
         return self.instance.set_attr(name, value)
 
     def is_true(self):
-        from sards.data_types import Number
-        return Number(1), None
+        from sards.data_types.number_type import Boolean
+        return Boolean(True), None
+
+    def get_comparison_eq(self, operand):
+        from sards.data_types.number_type import Boolean
+        from sards.data_types.null_type import Null
+        if isinstance(operand, Null):
+            return Boolean(False).set_context(self.context), None
+        if isinstance(operand, SuperProxy):
+            eq = (self.instance is operand.instance)
+            return Boolean(eq).set_context(self.context), None
+        return Boolean(self is operand).set_context(self.context), None
+
+    def get_comparison_neq(self, operand):
+        eq_val, err = self.get_comparison_eq(operand)
+        if err: return None, err
+        from sards.data_types.number_type import Boolean
+        return Boolean(not eq_val.value).set_context(self.context), None
 
     def __repr__(self):
         return f"<super of {self.owner_class.name}>"

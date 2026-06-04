@@ -229,6 +229,18 @@ class ModelInstance:
             if result is not None:
                 return result, None
 
+        if op_name == 'get_comparison_eq':
+            from sards.data_types.number_type import Boolean
+            if type(other).__name__ == "Null":
+                return Boolean(False).set_context(self.context), None
+            return Boolean(self is other).set_context(self.context), None
+        elif op_name == 'get_comparison_neq':
+            from sards.data_types.number_type import Boolean
+            eq_val, err = self.get_comparison_eq(other)
+            if err:
+                return None, err
+            return Boolean(not eq_val.value).set_context(self.context), None
+
         symbol = OP_SYMBOLS.get(op_name, op_name)
         user_method = BINARY_OP_METHODS.get(op_name, '?')
         return None, IllegalOperationError(
@@ -360,7 +372,8 @@ class ModelInstance:
     # ------------------------------------------------------------------
 
     def is_true(self):
-        return Number(1), None
+        from sards.data_types.number_type import Boolean
+        return Boolean(True), None
 
     def __repr__(self):
         return f"<instance of {self.model.name}>"

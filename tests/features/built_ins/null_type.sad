@@ -33,3 +33,14 @@ method empty_return() {
 }
 
 show("empty_return() return:", empty_return())
+
+# 6. Logical NOT on Null
+show("not Null:", not Null)
+
+# 7. Function and Method comparisons with Null
+method dummy() {}
+show("dummy == Null:", dummy == Null)
+show("Null == dummy:", Null == dummy)
+show("dummy != Null:", dummy != Null)
+show("Null != dummy:", Null != dummy)
+

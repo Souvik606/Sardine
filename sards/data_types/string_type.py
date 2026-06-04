@@ -43,7 +43,7 @@ class String:
                 self.pos_start, self.pos_end, 'Cannot apply \'-\' to a String type', self.context)
 
     def multiply(self, operand):
-        if isinstance(operand, Number) and not isinstance(operand.value, float):
+        if type(operand) is Integer:
             if operand.value < 0:
                 return None, IllegalOperationError(
                     operand.pos_start, operand.pos_end, 'String repetition cannot be negative', self.context)
@@ -169,7 +169,7 @@ class String:
         temp = self.value
         try:
             for idx in indexes:
-                if isinstance(idx, Number) and not isinstance(idx.value, float):
+                if type(idx) is Integer:
                     if not isinstance(temp, str):
                         return None, IllegalOperationError(
                             idx.pos_start, idx.pos_end,
@@ -180,7 +180,7 @@ class String:
                 else:
                     return None, IllegalOperationError(
                         idx.pos_start, idx.pos_end,
-                        "Invalid Index Type",
+                        "Index must be of an integer Number type",
                         self.context
                     )
             return String(temp).set_context(self.context), None
@@ -211,10 +211,10 @@ class String:
         try:
             s = list(self.value)
             for idx in indexes[:-1]:
-                if not isinstance(idx, Number) or isinstance(idx.value, float):
+                if type(idx) is not Integer:
                     return None, IllegalOperationError(
                         idx.pos_start, idx.pos_end,
-                        "Invalid Index Type",
+                        "Index must be of an integer Number type",
                         self.context
                     )
                 
@@ -225,10 +225,10 @@ class String:
                 )
 
             last_idx = indexes[-1]
-            if not isinstance(last_idx, Number) or isinstance(last_idx.value, float):
-                return None, RunTimeError(
+            if type(last_idx) is not Integer:
+                return None, IllegalOperationError(
                     last_idx.pos_start, last_idx.pos_end,
-                    "Invalid Index Type",
+                    "Index must be of an integer Number type",
                     self.context
                 )
 
@@ -419,8 +419,16 @@ class String:
             calling_context
         )
 
+    def __eq__(self, other):
+        if type(self) is not type(other):
+            return False
+        return self.value == other.value
+
+    def __hash__(self):
+        return hash((type(self), self.value))
+
     def __str__(self):
         return f'{self.value}'
 
     def __repr__(self):
-        return f'"{self.value}"'
+        return f'"{self.value}"'

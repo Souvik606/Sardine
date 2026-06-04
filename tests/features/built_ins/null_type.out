@@ -10,3 +10,9 @@ Null != 5: True
 5 != Null: True
 empty_func() return: Null
 empty_return() return: Null
+not Null: True
+dummy == Null: False
+Null == dummy: False
+dummy != Null: True
+Null != dummy: True
+

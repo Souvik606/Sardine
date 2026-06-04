@@ -49,19 +49,19 @@ class List:
             )
 
     def subtract(self, operand):
-        if isinstance(operand, Number) and not isinstance(operand.value, float):
+        if type(operand) is Integer:
             new_list = self.copy()
             try:
                 new_list.elements.pop(operand.value)
                 return new_list, None
             except:
                 return None, IndexOutOfBoundsError(operand.pos_start, operand.pos_end,
-                                          'Index out of bounds', self.context)
+                                           'Index out of bounds', self.context)
         else: return None, IllegalOperationError(
                     operand.pos_start, operand.pos_end, 'Index must be of an integer Number type', self.context)
 
     def multiply(self, operand):
-        if isinstance(operand, Number) and not isinstance(operand.value, float):
+        if type(operand) is Integer:
             if operand.value < 0:
                 return None, IllegalOperationError(
                     operand.pos_start, operand.pos_end, 'List repetition cannot be negative', self.context)
@@ -206,7 +206,7 @@ class List:
             for idx in indexes:
                 if isinstance(temp, Dict):
                     if isinstance(idx, (Number, String)):
-                        temp = temp.elements.get(idx.value)
+                        temp = temp.elements.get(idx)
                         if temp is None:
                             return None, DictKeyError(
                                 idx.pos_start, idx.pos_end,
@@ -219,7 +219,7 @@ class List:
                             "Dictionary keys must be numbers or strings",
                             self.context
                         )
-                elif isinstance(idx, Number) and not isinstance(idx.value, float):
+                elif type(idx) is Integer:
                     if isinstance(temp, List):
                         temp = temp.elements[idx.value]
                     elif isinstance(temp, String):
@@ -233,7 +233,7 @@ class List:
                 else:
                     return None, IllegalOperationError(
                         idx.pos_start, idx.pos_end,
-                        "Invalid Index Type",
+                        "Index must be of an integer Number type",
                         self.context
                     )
 
@@ -262,7 +262,7 @@ class List:
             for idx in indexes[:-1]:
                 if isinstance(temp, Dict):
                     if isinstance(idx, (Number, String)):
-                        temp = temp.elements.get(idx.value)
+                        temp = temp.elements.get(idx)
                         if temp is None:
                             return None, DictKeyError(
                                 idx.pos_start, idx.pos_end,
@@ -275,7 +275,7 @@ class List:
                             "Dictionary keys must be numbers or strings",
                             self.context
                         )
-                elif isinstance(idx, Number) and not isinstance(idx.value, float):
+                elif type(idx) is Integer:
                     if isinstance(temp, List):
                         temp = temp.elements[idx.value]
                     elif isinstance(temp, String):
@@ -293,7 +293,7 @@ class List:
                 else:
                     return None, IllegalOperationError(
                         idx.pos_start, idx.pos_end,
-                        "Invalid Index Type",
+                        "Index must be of an integer Number type",
                         self.context
                     )
 
@@ -302,7 +302,7 @@ class List:
             #Case 3: assigning inside a Dict
             if isinstance(temp, Dict):
                 if isinstance(last_idx, (Number, String)):
-                    temp.elements[last_idx.value] = val
+                    temp.elements[last_idx] = val
                     return new_list, None
                 else:
                     return None, DictKeyError(
@@ -311,10 +311,10 @@ class List:
                         self.context
                     )
 
-            if not isinstance(last_idx, Number) or isinstance(last_idx.value, float):
+            if type(last_idx) is not Integer:
                 return None, IllegalOperationError(
                     last_idx.pos_start, last_idx.pos_end,
-                    "Invalid Index Type",
+                    "Index must be of an integer Number type",
                     self.context
                 )
 
@@ -340,9 +340,15 @@ class List:
                     # Instead of indexing into String, go back to the parent List or Dict
                     parent = new_list
                     for idx in indexes[:-2]:
-                        parent = parent.elements[idx.value]
+                        if isinstance(parent, Dict):
+                            parent = parent.elements.get(idx)
+                        else:
+                            parent = parent.elements[idx.value]
 
-                    parent.elements[indexes[-2].value] = replaced
+                    if isinstance(parent, Dict):
+                        parent.elements[indexes[-2]] = replaced
+                    else:
+                        parent.elements[indexes[-2].value] = replaced
                     return new_list, None
 
                 except IndexError:
@@ -426,8 +432,8 @@ class List:
             if len(pos_args) != 2 or kw_args:
                 return res.failure(ArgumentError(instance.pos_start, instance.pos_end, "insert() takes exactly 2 arguments: (index, item)", exec_context))
             idx = pos_args[0]
-            if not isinstance(idx, Number) or isinstance(idx.value, float):
-                return res.failure(IllegalOperationError(idx.pos_start, idx.pos_end, "Index must be an integer Number", exec_context))
+            if type(idx) is not Integer:
+                return res.failure(IllegalOperationError(idx.pos_start, idx.pos_end, "Index must be of an integer Number type", exec_context))
             
             instance.elements.insert(idx.value, pos_args[1])
             return res.success(instance)
@@ -439,8 +445,8 @@ class List:
             
             if len(pos_args) == 1:
                 idx = pos_args[0]
-                if not isinstance(idx, Number) or isinstance(idx.value, float):
-                    return res.failure(IllegalOperationError(idx.pos_start, idx.pos_end, "Index must be an integer Number", exec_context))
+                if type(idx) is not Integer:
+                    return res.failure(IllegalOperationError(idx.pos_start, idx.pos_end, "Index must be of an integer Number type", exec_context))
                 index_val = idx.value
             else:
                 index_val = -1
@@ -489,8 +495,8 @@ class List:
                 return res.failure(ArgumentError(instance.pos_start, instance.pos_end, "sort() takes at most 1 argument: [descending]", exec_context))
             if len(pos_args) == 1:
                 desc = pos_args[0]
-                if not isinstance(desc, Number) or isinstance(desc.value, float):
-                    return res.failure(IllegalOperationError(desc.pos_start, desc.pos_end, "descending argument must be a Boolean Number (0 or 1)", exec_context))
+                if type(desc) is not Integer and type(desc) is not Boolean:
+                    return res.failure(IllegalOperationError(desc.pos_start, desc.pos_end, "descending argument must be a Boolean or Integer (0 or 1)", exec_context))
                 descending = bool(desc.value)
 
             import builtins
@@ -516,8 +522,8 @@ class List:
             
             start_arg = pos_args[0]
             end_arg = pos_args[1]
-            if not isinstance(start_arg, Number) or isinstance(start_arg.value, float) or not isinstance(end_arg, Number) or isinstance(end_arg.value, float):
-                return res.failure(IllegalOperationError(instance.pos_start, instance.pos_end, "Slice bounds must be integer Numbers", exec_context))
+            if type(start_arg) is not Integer or type(end_arg) is not Integer:
+                return res.failure(IllegalOperationError(instance.pos_start, instance.pos_end, "Slice bounds must be of an integer Number type", exec_context))
             
             try:
                 sliced_elements = [el.copy() if hasattr(el, 'copy') else el for el in instance.elements[start_arg.value:end_arg.value]]

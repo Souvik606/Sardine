@@ -29,10 +29,25 @@ class File:
         closed = self.file_obj.closed
         return Boolean(not closed).set_context(self.context), None
 
+    def get_comparison_eq(self, operand):
+        from sards.data_types.number_type import Boolean
+        from sards.data_types.null_type import Null
+        if isinstance(operand, Null):
+            return Boolean(False).set_context(self.context), None
+        return Boolean(self is operand).set_context(self.context), None
+
+    def get_comparison_neq(self, operand):
+        from sards.data_types.number_type import Boolean
+        from sards.data_types.null_type import Null
+        if isinstance(operand, Null):
+            return Boolean(True).set_context(self.context), None
+        return Boolean(self is not operand).set_context(self.context), None
+
     def __repr__(self):
         closed = self.file_obj.closed
         state = "closed" if closed else "open"
         return f"<file '{self.filepath}' mode='{self.mode}' state={state}>"
+
 
     def get_attr(self, name, calling_context):
         from sards.user_functions import BoundMethod
@@ -77,7 +92,7 @@ class File:
                 return res.failure(FileIOError(instance.pos_start, instance.pos_end, "File not open for writing", exec_context))
             text_arg = pos_args[0]
             if not isinstance(text_arg, String):
-                return res.failure(TypeError(text_arg.pos_start, text_arg.pos_end, "write() argument must be a String", exec_context))
+                return res.failure(TypeError(getattr(text_arg, 'pos_start', None), getattr(text_arg, 'pos_end', None), "write() argument must be a String", exec_context))
             try:
                 instance.file_obj.write(text_arg.value)
                 return res.success(Integer(0))
@@ -94,7 +109,7 @@ class File:
                 return res.failure(FileIOError(instance.pos_start, instance.pos_end, "File not open for writing", exec_context))
             text_arg = pos_args[0]
             if not isinstance(text_arg, String):
-                return res.failure(TypeError(text_arg.pos_start, text_arg.pos_end, "lwrite() argument must be a String", exec_context))
+                return res.failure(TypeError(getattr(text_arg, 'pos_start', None), getattr(text_arg, 'pos_end', None), "lwrite() argument must be a String", exec_context))
             try:
                 instance.file_obj.write(text_arg.value + "\n")
                 return res.success(Integer(0))

@@ -365,8 +365,17 @@ class Number:
             return c
         raise NotImplementedError("Subclasses must implement copy()")
 
+    def __eq__(self, other):
+        if type(self) is not type(other):
+            return False
+        return self.value == other.value
+
+    def __hash__(self):
+        return hash((type(self), self.value))
+
     def __repr__(self):
         return str(self.value)
+
 
 
 # ---------------------------------------------------------------------------

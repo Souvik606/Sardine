@@ -69,6 +69,20 @@ class BaseFunction:
         new_context.symbol_table = SymbolTable(new_context.parent.symbol_table)
         return new_context
 
+    def get_comparison_eq(self, operand):
+        from sards.data_types.number_type import Boolean
+        from sards.data_types.null_type import Null
+        if isinstance(operand, Null):
+            return Boolean(False).set_context(self.context), None
+        return Boolean(self is operand).set_context(self.context), None
+
+    def get_comparison_neq(self, operand):
+        from sards.data_types.number_type import Boolean
+        from sards.data_types.null_type import Null
+        if isinstance(operand, Null):
+            return Boolean(True).set_context(self.context), None
+        return Boolean(self is not operand).set_context(self.context), None
+
     def is_true(self):
         from sards.data_types import Boolean
         return Boolean(True), None
@@ -735,7 +749,7 @@ class BuiltInFunction(BaseFunction):
             )
 
         for idx, arg in enumerate(pos_args):
-            if not isinstance(arg, Number) or isinstance(arg.value, float):
+            if type(arg) is not Integer:
                 return res.failure(
                     IllegalOperationError(
                         arg.pos_start, arg.pos_end,
@@ -957,10 +971,6 @@ class BuiltInFunction(BaseFunction):
         """
         Executes the 'Boolean' built-in function.
         Converts any Sardine value to a Boolean (True/False).
-          - Number: 0 → False, anything else → True
-          - String: empty string → False, non-empty → True
-          - List: empty → False, non-empty → True
-          - Everything else → True
         """
         from sards.core import RunTimeResult
         res = RunTimeResult()
@@ -969,13 +979,12 @@ class BuiltInFunction(BaseFunction):
                 ArgumentError(self.pos_start, self.pos_end, "Boolean() takes exactly one argument", self.context))
 
         arg = pos_args[0]
-        if isinstance(arg, Number):
-            return res.success(Boolean(bool(arg.value)))
-        if isinstance(arg, String):
-            return res.success(Boolean(bool(arg.value)))
-        if isinstance(arg, List):
-            return res.success(Boolean(bool(arg.elements)))
-        # For any other object (model instance, etc.) — treat as truthy
+        if hasattr(arg, 'is_true'):
+            cond, err = arg.is_true()
+            if err:
+                return res.failure(err)
+            return res.success(Boolean(bool(cond.value)))
+        # For any other object — treat as truthy
         return res.success(Boolean(True))
 
 
@@ -1018,6 +1027,22 @@ class BoundMethod:
     def is_true(self):
         from sards.data_types import Boolean
         return Boolean(True), None
+
+    def get_comparison_eq(self, operand):
+        from sards.data_types.number_type import Boolean
+        from sards.data_types.null_type import Null
+        if isinstance(operand, Null):
+            return Boolean(False).set_context(self.context), None
+        if isinstance(operand, BoundMethod):
+            eq = (self.instance is operand.instance) and (self.python_func == operand.python_func)
+            return Boolean(eq).set_context(self.context), None
+        return Boolean(self is operand).set_context(self.context), None
+
+    def get_comparison_neq(self, operand):
+        eq_val, err = self.get_comparison_eq(operand)
+        if err: return None, err
+        from sards.data_types.number_type import Boolean
+        return Boolean(not eq_val.value).set_context(self.context), None
 
     def __repr__(self):
         return f"<bound method {self.name} of {self.instance}>"
