@@ -29,6 +29,13 @@ class String:
 
     def add(self, operand):
         if isinstance(operand, String):
+            if len(self.value) + len(operand.value) > 100000:
+                from sards.core.error import ValueError as SardineValueError
+                return None, SardineValueError(
+                    operand.pos_start, operand.pos_end,
+                    f"String concatenation limit exceeded (size {len(self.value) + len(operand.value)} > 100,000 characters limit)",
+                    self.context
+                )
             return String(self.value + operand.value).set_context(self.context), None
         else:
             _hint = None
@@ -43,7 +50,7 @@ class String:
                 self.pos_start, self.pos_end, 'Cannot apply \'-\' to a String type', self.context)
 
     def multiply(self, operand):
-        if isinstance(operand, Number) and not isinstance(operand.value, float):
+        if type(operand) is Integer:
             if operand.value < 0:
                 return None, IllegalOperationError(
                     operand.pos_start, operand.pos_end, 'String repetition cannot be negative', self.context)
@@ -106,66 +113,70 @@ class String:
                 self.pos_start, self.pos_end, 'Cannot apply \'**\' to a String type', self.context)
 
     def get_comparison_eq(self, operand):
+        if type(operand).__name__ == "Null":
+            return Boolean(False).set_context(self.context), None
         if isinstance(operand, String):
-            return Number(int(self.value == operand.value)).set_context(self.context), None
+            return Boolean(self.value == operand.value).set_context(self.context), None
         else: return None, IllegalOperationError(
                     operand.pos_start, operand.pos_end, 'Expected a String type', self.context)
 
     def get_comparison_neq(self, operand):
+        if type(operand).__name__ == "Null":
+            return Boolean(True).set_context(self.context), None
         if isinstance(operand, String):
-            return Number(int(self.value != operand.value)).set_context(self.context), None
+            return Boolean(self.value != operand.value).set_context(self.context), None
         else: return None, IllegalOperationError(
                     operand.pos_start, operand.pos_end, 'Expected a String type', self.context)
 
     def get_comparison_lte(self, operand):
         if isinstance(operand, String):
-            return Number(int(self.value <= operand.value)).set_context(self.context), None
+            return Boolean(self.value <= operand.value).set_context(self.context), None
         else: return None, IllegalOperationError(
                     operand.pos_start, operand.pos_end, 'Expected a String type', self.context)
 
     def get_comparison_lt(self, operand):
         if isinstance(operand, String):
-            return Number(int(self.value < operand.value)).set_context(self.context), None
+            return Boolean(self.value < operand.value).set_context(self.context), None
         else: return None, IllegalOperationError(
                     operand.pos_start, operand.pos_end, 'Expected a String type', self.context)
 
     def get_comparison_gte(self, operand):
         if isinstance(operand, String):
-            return Number(int(self.value >= operand.value)).set_context(self.context), None
+            return Boolean(self.value >= operand.value).set_context(self.context), None
         else: return None, IllegalOperationError(
                     operand.pos_start, operand.pos_end, 'Expected a String type', self.context)
 
     def get_comparison_gt(self, operand):
         if isinstance(operand, String):
-            return Number(int(self.value > operand.value)).set_context(self.context), None
+            return Boolean(self.value > operand.value).set_context(self.context), None
         else: return None, IllegalOperationError(
                     operand.pos_start, operand.pos_end, 'Expected a String type', self.context)
 
     def and_by(self, operand):
         if isinstance(operand, String):
-            return (Number(int(bool(self.value) and bool(operand.value))).set_context(self.context),
+            return (Boolean(bool(self.value) and bool(operand.value)).set_context(self.context),
                     None)
         else: return None, IllegalOperationError(
                     operand.pos_start, operand.pos_end, 'Expected a String type', self.context)
 
     def or_by(self, operand):
         if isinstance(operand, String):
-            return (Number(int(bool(self.value) or bool(operand.value))).set_context(self.context),
+            return (Boolean(bool(self.value) or bool(operand.value)).set_context(self.context),
                     None)
         else: return None, IllegalOperationError(
                     operand.pos_start, operand.pos_end, 'Expected a String type', self.context)
 
     def not_by(self):
-        return Number(int(not self.value)).set_context(self.context), None
+        return Boolean(not self.value).set_context(self.context), None
 
     def is_true(self):
-        return Number(len(self.value)).set_context(self.context), None
+        return Boolean(len(self.value) > 0).set_context(self.context), None
     
     def getByIndex(self, indexes):
         temp = self.value
         try:
             for idx in indexes:
-                if isinstance(idx, Number) and not isinstance(idx.value, float):
+                if type(idx) is Integer:
                     if not isinstance(temp, str):
                         return None, IllegalOperationError(
                             idx.pos_start, idx.pos_end,
@@ -176,7 +187,7 @@ class String:
                 else:
                     return None, IllegalOperationError(
                         idx.pos_start, idx.pos_end,
-                        "Invalid Index Type",
+                        "Index must be of an integer Number type",
                         self.context
                     )
             return String(temp).set_context(self.context), None
@@ -207,10 +218,10 @@ class String:
         try:
             s = list(self.value)
             for idx in indexes[:-1]:
-                if not isinstance(idx, Number) or isinstance(idx.value, float):
+                if type(idx) is not Integer:
                     return None, IllegalOperationError(
                         idx.pos_start, idx.pos_end,
-                        "Invalid Index Type",
+                        "Index must be of an integer Number type",
                         self.context
                     )
                 
@@ -221,10 +232,10 @@ class String:
                 )
 
             last_idx = indexes[-1]
-            if not isinstance(last_idx, Number) or isinstance(last_idx.value, float):
-                return None, RunTimeError(
+            if type(last_idx) is not Integer:
+                return None, IllegalOperationError(
                     last_idx.pos_start, last_idx.pos_end,
-                    "Invalid Index Type",
+                    "Index must be of an integer Number type",
                     self.context
                 )
 
@@ -320,8 +331,8 @@ class String:
             if not isinstance(prefix, String):
                 return res.failure(IllegalOperationError(prefix.pos_start, prefix.pos_end, "Prefix must be a String", exec_context))
             
-            ans = 1 if instance.value.startswith(prefix.value) else 0
-            return res.success(Number(ans))
+            ans = instance.value.startswith(prefix.value)
+            return res.success(Boolean(ans))
 
         def method_ends_with(instance, pos_args, kw_args, exec_context):
             res = RunTimeResult()
@@ -332,8 +343,8 @@ class String:
             if not isinstance(suffix, String):
                 return res.failure(IllegalOperationError(suffix.pos_start, suffix.pos_end, "Suffix must be a String", exec_context))
             
-            ans = 1 if instance.value.endswith(suffix.value) else 0
-            return res.success(Number(ans))
+            ans = instance.value.endswith(suffix.value)
+            return res.success(Boolean(ans))
         def method_replace(instance, pos_args, kw_args, exec_context):
             res = RunTimeResult()
             if len(pos_args) != 2 or kw_args:
@@ -349,6 +360,9 @@ class String:
             
             try:
                 replaced = instance.value.replace(old.value, new.value)
+                if len(replaced) > 100000:
+                    from sards.core.error import ValueError as SardineValueError
+                    return res.failure(SardineValueError(instance.pos_start, instance.pos_end, f"String length limit exceeded during replace (size {len(replaced)} > 100,000 characters limit)", exec_context))
                 return res.success(String(replaced).set_context(calling_context))
             except (MemoryError, OverflowError):
                 from sards.core.error import ValueError as SardineValueError
@@ -363,7 +377,7 @@ class String:
                 return res.failure(IllegalOperationError(sub.pos_start, sub.pos_end, "Search term must be a String", exec_context))
             
             idx = instance.value.find(sub.value)
-            return res.success(Number(idx))
+            return res.success(Integer(idx))
 
         def method_contains(instance, pos_args, kw_args, exec_context):
             res = RunTimeResult()
@@ -374,22 +388,22 @@ class String:
             if not isinstance(sub, String):
                 return res.failure(IllegalOperationError(sub.pos_start, sub.pos_end, "Search term must be a String", exec_context))
             
-            ans = 1 if sub.value in instance.value else 0
-            return res.success(Number(ans))
+            ans = sub.value in instance.value
+            return res.success(Boolean(ans))
 
         def method_is_digit(instance, pos_args, kw_args, exec_context):
             res = RunTimeResult()
             if pos_args or kw_args:
                 return res.failure(ArgumentError(instance.pos_start, instance.pos_end, "is_digit() takes no arguments", exec_context))
-            ans = 1 if instance.value.isdigit() else 0
-            return res.success(Number(ans))
+            ans = instance.value.isdigit()
+            return res.success(Boolean(ans))
 
         def method_is_alpha(instance, pos_args, kw_args, exec_context):
             res = RunTimeResult()
             if pos_args or kw_args:
                 return res.failure(ArgumentError(instance.pos_start, instance.pos_end, "is_alpha() takes no arguments", exec_context))
-            ans = 1 if instance.value.isalpha() else 0
-            return res.success(Number(ans))
+            ans = instance.value.isalpha()
+            return res.success(Boolean(ans))
 
         methods = {
             "split": method_split,
@@ -415,8 +429,16 @@ class String:
             calling_context
         )
 
+    def __eq__(self, other):
+        if type(self) is not type(other):
+            return False
+        return self.value == other.value
+
+    def __hash__(self):
+        return hash((type(self), self.value))
+
     def __str__(self):
         return f'{self.value}'
 
     def __repr__(self):
-        return f'"{self.value}"'
+        return f'"{self.value}"'

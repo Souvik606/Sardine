@@ -5,7 +5,7 @@ This module initializes the Core package.
 from .error import (
     BaseError, InvalidSyntaxError, IllegalCharError, ExpectedCharError, RunTimeError, Position, IllegalOperationError,
     AttributeError,TypeError,ArgumentError,ValueError,NameError, NotImplementedError, InvalidErrorTypeError,
-    DivisionByZeroError,IndexOutOfBoundsError,ModuleError
+    DivisionByZeroError,IndexOutOfBoundsError,ModuleError, FileIOError
 )
 from .parser import (
     Parser, ParseResult, TernaryOperationNode, UnaryOperationNode, BinaryOperationNode, NumberNode
@@ -17,7 +17,7 @@ __all__ = ["BaseError", "InvalidSyntaxError", "IllegalCharError","ValueError",
            "ExpectedCharError", "RunTimeError", "Position", "IllegalOperationError",
            "AttributeError","ArgumentError","TypeError","NameError",
            "IndexOutOfBoundsError","InvalidErrorTypeError","NotImplementedError",
-           "DivisionByZeroError","ModuleError",
+           "DivisionByZeroError","ModuleError","FileIOError",
            "Parser", "ParseResult",
            "TernaryOperationNode", "UnaryOperationNode", "BinaryOperationNode", "NumberNode",
            "Lexer", "Token", "Interpreter", "Context", "RunTimeResult"]

@@ -4,7 +4,7 @@ Error in tests/errors/modules/module_summon_errors.sad:
     summon totally_nonexistent_module
     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ModuleError: Module 'totally_nonexistent_module' not found. Searched:
-  tests/errors/modules/totally_nonexistent_module.sad
-  tests/errors/modules/totally_nonexistent_module.sard
   sards/stdlib/totally_nonexistent_module.sad
   sards/stdlib/totally_nonexistent_module.sard
+  tests/errors/modules/totally_nonexistent_module.sad
+  tests/errors/modules/totally_nonexistent_module.sard

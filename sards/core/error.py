@@ -456,7 +456,7 @@ class InvalidErrorTypeError(RunTimeError):
                 "Valid error types are: RunTimeError, IllegalOperationError, "
                 "DivisionByZeroError, IndexOutOfBoundsError, NameError, ArgumentError, "
                 "TypeError, AttributeError, DictKeyError, ValueError, ModuleError, "
-                "StackDepthExceededError."
+                "StackDepthExceededError, FileIOError."
             )
         super().__init__(pos_start, pos_end, details, context, hint)
         self.error_name = "InvalidErrorTypeError"
@@ -538,3 +538,41 @@ class StackDepthExceededError(RunTimeError):
             )
         super().__init__(pos_start, pos_end, details, context, hint)
         self.error_name = "StackDepthExceededError"
+
+
+class FileIOError(RunTimeError):
+    """
+    [E9006] Error raised when a file input/output operation fails.
+    """
+    error_code = 'E9006'
+
+    def __init__(self, pos_start, pos_end, details, context, hint=None):
+        if hint is None:
+            hint = "Verify that the path is correct, the file exists, and you have necessary permissions."
+        super().__init__(pos_start, pos_end, details, context, hint)
+        self.error_name = "FileIOError"
+
+
+class UserDefinedError(RunTimeError):
+    """
+    [E9007] Error raised when a user throws a model instance via the throw() built-in.
+
+    Wraps a ModelInstance so it can travel through the existing RunTimeResult /
+    traceback machinery.  The 'message' attribute of the instance (if present)
+    is used as the human-readable detail string; otherwise the model name is used.
+
+    Attributes:
+        instance: The ModelInstance that was thrown.
+    """
+    error_code = 'E9007'
+
+    def __init__(self, pos_start, pos_end, instance, context, hint=None):
+        msg_val = instance.symbol_table.get("message")
+        if msg_val is not None and hasattr(msg_val, 'value'):
+            details = str(msg_val.value)
+        else:
+            details = f"<{instance.model.name} instance>"
+
+        super().__init__(pos_start, pos_end, details, context, hint)
+        self.error_name = instance.model.name
+        self.instance = instance

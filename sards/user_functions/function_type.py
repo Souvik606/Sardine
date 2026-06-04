@@ -9,7 +9,7 @@ Classes:
 """
 from sards.ast_nodes import SymbolTable
 from sards.core.error import ArgumentError
-from sards.data_types import Number, String, List
+from sards.data_types import Number, Integer, Float, Boolean, String, List, Null
 
 class BaseFunction:
     """
@@ -69,9 +69,23 @@ class BaseFunction:
         new_context.symbol_table = SymbolTable(new_context.parent.symbol_table)
         return new_context
 
+    def get_comparison_eq(self, operand):
+        from sards.data_types.number_type import Boolean
+        from sards.data_types.null_type import Null
+        if isinstance(operand, Null):
+            return Boolean(False).set_context(self.context), None
+        return Boolean(self is operand).set_context(self.context), None
+
+    def get_comparison_neq(self, operand):
+        from sards.data_types.number_type import Boolean
+        from sards.data_types.null_type import Null
+        if isinstance(operand, Null):
+            return Boolean(True).set_context(self.context), None
+        return Boolean(self is not operand).set_context(self.context), None
+
     def is_true(self):
-        from sards.data_types import Number
-        return Number(1), None
+        from sards.data_types import Boolean
+        return Boolean(True), None
 
     def check_and_populate_args(self, param_nodes, pos_args, kw_args, exec_context):
         """
@@ -202,7 +216,7 @@ class Function(BaseFunction):
             return res
 
         return_value = ((value if self.auto_return else None) or
-                        res.func_return_value or Number(0))
+                        res.func_return_value or Null())
 
         return res.success(return_value)
 
@@ -340,6 +354,14 @@ class BuiltInFunction(BaseFunction):
                     return f"{{{pairs}}}"
                 if isinstance(node, String):
                     return f"'{node.value}'" if nested else str(node.value)
+                # For Number subclasses (Integer, Float, Boolean) use repr() so
+                # Boolean renders 'True'/'False' and Float renders with decimal point
+                from sards.data_types import Number as _Number
+                if isinstance(node, _Number):
+                    try:
+                        return repr(node)
+                    except Exception:
+                        return str(getattr(node, 'value', node))
                 if hasattr(node, 'value'):
                     try:
                         return str(node.value)
@@ -361,7 +383,7 @@ class BuiltInFunction(BaseFunction):
         output = separator.join([stringify(arg) for arg in pos_args])
         print(output, end=end_char)
 
-        return res.success(Number(0))
+        return res.success(Null())
 
     def execute_listen(self, pos_args, kw_args, exec_context):
         """
@@ -396,7 +418,7 @@ class BuiltInFunction(BaseFunction):
                 ArgumentError(self.pos_start, self.pos_end, "Argument must be a value convertible to an integer",
                               self.context))
 
-        return res.success(Number(number))
+        return res.success(Integer(number))
 
     def execute_String(self, pos_args, kw_args, exec_context):  # pylint: disable=C0103
         """
@@ -424,20 +446,36 @@ class BuiltInFunction(BaseFunction):
     def execute_type(self, pos_args, kw_args, exec_context):
         """
         Executes the 'type' built-in function.
+        Returns '<type Integer>', '<type Float>', '<type Boolean>',
+        '<type String>', '<type List>', '<type Dict>', '<type File>',
+        '<type Module>', or '<type ModelInstance>'.
         """
         from sards.core import RunTimeResult
+        from sards.data_types import Dict, Module, File
         res = RunTimeResult()
         if len(pos_args) != 1 or len(kw_args) > 0:
             return res.failure(
                 ArgumentError(self.pos_start, self.pos_end, "type() takes exactly one argument", self.context))
 
         data = pos_args[0]
-        if isinstance(data, Number):
-            output = "<type Number>"
+        if isinstance(data, Null):
+            output = "<type Null>"
+        elif isinstance(data, Boolean):
+            output = "<type Boolean>"
+        elif isinstance(data, Integer):
+            output = "<type Integer>"
+        elif isinstance(data, Float):
+            output = "<type Float>"
         elif isinstance(data, String):
             output = "<type String>"
         elif isinstance(data, List):
             output = "<type List>"
+        elif isinstance(data, Dict):
+            output = "<type Dict>"
+        elif isinstance(data, File):
+            output = "<type File>"
+        elif isinstance(data, Module):
+            output = "<type Module>"
         else:
             output = f"<type {type(data).__name__}>"
 
@@ -559,11 +597,11 @@ class BuiltInFunction(BaseFunction):
 
         if not isinstance(obj, ModelInstance):
             # Primitive types are never instances of any user-defined model
-            return res.success(Number(0))
+            return res.success(Boolean(False))
 
         # Use the existing is_descendant_of helper which already handles MRO
         result = obj.model.is_descendant_of(model_class)
-        return res.success(Number(1 if result else 0))
+        return res.success(Boolean(result))
 
     def execute_error(self, pos_args, kw_args, exec_context):
         from sards.core import RunTimeResult
@@ -590,6 +628,49 @@ class BuiltInFunction(BaseFunction):
             IllegalOperationError(
                 self.pos_start, self.pos_end,
                 msg,
+                exec_context.parent
+            )
+        )
+
+    def execute_throw(self, pos_args, kw_args, exec_context):
+        """
+        Executes the 'throw' built-in function.
+
+        Raises a UserDefinedError wrapping the given model instance so it can
+        be caught by a 'trap ModelName' block.
+
+        Signature:  throw(instance)  ->  (never returns normally)
+        """
+        from sards.core import RunTimeResult
+        from sards.core.error import UserDefinedError
+        from sards.oops_types import ModelInstance
+
+        res = RunTimeResult()
+
+        if kw_args or len(pos_args) != 1:
+            return res.failure(
+                ArgumentError(
+                    self.pos_start, self.pos_end,
+                    "throw() takes exactly one argument: a model instance",
+                    exec_context
+                )
+            )
+
+        instance = pos_args[0]
+        if not isinstance(instance, ModelInstance):
+            return res.failure(
+                ArgumentError(
+                    self.pos_start, self.pos_end,
+                    f"throw() requires a model instance, got '{type(instance).__name__}'. "
+                    f"Define your error type with 'model' and pass an instance.",
+                    exec_context
+                )
+            )
+
+        return res.failure(
+            UserDefinedError(
+                self.pos_start, self.pos_end,
+                instance,
                 exec_context.parent
             )
         )
@@ -650,7 +731,7 @@ class BuiltInFunction(BaseFunction):
                 )
             )
 
-        return res.success(Number(val))
+        return res.success(Integer(val))
 
     def execute_range(self, pos_args, kw_args, exec_context):
         from sards.core import RunTimeResult
@@ -668,7 +749,7 @@ class BuiltInFunction(BaseFunction):
             )
 
         for idx, arg in enumerate(pos_args):
-            if not isinstance(arg, Number) or isinstance(arg.value, float):
+            if type(arg) is not Integer:
                 return res.failure(
                     IllegalOperationError(
                         arg.pos_start, arg.pos_end,
@@ -731,7 +812,7 @@ class BuiltInFunction(BaseFunction):
         try:
             elements = []
             for i in range(start, end, step):
-                elements.append(Number(i).set_context(exec_context))
+                elements.append(Integer(i).set_context(exec_context))
         except (MemoryError, OverflowError):
             from sards.core.error import ValueError as SardineValueError
             return res.failure(
@@ -761,6 +842,150 @@ class BuiltInFunction(BaseFunction):
             )
         import sys
         sys.exit(0)
+
+    def execute_fopen(self, pos_args, kw_args, exec_context):
+        from sards.core import RunTimeResult
+        from sards.core.error import ArgumentError, FileIOError, TypeError
+        from sards.data_types import String, File
+
+        res = RunTimeResult()
+
+        filepath_val = None
+        mode_val = "r"
+
+        if len(pos_args) + len(kw_args) < 1 or len(pos_args) + len(kw_args) > 2:
+            return res.failure(ArgumentError(
+                self.pos_start, self.pos_end,
+                "fopen() takes 1 or 2 arguments: (path, mode='r')",
+                exec_context
+            ))
+
+        if len(pos_args) >= 1:
+            filepath_val = pos_args[0]
+        if len(pos_args) == 2:
+            mode_val_node = pos_args[1]
+            if not isinstance(mode_val_node, String):
+                return res.failure(TypeError(
+                    mode_val_node.pos_start, mode_val_node.pos_end,
+                    "Mode argument must be a String",
+                    exec_context
+                ))
+            mode_val = mode_val_node.value
+
+        for k, v in kw_args.items():
+            if k == "path":
+                if filepath_val is not None:
+                    return res.failure(ArgumentError(self.pos_start, self.pos_end, "Multiple values for argument 'path'", exec_context))
+                filepath_val = v
+            elif k == "mode":
+                if len(pos_args) == 2:
+                    return res.failure(ArgumentError(self.pos_start, self.pos_end, "Multiple values for argument 'mode'", exec_context))
+                if not isinstance(v, String):
+                    return res.failure(TypeError(
+                        v.pos_start, v.pos_end,
+                        "Mode argument must be a String",
+                        exec_context
+                    ))
+                mode_val = v.value
+            else:
+                return res.failure(ArgumentError(
+                    self.pos_start, self.pos_end,
+                    f"Unexpected keyword argument '{k}' for fopen()",
+                    exec_context
+                ))
+
+        if filepath_val is None:
+            return res.failure(ArgumentError(
+                self.pos_start, self.pos_end,
+                "Missing required argument 'path' for fopen()",
+                exec_context
+            ))
+
+        if not isinstance(filepath_val, String):
+            return res.failure(TypeError(
+                filepath_val.pos_start, filepath_val.pos_end,
+                "Path argument must be a String",
+                exec_context
+            ))
+
+        if mode_val not in ("r", "w", "a"):
+            return res.failure(FileIOError(
+                self.pos_start, self.pos_end,
+                f"Invalid open mode '{mode_val}'. Supported modes are: 'r', 'w', 'a'",
+                exec_context
+            ))
+
+        path = filepath_val.value
+        try:
+            file_obj = open(path, mode_val, encoding='utf-8')
+            file_instance = File(path, mode_val, file_obj)
+            file_instance.set_pos(self.pos_start, self.pos_end)
+            file_instance.set_context(exec_context)
+            return res.success(file_instance)
+        except FileNotFoundError:
+            return res.failure(FileIOError(
+                filepath_val.pos_start, filepath_val.pos_end,
+                f"File not found: '{path}'",
+                exec_context
+            ))
+        except PermissionError:
+            return res.failure(FileIOError(
+                filepath_val.pos_start, filepath_val.pos_end,
+                f"Permission denied: '{path}'",
+                exec_context
+            ))
+        except Exception as e:
+            return res.failure(FileIOError(
+                filepath_val.pos_start, filepath_val.pos_end,
+                f"Failed to open file '{path}': {str(e)}",
+                exec_context
+            ))
+
+    def execute_Float(self, pos_args, kw_args, exec_context):  # pylint: disable=C0103
+        """
+        Executes the 'Float' built-in function.
+        Converts Integer, Boolean, or String to a Float (exact Decimal).
+        """
+        from sards.core import RunTimeResult
+        from decimal import InvalidOperation
+        res = RunTimeResult()
+        if len(pos_args) != 1 or len(kw_args) > 0:
+            return res.failure(
+                ArgumentError(self.pos_start, self.pos_end, "Float() takes exactly one argument", self.context))
+
+        arg = pos_args[0]
+        if not hasattr(arg, 'value'):
+            return res.failure(
+                ArgumentError(self.pos_start, self.pos_end, "Argument must be a primitive value (Number or String)", self.context))
+
+        try:
+            result = Float(str(arg.value))
+        except (ValueError, TypeError, OverflowError, InvalidOperation) as exc:
+            return res.failure(
+                ArgumentError(self.pos_start, self.pos_end, "Argument must be a value convertible to a Float",
+                              self.context))
+
+        return res.success(result)
+
+    def execute_Boolean(self, pos_args, kw_args, exec_context):  # pylint: disable=C0103
+        """
+        Executes the 'Boolean' built-in function.
+        Converts any Sardine value to a Boolean (True/False).
+        """
+        from sards.core import RunTimeResult
+        res = RunTimeResult()
+        if len(pos_args) != 1 or len(kw_args) > 0:
+            return res.failure(
+                ArgumentError(self.pos_start, self.pos_end, "Boolean() takes exactly one argument", self.context))
+
+        arg = pos_args[0]
+        if hasattr(arg, 'is_true'):
+            cond, err = arg.is_true()
+            if err:
+                return res.failure(err)
+            return res.success(Boolean(bool(cond.value)))
+        # For any other object — treat as truthy
+        return res.success(Boolean(True))
 
 
 class BoundMethod:
@@ -800,8 +1025,24 @@ class BoundMethod:
         return copy
 
     def is_true(self):
-        from sards.data_types import Number
-        return Number(1), None
+        from sards.data_types import Boolean
+        return Boolean(True), None
+
+    def get_comparison_eq(self, operand):
+        from sards.data_types.number_type import Boolean
+        from sards.data_types.null_type import Null
+        if isinstance(operand, Null):
+            return Boolean(False).set_context(self.context), None
+        if isinstance(operand, BoundMethod):
+            eq = (self.instance is operand.instance) and (self.python_func == operand.python_func)
+            return Boolean(eq).set_context(self.context), None
+        return Boolean(self is operand).set_context(self.context), None
+
+    def get_comparison_neq(self, operand):
+        eq_val, err = self.get_comparison_eq(operand)
+        if err: return None, err
+        from sards.data_types.number_type import Boolean
+        return Boolean(not eq_val.value).set_context(self.context), None
 
     def __repr__(self):
         return f"<bound method {self.name} of {self.instance}>"
@@ -810,11 +1051,15 @@ class BoundMethod:
 BuiltInFunction.show = BuiltInFunction('show')
 BuiltInFunction.listen = BuiltInFunction('listen')
 BuiltInFunction.Integer = BuiltInFunction('Integer')
+BuiltInFunction.Float = BuiltInFunction('Float')
+BuiltInFunction.Boolean = BuiltInFunction('Boolean')
 BuiltInFunction.String = BuiltInFunction('String')
 BuiltInFunction.type = BuiltInFunction('type')
 BuiltInFunction.super = BuiltInFunction('super')
 BuiltInFunction.is_a = BuiltInFunction('is_a')
 BuiltInFunction.error = BuiltInFunction('error')
+BuiltInFunction.throw = BuiltInFunction('throw')
 BuiltInFunction.len = BuiltInFunction('len')
 BuiltInFunction.range = BuiltInFunction('range')
 BuiltInFunction.exit = BuiltInFunction('exit')
+BuiltInFunction.open = BuiltInFunction('fopen')

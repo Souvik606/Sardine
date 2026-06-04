@@ -68,8 +68,22 @@ class Module:
     # ------------------------------------------------------------------
 
     def is_true(self):
-        from sards.data_types.number_type import Number
-        return Number(1), None
+        from sards.data_types.number_type import Boolean
+        return Boolean(True), None
+
+    def get_comparison_eq(self, operand):
+        from sards.data_types.number_type import Boolean
+        from sards.data_types.null_type import Null
+        if isinstance(operand, Null):
+            return Boolean(False).set_context(self.context), None
+        return Boolean(self is operand).set_context(self.context), None
+
+    def get_comparison_neq(self, operand):
+        from sards.data_types.number_type import Boolean
+        from sards.data_types.null_type import Null
+        if isinstance(operand, Null):
+            return Boolean(True).set_context(self.context), None
+        return Boolean(self is not operand).set_context(self.context), None
 
     def __repr__(self):
         return f"<module '{self.name}'>"

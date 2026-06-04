@@ -29,21 +29,25 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 from sards import *
 
 global_symbol_table = SymbolTable()
-global_symbol_table.set("None", Number(0))
-global_symbol_table.set("True", Number(1))
-global_symbol_table.set("False", Number(0))
+global_symbol_table.set("Null", Null())
+global_symbol_table.set("True", Boolean(True))
+global_symbol_table.set("False", Boolean(False))
 
 global_symbol_table.set("show", BuiltInFunction.show)
 global_symbol_table.set("listen", BuiltInFunction.listen)
 global_symbol_table.set("Integer", BuiltInFunction.Integer)
+global_symbol_table.set("Float", BuiltInFunction.Float)
+global_symbol_table.set("Boolean", BuiltInFunction.Boolean)
 global_symbol_table.set("String", BuiltInFunction.String)
 global_symbol_table.set("type", BuiltInFunction.type)
 global_symbol_table.set("super", BuiltInFunction.super)
 global_symbol_table.set("is_a", BuiltInFunction.is_a)
 global_symbol_table.set("error", BuiltInFunction.error)
+global_symbol_table.set("throw", BuiltInFunction.throw)
 global_symbol_table.set("len", BuiltInFunction.len)
 global_symbol_table.set("range", BuiltInFunction.range)
 global_symbol_table.set("exit", BuiltInFunction.exit)
+global_symbol_table.set("fopen", BuiltInFunction.open)
 
 
 def run(filename, input_text):
@@ -71,6 +75,9 @@ def run(filename, input_text):
     else:
         print(ast)
     """
+    from sards.core.interpreter import _MODULE_CACHE
+    _MODULE_CACHE.clear()
+
     lexer = Lexer(filename, input_text)  # Initialize the Lexer with the input text
     tokens, error = lexer.enumerate_tokens()
 

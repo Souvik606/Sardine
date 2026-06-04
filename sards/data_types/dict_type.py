@@ -1,4 +1,5 @@
-from .number_type import Number
+from decimal import Decimal
+from .number_type import Number, Integer, Boolean
 from .string_type import String
 from sards.core.error import RunTimeError, IllegalOperationError, DictKeyError
 import threading
@@ -21,13 +22,7 @@ class Dict:
         self.pos_start = None
         self.elements = {}
         for key, value in elements:
-            try:
-                if hasattr(key, 'value'):
-                    self.elements[key.value] = value
-                else:
-                    self.elements[key] = value
-            except TypeError:
-                self.elements[str(key)] = value
+            self.elements[key] = value
             
         self.set_pos()
         self.set_context()
@@ -43,7 +38,7 @@ class Dict:
         return self
     
     def copy(self):
-        elements = [(k, v)
+        elements = [(k.copy() if hasattr(k, 'copy') else k, v.copy() if hasattr(v, 'copy') else v)
                    for k, v in self.elements.items()]
         copy = Dict(elements)
         copy.set_pos(self.pos_start, self.pos_end)
@@ -57,15 +52,13 @@ class Dict:
             return "{...}"
         _repr_state.visited.add(id(self))
         try:
-            def format_key(k):
-                return f"'{k}'" if isinstance(k, str) else str(k)
-            res = f'{{{", ".join([f"{format_key(k)}: {repr(v)}" for k, v in self.elements.items()])}}}'
+            res = f'{{{", ".join([f"{repr(k)}: {repr(v)}" for k, v in self.elements.items()])}}}'
         finally:
             _repr_state.visited.remove(id(self))
         return res
     
     def is_true(self):
-        return Number(len(self.elements)).set_context(self.context), None    
+        return Boolean(len(self.elements) > 0).set_context(self.context), None    
 
     def getByIndex(self, indexes):
         from .list_type import List #Avoiding Circular Import
@@ -74,7 +67,7 @@ class Dict:
             for idx in indexes:
                 if isinstance(temp, Dict):
                     if isinstance(idx, (Number, String)):
-                        temp = temp.elements.get(idx.value)
+                        temp = temp.elements.get(idx)
                         if temp is None:
                             return None, DictKeyError(
                                 idx.pos_start, idx.pos_end,
@@ -87,7 +80,7 @@ class Dict:
                             "Dictionary keys must be numbers or strings",
                             self.context
                         )
-                elif isinstance(idx, Number) and not isinstance(idx.value, float):
+                elif type(idx) is Integer:
                     if isinstance(temp, List):
                         temp = temp.elements[idx.value]
                     elif isinstance(temp, String):
@@ -99,9 +92,9 @@ class Dict:
                             self.context
                         )
                 else:
-                    return None, RunTimeError(
+                    return None, IllegalOperationError(
                         idx.pos_start, idx.pos_end,
-                        "Invalid Index Type",
+                        "Index must be of an integer Number type",
                         self.context
                     )
 
@@ -123,7 +116,7 @@ class Dict:
             for idx in indexes[:-1]:
                 if isinstance(temp, Dict):
                     if isinstance(idx, (Number, String)):
-                        temp = temp.elements.get(idx.value)
+                        temp = temp.elements.get(idx)
                         if temp is None:
                             return None, DictKeyError(
                                 idx.pos_start, idx.pos_end,
@@ -136,7 +129,7 @@ class Dict:
                             "Dictionary keys must be numbers or strings",
                             self.context
                         )
-                elif isinstance(idx, Number) and not isinstance(idx.value, float):
+                elif type(idx) is Integer:
                     if isinstance(temp, List):
                         temp = temp.elements[idx.value]
                     elif isinstance(temp, String):
@@ -152,9 +145,9 @@ class Dict:
                             self.context
                         )
                 else:
-                    return None, RunTimeError(
+                    return None, IllegalOperationError(
                         idx.pos_start, idx.pos_end,
-                        "Invalid Index Type",
+                        "Index must be of an integer Number type",
                         self.context
                     )
 
@@ -163,7 +156,7 @@ class Dict:
             #Case 3: assigning inside a Dict
             if isinstance(temp, Dict):
                 if isinstance(last_idx, (Number, String)):
-                    temp.elements[last_idx.value] = val
+                    temp.elements[last_idx] = val
                     return new_dict, None
                 else:
                     return None, DictKeyError(
@@ -172,10 +165,10 @@ class Dict:
                         self.context
                     )
                 
-            if not isinstance(last_idx, Number) or isinstance(last_idx.value, float):
-                return None, RunTimeError(
+            if type(last_idx) is not Integer:
+                return None, IllegalOperationError(
                     last_idx.pos_start, last_idx.pos_end,
-                    "Invalid Index Type",
+                    "Index must be of an integer Number type",
                     self.context
                 )
 
@@ -201,9 +194,15 @@ class Dict:
                     # Instead of indexing into String, go back to the parent List or Dict
                     parent = new_dict
                     for idx in indexes[:-2]:
-                        parent = parent.elements[idx.value]
+                        if isinstance(parent, Dict):
+                            parent = parent.elements.get(idx)
+                        else:
+                            parent = parent.elements[idx.value]
 
-                    parent.elements[indexes[-2].value] = replaced
+                    if isinstance(parent, Dict):
+                        parent.elements[indexes[-2]] = replaced
+                    else:
+                        parent.elements[indexes[-2].value] = replaced
                     return new_dict, None
 
                 except IndexError:
@@ -257,13 +256,15 @@ class Dict:
         
         new_dict = self.copy()
         
-        if operand.value in new_dict.elements:
-            del new_dict.elements[operand.value]
+        if operand in new_dict.elements:
+            del new_dict.elements[operand]
             
         return new_dict, None
 
     def get_comparison_eq(self, operand):
         """Returns 1 if dicts have same key-value pairs, 0 otherwise"""
+        if type(operand).__name__ == "Null":
+            return Boolean(False).set_context(self.context), None
         if not isinstance(operand, Dict):
             return None, IllegalOperationError(
                 operand.pos_start, 
@@ -276,27 +277,29 @@ class Dict:
             _repr_state.comparing = set()
         pair = (id(self), id(operand))
         if pair in _repr_state.comparing:
-            return Number(1).set_context(self.context), None
+            return Boolean(True).set_context(self.context), None
         _repr_state.comparing.add(pair)
         try:
             if len(self.elements) != len(operand.elements):
-                return Number(0).set_context(self.context), None
+                return Boolean(False).set_context(self.context), None
                 
             try:
                 for k, v in self.elements.items():
                     if k not in operand.elements:
-                        return Number(0).set_context(self.context), None
+                        return Boolean(False).set_context(self.context), None
                     if str(v) != str(operand.elements[k]):
-                        return Number(0).set_context(self.context), None
+                        return Boolean(False).set_context(self.context), None
                         
-                return Number(1).set_context(self.context), None
+                return Boolean(True).set_context(self.context), None
             except:
-                return Number(0).set_context(self.context), None
+                return Boolean(False).set_context(self.context), None
         finally:
             _repr_state.comparing.remove(pair)
 
     def get_comparison_neq(self, operand):
         """Returns opposite of eq comparison"""
+        if type(operand).__name__ == "Null":
+            return Boolean(True).set_context(self.context), None
         if not isinstance(operand, Dict):
             return None, IllegalOperationError(
                 operand.pos_start, 
@@ -307,7 +310,7 @@ class Dict:
         result, error = self.get_comparison_eq(operand)
         if error:
             return None, error
-        return Number(1 if result.value == 0 else 0).set_context(self.context), None
+        return Boolean(not bool(result.value)).set_context(self.context), None
 
     def multiply(self, operand):
         return None, IllegalOperationError(
@@ -446,13 +449,9 @@ class Dict:
             if pos_args or kw_args:
                 return res.failure(ArgumentError(instance.pos_start, instance.pos_end, "keys() takes no arguments", exec_context))
             
-            list_keys = []
-            for k in instance.elements.keys():
-                if isinstance(k, (int, float)):
-                    node = Number(k)
-                else:
-                    node = String(str(k))
-                list_keys.append(node.set_context(calling_context))
+            list_keys = [k.copy() if hasattr(k, 'copy') else k for k in instance.elements.keys()]
+            for k in list_keys:
+                k.set_context(calling_context)
             return res.success(List(list_keys).set_context(calling_context))
 
         def method_values(instance, pos_args, kw_args, exec_context):
@@ -470,10 +469,7 @@ class Dict:
             
             pairs = []
             for k, v in instance.elements.items():
-                if isinstance(k, (int, float)):
-                    k_node = Number(k)
-                else:
-                    k_node = String(str(k))
+                k_node = k.copy() if hasattr(k, 'copy') else k
                 k_node.set_context(calling_context)
                 
                 pair_list = List([k_node, v.copy()]).set_context(calling_context)
@@ -492,9 +488,9 @@ class Dict:
             if not isinstance(key, (Number, String)):
                 return res.failure(IllegalOperationError(key.pos_start, key.pos_end, "Key must be a Number or String", exec_context))
             
-            default_val = pos_args[1] if len(pos_args) == 2 else Number(0)
+            default_val = pos_args[1] if len(pos_args) == 2 else Integer(0)
             
-            val = instance.elements.get(key.value)
+            val = instance.elements.get(key)
             if val is None:
                 return res.success(default_val)
             return res.success(val.copy())
@@ -508,8 +504,8 @@ class Dict:
             if not isinstance(key, (Number, String)):
                 return res.failure(IllegalOperationError(key.pos_start, key.pos_end, "Key must be a Number or String", exec_context))
             
-            ans = 1 if key.value in instance.elements else 0
-            return res.success(Number(ans))
+            ans = 1 if key in instance.elements else 0
+            return res.success(Boolean(bool(ans)))
 
         def method_contains(instance, pos_args, kw_args, exec_context):
             return method_has_key(instance, pos_args, kw_args, exec_context)
@@ -523,12 +519,12 @@ class Dict:
             if not isinstance(key, (Number, String)):
                 return res.failure(IllegalOperationError(key.pos_start, key.pos_end, "Key must be a Number or String", exec_context))
             
-            if key.value not in instance.elements:
+            if key not in instance.elements:
                 if len(pos_args) == 2:
                     return res.success(pos_args[1])
-                return res.failure(DictKeyError(key.pos_start, key.pos_end, f"Key '{key.value}' not found in dictionary", exec_context))
+                return res.failure(DictKeyError(key.pos_start, key.pos_end, f"Key '{key}' not found in dictionary", exec_context))
             
-            popped = instance.elements.pop(key.value)
+            popped = instance.elements.pop(key)
             return res.success(popped)
 
         def method_pop_item(instance, pos_args, kw_args, exec_context):
@@ -540,13 +536,9 @@ class Dict:
                 return res.failure(IllegalOperationError(instance.pos_start, instance.pos_end, "pop_item() called on empty dictionary", exec_context))
             
             k, v = instance.elements.popitem()
-            if isinstance(k, (int, float)):
-                k_node = Number(k)
-            else:
-                k_node = String(str(k))
-            k_node.set_context(calling_context)
+            k.set_context(calling_context)
             
-            pair_list = List([k_node, v]).set_context(calling_context)
+            pair_list = List([k, v]).set_context(calling_context)
             return res.success(pair_list)
 
         def method_update(instance, pos_args, kw_args, exec_context):

@@ -11,18 +11,19 @@ Classes:
 """
 
 import os
+import builtins
 
 from sards.ast_nodes import SymbolTable
-from sards.data_types import Number, String, List, Dict, Module
+from sards.data_types import Number, Integer, Float, Boolean, String, List, Dict, Module, Null
 
 from .constants import (T_PLUS, T_MINUS, T_MUL, T_DIVIDE, T_MODULUS, T_FLOOR, T_BITAND, T_BITXOR, T_BITOR, T_BITNOT, T_EXP, T_EE,
-                        T_LSHIFT, T_RSHIFT, T_NEQ, T_GT, T_GTE, T_LT, T_LTE, T_KEYWORD, ERROR_TYPES)
+                        T_LSHIFT, T_RSHIFT, T_NEQ, T_GT, T_GTE, T_LT, T_LTE, T_KEYWORD, T_INT, T_FLOAT, ERROR_TYPES)
 from .error import (
     NameError, NotImplementedError, InvalidErrorTypeError, RunTimeError,
     IllegalOperationError, IndexOutOfBoundsError, ArgumentError,
     DivisionByZeroError, ModuleError, AttributeError, DictKeyError,
-    TypeError, ValueError, StackDepthExceededError,
-    fuzzy_match
+    TypeError, ValueError, StackDepthExceededError, FileIOError,
+    UserDefinedError, fuzzy_match
 )
 
 # Global module cache: abs_path -> Module instance
@@ -46,6 +47,7 @@ ERROR_CLASS_MAP = {
     "TypeError": TypeError,
     "ValueError": ValueError,
     "StackDepthExceededError": StackDepthExceededError,
+    "FileIOError": FileIOError,
 }
 
 
@@ -280,22 +282,28 @@ class Interpreter:
         handled = False
 
         for trap_node in node.trap_nodes:
-            if trap_node.error_type and trap_node.error_type.value not in ERROR_CLASS_MAP:
-                return res.failure(
-                    InvalidErrorTypeError(
-                        trap_node.pos_start, trap_node.pos_end,
-                        f"'{trap_node.error_type}' is not a valid error type",
-                        context
-                    )
-                )
-
             matches = False
+
             if trap_node.error_type is None:
                 matches = True
-            else:
+            elif trap_node.error_type.value in ERROR_CLASS_MAP:
                 caught_cls = ERROR_CLASS_MAP[trap_node.error_type.value]
-                actual_cls = type(error)
-                if issubclass(actual_cls, caught_cls):
+                if issubclass(type(error), caught_cls):
+                    matches = True
+            else:
+                from sards.oops_types import Model
+                model_class = context.symbol_table.get(trap_node.error_type.value)
+                if model_class is None or not isinstance(model_class, Model):
+                    return res.failure(
+                        InvalidErrorTypeError(
+                            trap_node.pos_start, trap_node.pos_end,
+                            f"'{trap_node.error_type.value}' is not a valid error type or model name",
+                            context,
+                            hint="Use a built-in error name (e.g. RunTimeError) or a model defined with 'model'."
+                        )
+                    )
+                if isinstance(error, UserDefinedError) and \
+                        error.instance.model.is_descendant_of(model_class):
                     matches = True
 
             # Match error (type check or wildcard)
@@ -306,15 +314,20 @@ class Interpreter:
 
                 # Bind error variable if provided
                 if trap_node.error_name:
-                    from sards.oops_types.class_type import Model
                     from sards.oops_types.class_instance import ModelInstance
                     from sards.data_types import String
 
-                    exception_model = Model(error.error_name, [], None, {})
-                    e_instance = ModelInstance(exception_model)
-                    e_instance.set_attr("type", String(error.error_name))
-                    e_instance.set_attr("message", String(error.details))
-                    e_instance.set_attr("traceback", String(error.to_string()))
+                    if isinstance(error, UserDefinedError):
+                        # Pass the original model instance — all user attrs are intact
+                        e_instance = error.instance
+                    else:
+                        # Synthetic instance for built-in errors (existing behaviour)
+                        from sards.oops_types.class_type import Model
+                        exception_model = Model(error.error_name, [], None, {})
+                        e_instance = ModelInstance(exception_model)
+                        e_instance.set_attr("type", String(error.error_name))
+                        e_instance.set_attr("message", String(error.details))
+                        e_instance.set_attr("traceback", String(error.to_string()))
 
                     trap_context.symbol_table.set(
                         trap_node.error_name.value,
@@ -410,11 +423,14 @@ class Interpreter:
                 if res.should_return():
                     return res
                 try:
-                    str_val = str(value)
-                except (ValueError, OverflowError, MemoryError):
+                    if isinstance(value, Number):
+                        str_val = repr(value)
+                    else:
+                        str_val = str(value)
+                except (builtins.ValueError, OverflowError, MemoryError):
                     try:
                         str_val = f"{float(value.value):.4e}" if hasattr(value, 'value') else "INF"
-                    except:
+                    except Exception:
                         str_val = "INF"
                 result_str += str_val
 
@@ -451,7 +467,7 @@ class Interpreter:
                 step_val = res.register(self.visit(node.step_node, context))
                 if res.should_return(): return res
             else:
-                step_val = Number(1)
+                step_val = Integer(1)
 
             if not isinstance(start_val, Number):
                 return res.failure(TypeError(
@@ -528,6 +544,15 @@ class Interpreter:
             elif isinstance(collection, String):
                 items = [String(ch).set_context(context).set_pos(
                     node.pos_start, node.pos_end) for ch in collection.value]
+            elif type(collection).__name__ == "File":
+                if collection.file_obj.closed:
+                    from sards.core.error import FileIOError
+                    return res.failure(FileIOError(node.pos_start, node.pos_end, "I/O operation on closed file.", context))
+                try:
+                    items = [String(line).set_context(context).set_pos(node.pos_start, node.pos_end) for line in collection.file_obj]
+                except Exception as e:
+                    from sards.core.error import FileIOError
+                    return res.failure(FileIOError(node.pos_start, node.pos_end, f"Failed to read file lines: {str(e)}", context))
             else:
                 return res.failure(IllegalOperationError(
                     node.pos_start, node.pos_end,
@@ -597,7 +622,7 @@ class Interpreter:
                 step_val = res.register(self.visit(node.step_node, context))
                 if res.should_return(): return res
             else:
-                step_val = Number(1)
+                step_val = Integer(1)
 
             if not isinstance(start_val, Number):
                 return res.failure(TypeError(
@@ -674,6 +699,15 @@ class Interpreter:
             elif isinstance(collection, String):
                 items = [String(ch).set_context(context).set_pos(
                     node.pos_start, node.pos_end) for ch in collection.value]
+            elif type(collection).__name__ == "File":
+                if collection.file_obj.closed:
+                    from sards.core.error import FileIOError
+                    return res.failure(FileIOError(node.pos_start, node.pos_end, "I/O operation on closed file.", context))
+                try:
+                    items = [String(line).set_context(context).set_pos(node.pos_start, node.pos_end) for line in collection.file_obj]
+                except Exception as e:
+                    from sards.core.error import FileIOError
+                    return res.failure(FileIOError(node.pos_start, node.pos_end, f"Failed to read file lines: {str(e)}", context))
             else:
                 return res.failure(IllegalOperationError(
                     node.pos_start, node.pos_end,
@@ -815,7 +849,7 @@ class Interpreter:
                     return res.failure(SardineValueError(node.pos_start, node.pos_end, "Loop execution result accumulation limit exceeded (max 100,000 items)", context))
 
         return res.success(
-            Number(0) if node.return_null else (List(elements).set_context(context)
+            Null().set_context(context).set_pos(node.pos_start, node.pos_end) if node.return_null else (List(elements).set_context(context)
                                                 .set_pos(node.pos_start, node.pos_end)))
 
     def visit_ForNode(self, node, context):
@@ -835,7 +869,7 @@ class Interpreter:
             if res.should_return():
                 return res
         else:
-            step_value = Number(1)
+            step_value = Integer(1)
 
         if not isinstance(start_value, Number):
             return res.failure(TypeError(
@@ -881,7 +915,7 @@ class Interpreter:
             if not constants.UNBOUNDED_MODE and iterations >= 200000:
                 from sards.core.error import ValueError as SardineValueError
                 return res.failure(SardineValueError(node.pos_start, node.pos_end, "Loop execution limit exceeded (max 100,000 iterations)", context))
-            context.symbol_table.set(node.var_name_tok.value, Number(i))
+            context.symbol_table.set(node.var_name_tok.value, Integer(i))
             i += step_value.value
 
             value = res.register(self.visit(node.body_node, context))
@@ -903,7 +937,7 @@ class Interpreter:
                     return res.failure(SardineValueError(node.pos_start, node.pos_end, "Loop execution result accumulation limit exceeded (max 100,000 items)", context))
 
         return res.success(
-            Number(0) if node.return_null else (List(elements)
+            Null().set_context(context).set_pos(node.pos_start, node.pos_end) if node.return_null else (List(elements)
                                                 .set_context(context)
                                                 .set_pos(node.pos_start,node.pos_end)))
 
@@ -1036,6 +1070,52 @@ class Interpreter:
                     )
                 )
 
+        elif type(collection).__name__ == "File":
+            if num_vars == 1:
+                var_name = var_name_tokens[0].value
+                if collection.file_obj.closed:
+                    from sards.core.error import FileIOError
+                    return res.failure(
+                        FileIOError(
+                            getattr(collection, 'pos_start', node.pos_start),
+                            getattr(collection, 'pos_end', node.pos_end),
+                            "I/O operation on closed file.",
+                            context
+                        )
+                    )
+                try:
+                    for line in collection.file_obj:
+                        line_str = String(line).set_context(context).set_pos(node.pos_start, node.pos_end)
+                        context.symbol_table.set(var_name, line_str)
+
+                        value = res.register(self.visit(node.body_node, context))
+                        if (res.should_return() and
+                                not res.loop_continue and
+                                not res.loop_or_switch_break):
+                            return res
+                        if res.loop_continue:
+                            continue
+                        if res.loop_or_switch_break:
+                            break
+                except Exception as e:
+                    from sards.core.error import FileIOError
+                    return res.failure(
+                        FileIOError(
+                            getattr(collection, 'pos_start', node.pos_start),
+                            getattr(collection, 'pos_end', node.pos_end),
+                            f"Failed to read file lines: {str(e)}",
+                            context
+                        )
+                    )
+            else:
+                return res.failure(
+                    ArgumentError(
+                        node.pos_start, node.pos_end,
+                        f"Cannot unpack a File line into {num_vars} variables",
+                        context
+                    )
+                )
+
         else:
             return res.failure(
                 IllegalOperationError(
@@ -1043,11 +1123,11 @@ class Interpreter:
                     getattr(collection, 'pos_end', node.pos_end),
                     f"'{type(collection).__name__}' object is not iterable",
                     context,
-                    hint="Only List, String, and Dict values can be iterated with 'trace'."
+                    hint="Only List, String, Dict, and File values can be iterated with 'trace'."
                 )
             )
 
-        return res.success(Number(0))
+        return res.success(Null().set_context(context).set_pos(node.pos_start, node.pos_end))
 
     def visit_SwitchNode(self, node, context):
         res = RunTimeResult()
@@ -1108,12 +1188,12 @@ class Interpreter:
             if (res.should_return() and
                 not res.loop_or_switch_break):
                 return res
-            elements.append(Number(0) if return_null else body_val)
+            elements.append(Null().set_context(context).set_pos(body.pos_start, body.pos_end) if return_null else body_val)
             if res.loop_or_switch_break:
                 break
 
         return res.success(
-            Number(0) if node.return_null else (List(elements)
+            Null().set_context(context).set_pos(node.pos_start, node.pos_end) if node.return_null else (List(elements)
                                                 .set_context(context)
                                                 .set_pos(node.pos_start,
                                                                                            node.pos_end)))
@@ -1130,16 +1210,16 @@ class Interpreter:
                 expression_value = res.register(self.visit(expression, context))
                 if res.should_return():
                     return res
-                return res.success(Number(0) if return_null else expression_value)
+                return res.success(Null().set_context(context).set_pos(expression.pos_start, expression.pos_end) if return_null else expression_value)
 
         if node.else_case:
             expression, return_null = node.else_case
             else_value = res.register(self.visit(expression, context))
             if res.should_return():
                 return res
-            return res.success(Number(0) if return_null else else_value)
+            return res.success(Null().set_context(context).set_pos(expression.pos_start, expression.pos_end) if return_null else else_value)
 
-        return res.success(Number(0))
+        return res.success(Null().set_context(context).set_pos(node.pos_start, node.pos_end))
 
     def visit_VariableUseNode(self, node, context):
         from sards.user_functions import Function
@@ -1383,8 +1463,13 @@ class Interpreter:
         return res.success(value)
 
     def visit_NumberNode(self, node, context):
+        """Dispatch to Integer or Float based on the token type."""
+        if node.token.type == T_FLOAT:
+            return RunTimeResult().success(
+                Float(node.token.value).set_context(context).set_pos(node.pos_start, node.pos_end)
+            )
         return RunTimeResult().success(
-            Number(node.token.value).set_context(context).set_pos(node.pos_start, node.pos_end)
+            Integer(node.token.value).set_context(context).set_pos(node.pos_start, node.pos_end)
         )
 
     def visit_ReturnNode(self, node, context):
@@ -1392,7 +1477,7 @@ class Interpreter:
         return_values = []
 
         if not node.nodes_to_return:
-            return res.success_return(Number(0))
+            return res.success_return(Null().set_context(context).set_pos(node.pos_start, node.pos_end))
 
         for node_to_return in node.nodes_to_return:
             value = res.register(self.visit(node_to_return, context))
@@ -1457,7 +1542,7 @@ class Interpreter:
             method = getattr(left_node, method_name)
             try:
                 result, error = method(right_node)
-            except (ValueError, TypeError, OverflowError, MemoryError, AttributeError) as e:
+            except (builtins.ValueError, builtins.TypeError, OverflowError, MemoryError, builtins.AttributeError) as e:
                 return res.failure(IllegalOperationError(
                     node.pos_start, node.pos_end,
                     f"Error during binary operation '{op_symbol}': {str(e)}",
@@ -1521,11 +1606,11 @@ class Interpreter:
                 ))
             try:
                 if method_name == 'multiply':
-                    number, error = number.multiply(Number(-1))
+                    number, error = number.multiply(Integer(-1))
                 else:
                     method = getattr(number, method_name)
                     number, error = method()
-            except (ValueError, TypeError, OverflowError, MemoryError, AttributeError) as e:
+            except (builtins.ValueError, builtins.TypeError, OverflowError, MemoryError, builtins.AttributeError) as e:
                 return res.failure(IllegalOperationError(
                     node.pos_start, node.pos_end,
                     f"Error during unary operation '{op_symbol}': {str(e)}",
@@ -1559,10 +1644,10 @@ class Interpreter:
         # Derive the directory of the currently-executing file from context.
         source_dir = getattr(context, 'source_dir', None) or os.getcwd()
         candidates = [
-            os.path.join(source_dir, module_name + '.sad'),
-            os.path.join(source_dir, module_name + '.sard'),
             os.path.join(_STDLIB_DIR, module_name + '.sad'),
             os.path.join(_STDLIB_DIR, module_name + '.sard'),
+            os.path.join(source_dir, module_name + '.sad'),
+            os.path.join(source_dir, module_name + '.sard'),
         ]
 
         resolved_path = None

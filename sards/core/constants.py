@@ -78,6 +78,6 @@ KEYWORDS = ['define', 'and', 'or', 'not', 'when', 'orwhen', 'otherwise', 'Cycle'
 
 ERROR_TYPES=['RunTimeError','IllegalOperationError','DivisionByZeroError','IndexOutOfBoundsError',
              'NameError','ArgumentError','InvalidErrorTypeError','ModuleError',
-             'AttributeError','DictKeyError','TypeError','ValueError', 'StackDepthExceededError']
+             'AttributeError','DictKeyError','TypeError','ValueError', 'StackDepthExceededError', 'FileIOError']
 
 UNBOUNDED_MODE = False

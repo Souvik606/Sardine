@@ -1,4 +1,4 @@
-from .number_type import Number
+from .number_type import Number, Integer, Boolean
 from .string_type import String
 from sards.core.error import RunTimeError, IllegalOperationError, DictKeyError, IndexOutOfBoundsError
 import threading
@@ -32,11 +32,25 @@ class List:
     def add(self, operand):
         from .dict_type import Dict #Avoiding Circular Import
         if isinstance(operand, Number) or isinstance(operand, String) or isinstance(operand, Dict):
+            if len(self.elements) + 1 > 100000:
+                from sards.core.error import ValueError as SardineValueError
+                return None, SardineValueError(
+                    operand.pos_start, operand.pos_end,
+                    f"List size limit exceeded (size {len(self.elements) + 1} > 100,000 elements limit)",
+                    self.context
+                )
             new_list = self.copy()
             new_list.elements.append(operand)
             return new_list, None
 
         elif isinstance(operand, List):
+            if len(self.elements) + len(operand.elements) > 100000:
+                from sards.core.error import ValueError as SardineValueError
+                return None, SardineValueError(
+                    operand.pos_start, operand.pos_end,
+                    f"List concatenation limit exceeded (size {len(self.elements) + len(operand.elements)} > 100,000 elements limit)",
+                    self.context
+                )
             new_list = self.copy()
             for i in operand.elements:
                 new_list.elements.append(i)
@@ -49,19 +63,19 @@ class List:
             )
 
     def subtract(self, operand):
-        if isinstance(operand, Number) and not isinstance(operand.value, float):
+        if type(operand) is Integer:
             new_list = self.copy()
             try:
                 new_list.elements.pop(operand.value)
                 return new_list, None
             except:
                 return None, IndexOutOfBoundsError(operand.pos_start, operand.pos_end,
-                                          'Index out of bounds', self.context)
+                                           'Index out of bounds', self.context)
         else: return None, IllegalOperationError(
                     operand.pos_start, operand.pos_end, 'Index must be of an integer Number type', self.context)
 
     def multiply(self, operand):
-        if isinstance(operand, Number) and not isinstance(operand.value, float):
+        if type(operand) is Integer:
             if operand.value < 0:
                 return None, IllegalOperationError(
                     operand.pos_start, operand.pos_end, 'List repetition cannot be negative', self.context)
@@ -118,12 +132,14 @@ class List:
                 self.pos_start, self.pos_end, 'Cannot apply \'**\' to a List', self.context)
 
     def get_comparison_eq(self, operand):
+        if type(operand).__name__ == "Null":
+            return Boolean(False).set_context(self.context), None
         if isinstance(operand, List):
             if not hasattr(_repr_state, 'comparing'):
                 _repr_state.comparing = set()
             pair = (id(self), id(operand))
             if pair in _repr_state.comparing:
-                return Number(1).set_context(self.context), None
+                return Boolean(True).set_context(self.context), None
             _repr_state.comparing.add(pair)
             try:
                 new_list = self.copy()
@@ -133,7 +149,7 @@ class List:
                         for a, b in zip(new_list.elements, operand.elements):
                             if hasattr(a, 'get_comparison_eq') and hasattr(b, 'get_comparison_eq'):
                                 eq_node, err = a.get_comparison_eq(b)
-                                if err or eq_node.value == 0:
+                                if err or not eq_node.value:
                                     all_eq = False
                                     break
                             elif hasattr(a, 'value') and hasattr(b, 'value'):
@@ -147,20 +163,25 @@ class List:
                             else:
                                 all_eq = False
                                 break
-                        return Number(1 if all_eq else 0).set_context(self.context), None
+                        return Boolean(all_eq).set_context(self.context), None
                     except Exception:
-                        return Number(0).set_context(self.context), None
+                        return Boolean(False).set_context(self.context), None
                 else:
-                    return Number(0).set_context(self.context), None
+                    return Boolean(False).set_context(self.context), None
             finally:
                 _repr_state.comparing.remove(pair)
         else: return None, IllegalOperationError(
                     operand.pos_start, operand.pos_end, 'Expected a List', self.context)
 
     def get_comparison_neq(self, operand):
+        if type(operand).__name__ == "Null":
+            return Boolean(True).set_context(self.context), None
         if isinstance(operand, List):
             new_list = self.copy()
-            return Number(int(not new_list.get_comparison_eq(operand)[0].value)).set_context(self.context), None
+            eq_node, err = new_list.get_comparison_eq(operand)
+            if err:
+                return None, err
+            return Boolean(not eq_node.value).set_context(self.context), None
         else: return None, IllegalOperationError(
                     operand.pos_start, operand.pos_end, 'Expected a List', self.context)
 
@@ -199,7 +220,7 @@ class List:
             for idx in indexes:
                 if isinstance(temp, Dict):
                     if isinstance(idx, (Number, String)):
-                        temp = temp.elements.get(idx.value)
+                        temp = temp.elements.get(idx)
                         if temp is None:
                             return None, DictKeyError(
                                 idx.pos_start, idx.pos_end,
@@ -212,7 +233,7 @@ class List:
                             "Dictionary keys must be numbers or strings",
                             self.context
                         )
-                elif isinstance(idx, Number) and not isinstance(idx.value, float):
+                elif type(idx) is Integer:
                     if isinstance(temp, List):
                         temp = temp.elements[idx.value]
                     elif isinstance(temp, String):
@@ -226,7 +247,7 @@ class List:
                 else:
                     return None, IllegalOperationError(
                         idx.pos_start, idx.pos_end,
-                        "Invalid Index Type",
+                        "Index must be of an integer Number type",
                         self.context
                     )
 
@@ -255,7 +276,7 @@ class List:
             for idx in indexes[:-1]:
                 if isinstance(temp, Dict):
                     if isinstance(idx, (Number, String)):
-                        temp = temp.elements.get(idx.value)
+                        temp = temp.elements.get(idx)
                         if temp is None:
                             return None, DictKeyError(
                                 idx.pos_start, idx.pos_end,
@@ -268,7 +289,7 @@ class List:
                             "Dictionary keys must be numbers or strings",
                             self.context
                         )
-                elif isinstance(idx, Number) and not isinstance(idx.value, float):
+                elif type(idx) is Integer:
                     if isinstance(temp, List):
                         temp = temp.elements[idx.value]
                     elif isinstance(temp, String):
@@ -286,7 +307,7 @@ class List:
                 else:
                     return None, IllegalOperationError(
                         idx.pos_start, idx.pos_end,
-                        "Invalid Index Type",
+                        "Index must be of an integer Number type",
                         self.context
                     )
 
@@ -295,7 +316,7 @@ class List:
             #Case 3: assigning inside a Dict
             if isinstance(temp, Dict):
                 if isinstance(last_idx, (Number, String)):
-                    temp.elements[last_idx.value] = val
+                    temp.elements[last_idx] = val
                     return new_list, None
                 else:
                     return None, DictKeyError(
@@ -304,10 +325,10 @@ class List:
                         self.context
                     )
 
-            if not isinstance(last_idx, Number) or isinstance(last_idx.value, float):
+            if type(last_idx) is not Integer:
                 return None, IllegalOperationError(
                     last_idx.pos_start, last_idx.pos_end,
-                    "Invalid Index Type",
+                    "Index must be of an integer Number type",
                     self.context
                 )
 
@@ -333,9 +354,15 @@ class List:
                     # Instead of indexing into String, go back to the parent List or Dict
                     parent = new_list
                     for idx in indexes[:-2]:
-                        parent = parent.elements[idx.value]
+                        if isinstance(parent, Dict):
+                            parent = parent.elements.get(idx)
+                        else:
+                            parent = parent.elements[idx.value]
 
-                    parent.elements[indexes[-2].value] = replaced
+                    if isinstance(parent, Dict):
+                        parent.elements[indexes[-2]] = replaced
+                    else:
+                        parent.elements[indexes[-2].value] = replaced
                     return new_list, None
 
                 except IndexError:
@@ -368,7 +395,7 @@ class List:
             )
 
     def is_true(self):
-        return Number(len(self.elements)).set_context(self.context), None
+        return Boolean(len(self.elements) > 0).set_context(self.context), None
 
     def __repr__(self):
         if not hasattr(_repr_state, 'visited'):
@@ -404,6 +431,9 @@ class List:
             res = RunTimeResult()
             if len(pos_args) != 1 or kw_args:
                 return res.failure(ArgumentError(instance.pos_start, instance.pos_end, "append() takes exactly 1 argument", exec_context))
+            if len(instance.elements) + 1 > 100000:
+                from sards.core.error import ValueError as SardineValueError
+                return res.failure(SardineValueError(instance.pos_start, instance.pos_end, "List size limit exceeded (size 100001 > 100,000 elements limit)", exec_context))
             instance.elements.append(pos_args[0])
             return res.success(instance)
 
@@ -411,6 +441,9 @@ class List:
             res = RunTimeResult()
             if len(pos_args) != 1 or kw_args:
                 return res.failure(ArgumentError(instance.pos_start, instance.pos_end, "prepend() takes exactly 1 argument", exec_context))
+            if len(instance.elements) + 1 > 100000:
+                from sards.core.error import ValueError as SardineValueError
+                return res.failure(SardineValueError(instance.pos_start, instance.pos_end, "List size limit exceeded (size 100001 > 100,000 elements limit)", exec_context))
             instance.elements.insert(0, pos_args[0])
             return res.success(instance)
 
@@ -419,8 +452,11 @@ class List:
             if len(pos_args) != 2 or kw_args:
                 return res.failure(ArgumentError(instance.pos_start, instance.pos_end, "insert() takes exactly 2 arguments: (index, item)", exec_context))
             idx = pos_args[0]
-            if not isinstance(idx, Number) or isinstance(idx.value, float):
-                return res.failure(IllegalOperationError(idx.pos_start, idx.pos_end, "Index must be an integer Number", exec_context))
+            if type(idx) is not Integer:
+                return res.failure(IllegalOperationError(idx.pos_start, idx.pos_end, "Index must be of an integer Number type", exec_context))
+            if len(instance.elements) + 1 > 100000:
+                from sards.core.error import ValueError as SardineValueError
+                return res.failure(SardineValueError(instance.pos_start, instance.pos_end, "List size limit exceeded (size 100001 > 100,000 elements limit)", exec_context))
             
             instance.elements.insert(idx.value, pos_args[1])
             return res.success(instance)
@@ -432,8 +468,8 @@ class List:
             
             if len(pos_args) == 1:
                 idx = pos_args[0]
-                if not isinstance(idx, Number) or isinstance(idx.value, float):
-                    return res.failure(IllegalOperationError(idx.pos_start, idx.pos_end, "Index must be an integer Number", exec_context))
+                if type(idx) is not Integer:
+                    return res.failure(IllegalOperationError(idx.pos_start, idx.pos_end, "Index must be of an integer Number type", exec_context))
                 index_val = idx.value
             else:
                 index_val = -1
@@ -482,8 +518,8 @@ class List:
                 return res.failure(ArgumentError(instance.pos_start, instance.pos_end, "sort() takes at most 1 argument: [descending]", exec_context))
             if len(pos_args) == 1:
                 desc = pos_args[0]
-                if not isinstance(desc, Number) or isinstance(desc.value, float):
-                    return res.failure(IllegalOperationError(desc.pos_start, desc.pos_end, "descending argument must be a Boolean Number (0 or 1)", exec_context))
+                if type(desc) is not Integer and type(desc) is not Boolean:
+                    return res.failure(IllegalOperationError(desc.pos_start, desc.pos_end, "descending argument must be a Boolean or Integer (0 or 1)", exec_context))
                 descending = bool(desc.value)
 
             import builtins
@@ -509,8 +545,8 @@ class List:
             
             start_arg = pos_args[0]
             end_arg = pos_args[1]
-            if not isinstance(start_arg, Number) or isinstance(start_arg.value, float) or not isinstance(end_arg, Number) or isinstance(end_arg.value, float):
-                return res.failure(IllegalOperationError(instance.pos_start, instance.pos_end, "Slice bounds must be integer Numbers", exec_context))
+            if type(start_arg) is not Integer or type(end_arg) is not Integer:
+                return res.failure(IllegalOperationError(instance.pos_start, instance.pos_end, "Slice bounds must be of an integer Number type", exec_context))
             
             try:
                 sliced_elements = [el.copy() if hasattr(el, 'copy') else el for el in instance.elements[start_arg.value:end_arg.value]]
@@ -538,6 +574,10 @@ class List:
                     except OverflowError:
                         parts.append("INF")
             try:
+                joined_len = sum(len(p) for p in parts) + (len(instance.elements) - 1) * len(sep.value) if instance.elements else 0
+                if joined_len > 100000:
+                    from sards.core.error import ValueError as SardineValueError
+                    return res.failure(SardineValueError(instance.pos_start, instance.pos_end, f"String length limit exceeded during join (size {joined_len} > 100,000 characters limit)", exec_context))
                 joined_str = sep.value.join(parts)
                 return res.success(String(joined_str).set_context(calling_context))
             except (MemoryError, OverflowError):
@@ -553,14 +593,14 @@ class List:
             found_idx = -1
             for i, el in enumerate(instance.elements):
                 eq_node, err = el.get_comparison_eq(target) if hasattr(el, 'get_comparison_eq') else (None, None)
-                if eq_node and eq_node.value == 1:
+                if eq_node and eq_node.value:
                     found_idx = i
                     break
                 elif not hasattr(el, 'get_comparison_eq') and hasattr(el, 'value') and hasattr(target, 'value') and el.value == target.value:
                     found_idx = i
                     break
             
-            return res.success(Number(found_idx))
+            return res.success(Integer(found_idx))
 
         def method_contains(instance, pos_args, kw_args, exec_context):
             res = RunTimeResult()
@@ -568,17 +608,17 @@ class List:
                 return res.failure(ArgumentError(instance.pos_start, instance.pos_end, "contains() takes exactly 1 argument", exec_context))
             
             target = pos_args[0]
-            found = 0
+            found = False
             for el in instance.elements:
                 eq_node, err = el.get_comparison_eq(target) if hasattr(el, 'get_comparison_eq') else (None, None)
-                if eq_node and eq_node.value == 1:
-                    found = 1
+                if eq_node and eq_node.value:
+                    found = True
                     break
                 elif not hasattr(el, 'get_comparison_eq') and hasattr(el, 'value') and hasattr(target, 'value') and el.value == target.value:
-                    found = 1
+                    found = True
                     break
             
-            return res.success(Number(found))
+            return res.success(Boolean(found))
 
         def method_extend(instance, pos_args, kw_args, exec_context):
             res = RunTimeResult()
@@ -588,6 +628,10 @@ class List:
             other = pos_args[0]
             if not isinstance(other, List):
                 return res.failure(IllegalOperationError(other.pos_start, other.pos_end, "Argument to extend() must be a List", exec_context))
+            
+            if len(instance.elements) + len(other.elements) > 100000:
+                from sards.core.error import ValueError as SardineValueError
+                return res.failure(SardineValueError(instance.pos_start, instance.pos_end, f"List size limit exceeded (size {len(instance.elements) + len(other.elements)} > 100,000 elements limit)", exec_context))
             
             instance.elements.extend([el.copy() for el in other.elements])
             return res.success(instance)
