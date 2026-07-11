@@ -5,12 +5,17 @@
 
 # Sardine: A Custom Language Made with Python
 
+> [!IMPORTANT]
+> **Active Development has Migrated to C++**
+> This repository contains the **Python prototype** of the Sardine programming language. While this implementation is fully functional for study and local experimentation, the production-grade, high-performance execution engine has transitioned to a native C++23 backend.
+>
+> **Visit the main repository here: [github.com/sadsardines/sardine](https://github.com/sadsardines/sardine)**
+
+[![Sardine Tests](https://github.com/sadsardines/sardine-py/actions/workflows/tests.yml/badge.svg)](https://github.com/sadsardines/sardine-py/actions/workflows/tests.yml)
+
 Sardine is a custom programming language built with Python. It combines a powerful **Lexer**,
 **Parser**, and **Interpreter** to process and execute code written in our bespoke language. In
-addition, Sardine offers an **Interactive Shell** for real-time coding, and will soon be offering a **REST API** for remote
-execution and parsing, and a modern **Web Frontend** to enhance your development experience.
-
-[![Sardine Tests](https://github.com/Souvik606/SARDS/actions/workflows/tests.yml/badge.svg)](https://github.com/Souvik606/SARDS/actions/workflows/tests.yml)
+addition, Sardine offers an **Interactive Shell** for real-time coding.
 
 ---
 
@@ -36,8 +41,8 @@ execution and parsing, and a modern **Web Frontend** to enhance your development
 1. **Clone the repository:**
 
    ```bash
-   git clone https://github.com/Souvik606/Sardine.git
-   cd Sardine
+   git clone https://github.com/sadsardines/sardine-py.git
+   cd sardine-py
    ```
 
 2. **Run the Interactive Shell:**
@@ -48,11 +53,11 @@ execution and parsing, and a modern **Web Frontend** to enhance your development
 
 3. **Run the Shell in REPL Mode:**
 
-   Enter 0 when prompted by the Shell and explore the Sardine language on the fly.
+   Enter `0` when prompted by the Shell and explore the Sardine language on the fly.
 
 4. **Run a Sardine program:**
 
-   Edit `sards/samples/main.sad` to your intended Sardine language program, run the Shell and enter 1 to run File Input mode when prompted.
+   Edit `sards/samples/main.sad` to your intended Sardine language program, run the Shell, and enter `1` to run File Input mode when prompted.
 
 ---
 
@@ -63,21 +68,26 @@ execution and parsing, and a modern **Web Frontend** to enhance your development
 - Arithmetic, Bitwise and Logical operators
 - Nestable, heterogeneous Lists and Dictionaries with List and Dictionary functions
 - User-defined functions with recursion
-- Object-oriented Programming
-- Error Handling (`risk-trap-clean`)
+- Object-oriented Programming (`model` structure)
+- Error Handling (`risk-trap-clean` structure)
 - For Loops (`Cycle`)
 - While Loops (`whenever`)
 - Switch-Case (`menu`)
 - If-Else-Elif (`when-orwhen-otherwise`)
 
-Please view `docs/grammar_rules.md` for details on all grammar rules. User manual for more friendly explanation of syntax is under construction.
+Please view [docs/grammar_rules.md](docs/grammar_rules.md) for details on all grammar rules. User manual for more friendly explanation of syntax is under construction.
 
 ---
 
-## Future Plans
+## Evolution to C++ (Main Repository)
 
-- **REST API (Planned)**: Exposes endpoints to execute code, inspect results, and retrieve AST trees remotely for integration with IDEs or services.
-- **Web Frontend (Planned)**: A sleek, interactive UI for writing, visualizing, and debugging Sardine code.
+As this prototype matured, the project transitioned to a native C++23 implementation to achieve robust performance and native speed. The C++ version is the active development main branch and introduces:
+*   **Performance Improvements**: Compiles and executes directly on a C++ native backend or inside web browsers via WebAssembly.
+*   **Pratt Parsing**: Leverages top-down operator precedence (Pratt parsing) for robust grammatical handling.
+*   **Rich Control Flows**: Enhanced loop iterations (`cycle`, `during`, `trace`) and pattern-matching `menu` blocks.
+*   **Self-Hosted Standard Library**: Custom modules like `math.sad`, `linalg.sad`, and `csv.sad` written in Sardine itself.
+
+If you are looking for the main production-ready project, please head over to the [sadsardines/sardine C++ repository](https://github.com/sadsardines/sardine).
 
 ---
 
@@ -89,5 +99,4 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 
 ## Contributing
 
-Contributions are welcome! Please read
-our [Contributing Guidelines](CONTRIBUTING.md) to get started.
+Contributions are welcome! Please read our [Contributing Guidelines](CONTRIBUTING.md) to get started.
